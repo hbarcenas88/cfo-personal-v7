@@ -1,0 +1,117 @@
+import { icon } from '../icons.js';
+import { renderKeypad } from '../components/keypad.js';
+import { formatMoney, todayISO } from '../utils/format.js';
+
+export function renderRecordRoot(state) {
+  const flow = state.ui.recordFlow;
+  if (!flow) return '';
+  if (flow.step === 'choose') return renderChoose();
+  return renderForm(state, flow);
+}
+
+function renderChoose() {
+  const choices = [
+    ['Gasto', 'cart', 'Registra un gasto realizado.', 'expense'],
+    ['Ingreso', 'wallet', 'Registra un ingreso recibido.', 'income'],
+    ['Transferencia', 'repeat', 'Transfiere dinero entre cuentas.', 'transfer'],
+    ['Presupuesto', 'calendar', 'Crea o ajusta un presupuesto.', 'budget'],
+    ['Provisión', 'shield', 'Reserva dinero para un objetivo.', 'provision']
+  ];
+  return `
+    <section class="record-screen open">
+      <header class="record-header">
+        <button class="icon-button" data-record-close>${icon('x')}</button>
+        <h2>Nuevo registro</h2>
+        <span></span>
+      </header>
+      <main class="record-body">
+        <h1 class="welcome-title" style="font-size:26px;">¿Qué deseas registrar?</h1>
+        ${choices.map(([title, iconName, text, type]) => `
+          <button class="record-choice" data-record-type="${type}">
+            <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
+            <span><strong>${title}</strong><small>${text}</small></span>
+            ${icon('chevronRight')}
+          </button>
+        `).join('')}
+        <div class="card" style="margin-top:14px;"><strong>Tip rápido</strong><p class="muted">Usa transferencias para mover dinero entre cuentas sin afectar ingresos, gastos ni presupuesto.</p></div>
+      </main>
+    </section>
+  `;
+}
+
+function renderForm(state, flow) {
+  const type = flow.type || 'expense';
+  const labels = {
+    expense: ['Nuevo gasto', 'Gasto', 'var(--red)', 'Gasto'],
+    income: ['Nuevo ingreso', 'Ingreso', 'var(--green)', 'Ingreso'],
+    transfer: ['Nueva transferencia', 'Transferencia', 'var(--blue)', 'Transferencia'],
+    budget: ['Nuevo presupuesto', 'Presupuesto', 'var(--blue)', 'Presupuesto'],
+    provision: ['Nueva provisión', 'Provisión', 'var(--amber)', 'Provisión']
+  }[type];
+  return `
+    <section class="record-screen open">
+      <header class="record-header">
+        <button class="icon-button" data-record-back>${icon('chevronLeft')}</button>
+        <h2>${labels[0]}</h2>
+        <button class="icon-button primary" data-record-save>${icon('check')}</button>
+      </header>
+      <main class="record-body">
+        <button class="flow-box" data-record-calendar style="width:100%;text-align:left;">
+          <small>Fecha</small><strong>${flow.date || todayISO()}</strong>
+        </button>
+        ${type === 'transfer' ? renderTransferFields(state, flow) : renderStandardFields(state, flow, type)}
+        <div class="amount-hero">
+          <small>${labels[1]}</small>
+          <strong class="money" style="color:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
+          ${flow.keypadError ? `<div class="danger" style="margin-top:6px;">${flow.keypadError}</div>` : ''}
+        </div>
+        <div class="field"><label>Descripción</label><input class="input" data-record-field="description" placeholder="Notas (opcional)..." value="${flow.description || ''}"></div>
+        ${type === 'transfer' ? `<div class="card"><strong>Transferencia auditable</strong><p class="muted">Genera dos movimientos vinculados y no impacta ingresos, gastos ni presupuesto.</p></div>` : ''}
+        ${renderKeypad({ value: flow.amountExpression, variant: type === 'income' ? 'income' : 'expense', currency: 'USD' })}
+      </main>
+    </section>
+  `;
+}
+
+function renderStandardFields(state, flow, type) {
+  return `
+    <div class="flow-pair" style="margin-top:10px;">
+      <label class="flow-box"><small>${type === 'income' ? 'A cuenta' : type === 'budget' ? 'Cuenta presupuesto' : 'De cuenta'}</small><select class="select-like" data-record-field="account">${optionList(state.accounts.map(a => a.name), flow.account)}</select></label>
+      <label class="flow-box"><small>${type === 'income' ? 'Origen' : 'Categoría'}</small><select class="select-like" data-record-field="category">${optionList(state.categories.map(c => c.name), flow.category, type === 'income' ? 'Sin categoría' : 'Seleccionar')}</select></label>
+    </div>
+    <div class="chip-row" style="margin-top:10px;">
+      ${subcategories(state, flow.category).map(sub => `<button class="chip ${flow.subcategory === sub ? 'active' : ''}" data-record-sub="${sub}">${sub}</button>`).join('')}
+    </div>
+  `;
+}
+
+function renderTransferFields(state, flow) {
+  return `
+    <div class="flow-pair" style="margin-top:10px;">
+      <label class="flow-box"><small>Desde</small><select class="select-like" data-record-field="account">${optionList(state.accounts.map(a => a.name), flow.account)}</select></label>
+      <label class="flow-box"><small>Hacia</small><select class="select-like" data-record-field="accountTo">${optionList(state.accounts.map(a => a.name), flow.accountTo)}</select></label>
+    </div>
+  `;
+}
+
+function optionList(values, selected, empty = 'Seleccionar') {
+  return `<option value="">${empty}</option>${values.map(value => `<option value="${value}" ${value === selected ? 'selected' : ''}>${value}</option>`).join('')}`;
+}
+
+function subcategories(state, categoryName) {
+  return state.categories.find(c => c.name === categoryName)?.subcategories?.map(s => s.name || s) || [];
+}
+
+export function recordPayload(flow) {
+  const typeMap = { expense: 'Gasto', income: 'Ingreso', transfer: 'Transferencia', budget: 'Presupuesto', provision: 'Provisión' };
+  return {
+    movement: typeMap[flow.type],
+    date: flow.date || todayISO(),
+    account: flow.account || '',
+    accountTo: flow.accountTo || '',
+    amount: Number(flow.amount) || 0,
+    category: flow.category || '',
+    subcategory: flow.subcategory || '',
+    description: flow.description || ''
+  };
+}
