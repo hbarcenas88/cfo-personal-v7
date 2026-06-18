@@ -37,6 +37,7 @@ function renderTools() {
     ${tool('templates', 'fileDown', 'Descargar templates', 'Formatos CSV esperados')}
     ${tool('backup', 'backup', 'Respaldo JSON', 'Archivo completo para restaurar')}
     ${tool('restore', 'upload', 'Restaurar respaldo', 'Importa un JSON de CFO Personal')}
+    ${tool('debug', 'chart', 'Debug / Storage Inspector', 'Temporal: storage, errores y cache')}
     ${tool('reset-data', 'trash', 'Borrar toda la data', 'Reinicia V7 en este navegador')}
   `, 'tool-card');
 }

@@ -2,6 +2,7 @@
   "name": "CFO Personal",
   "short_name": "CFO",
   "description": "App mobile-first de finanzas personales.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

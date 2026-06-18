@@ -177,16 +177,20 @@
 }
 
 .fab-center {
-  width: 66px;
-  height: 66px;
-  border-radius: 24px;
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  border-radius: 50%;
   border: 0;
-  margin: -24px auto 0;
+  margin: -26px auto 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .fab-center svg {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
 }
 
 .card {
@@ -660,6 +664,46 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.debug-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.debug-item {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-soft);
+}
+
+.debug-item small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: .07em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.debug-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.debug-log {
+  max-height: 220px;
+  margin: 10px 0 0;
+  overflow: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 @media (min-width: 720px) {

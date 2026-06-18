@@ -13,13 +13,37 @@ import { addAccount, addCategory, addProvision, closeSheet, convertToTransfer, d
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssues, importTransactions, parseCSV, rowsToObjects } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
-import { canon, formatMoney, parseAmount, todayISO, uid } from './utils/format.js';
-import { COLOR_CATALOG, ICON_CATALOG, inferIcon, renderIcons } from './icons.js';
+import { canon, formatMoney, html, parseAmount, todayISO, uid } from './utils/format.js';
+import { COLOR_CATALOG, ICON_CATALOG, icon, inferIcon, renderIcons } from './icons.js';
 
 let keypad;
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
+const APP_VERSION = '7.0.1';
+window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
+
+function debugLog(action, detail = {}) {
+  const entry = { at: new Date().toISOString(), action, detail };
+  window.CFO_DEBUG.logs.push(entry);
+  window.CFO_DEBUG.logs = window.CFO_DEBUG.logs.slice(-80);
+  state.debug = { ...(state.debug || {}), lastAction: `${entry.at} · ${action}` };
+  console.info('[CFO V7]', action, detail);
+}
+
+function captureError(context, error) {
+  const message = error?.message || String(error || 'Error desconocido');
+  state.debug = { ...(state.debug || {}), lastError: `${context}: ${message}` };
+  console.error('[CFO V7]', context, error);
+  showToast(`Error: ${message}`);
+}
 
 await initState();
+state.version = APP_VERSION;
+debugLog('state loaded', {
+  accounts: state.accounts.length,
+  transactions: state.transactions.length,
+  origin: location.origin,
+  path: location.pathname
+});
 subscribe(render);
 render();
 registerServiceWorker();
@@ -41,13 +65,27 @@ window.addEventListener('cfo:global-search', () => {
   state.ui.activeSheet = 'search';
   render();
 });
+window.addEventListener('error', event => captureError('window.error', event.error || event.message));
+window.addEventListener('unhandledrejection', event => captureError('unhandledrejection', event.reason));
+document.addEventListener('submit', event => {
+  event.preventDefault();
+  debugLog('submit prevented', { target: event.target?.tagName });
+});
+document.addEventListener('click', event => {
+  const target = event.target.closest?.('button,[data-tool],[data-record-save],[data-import-confirm],[data-restore-file],[data-import-file]');
+  if (!target) return;
+  const attrs = {};
+  [...target.attributes].forEach(attr => {
+    if (attr.name.startsWith('data-')) attrs[attr.name] = attr.value;
+  });
+  debugLog('click', { tag: target.tagName, text: target.textContent?.trim().slice(0, 80), attrs });
+}, true);
 
 function render() {
   renderShell();
   setScreenActive();
   if (!state.onboarded && emptyData()) {
     document.getElementById('screen-balances').innerHTML = renderOnboarding();
-    setViewWithoutNotify('balances');
   } else {
     document.getElementById('screen-balances').innerHTML = renderBalances(state);
   }
@@ -55,6 +93,7 @@ function render() {
   document.getElementById('screen-categories').innerHTML = renderCategories(state);
   document.getElementById('screen-audit').innerHTML = renderAudit(state);
   document.getElementById('screen-settings').innerHTML = renderSettings(state);
+  injectDebugTool();
   document.getElementById('record-root').innerHTML = renderRecordRoot(state);
   document.getElementById('sheet-root').innerHTML = renderActiveSheet();
   setScreenActive();
@@ -63,12 +102,38 @@ function render() {
   renderIcons(document);
 }
 
-function setViewWithoutNotify(view) {
-  state.activeView = view;
-}
-
 function emptyData() {
   return !state.accounts.length && !state.categories.length && !state.transactions.length && !state.budgets.length && !state.provisions.length;
+}
+
+function injectDebugTool() {
+  if (state.activeView !== 'settings' || (state.settingsPage || 'tools') !== 'tools') return;
+  const settingsScreen = document.getElementById('screen-settings');
+  if (!settingsScreen || settingsScreen.querySelector('[data-tool="debug"]')) return;
+  const firstToolCard = settingsScreen.querySelector('.tool-card, .card');
+  if (!firstToolCard) return;
+  firstToolCard.insertAdjacentHTML('beforeend', `
+    <button class="settings-row" data-tool="debug">
+      <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('chart')}</span>
+      <span><strong>Debug / Storage Inspector</strong><small>Temporal: storage, errores y cache</small></span>
+      ${icon('chevronRight')}
+    </button>
+  `);
+}
+
+function splitPair(value = '') {
+  const idx = value.indexOf(':');
+  if (idx < 0) return [value, ''];
+  return [value.slice(0, idx), value.slice(idx + 1)];
+}
+
+function auditFilterKey(type) {
+  return {
+    account: 'accounts',
+    type: 'types',
+    category: 'categories',
+    subcategory: 'subcategories'
+  }[type];
 }
 
 function renderActiveSheet() {
@@ -86,6 +151,8 @@ function renderActiveSheet() {
   if (sheet === 'search') return searchSheet();
   if (sheet === 'health-detail') return healthDetailSheet();
   if (sheet === 'transaction-menu') return transactionMenuSheet();
+  if (sheet === 'audit-filter') return auditFilterSheet();
+  if (sheet === 'debug') return debugSheet();
   if (sheet === 'restore') return restoreSheet();
   if (sheet === 'confirm-reset') return confirmResetSheet();
   return '';
@@ -115,7 +182,10 @@ function bindDynamicEvents() {
   }));
 
   document.querySelectorAll('[data-settings]').forEach(button => button.addEventListener('click', () => setSettingsPage(button.dataset.settings)));
-  document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => handleTool(button.dataset.tool)));
+  document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    handleTool(button.dataset.tool).catch(error => captureError(`tool:${button.dataset.tool}`, error));
+  }));
   document.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
     if (event.currentTarget === event.target || el.tagName === 'BUTTON') closeSheet();
   }));
@@ -148,11 +218,17 @@ function bindRecordEvents() {
     };
     render();
   }));
-  document.querySelectorAll('[data-record-field]').forEach(input => input.addEventListener('input', () => {
-    state.ui.recordFlow[input.dataset.recordField] = input.value;
-    if (input.dataset.recordField === 'category') state.ui.recordFlow.subcategory = '';
-    render();
-  }));
+  document.querySelectorAll('[data-record-field]').forEach(input => {
+    const update = () => {
+      if (!state.ui.recordFlow) return;
+      state.ui.recordFlow[input.dataset.recordField] = input.value;
+      if (input.dataset.recordField === 'category') state.ui.recordFlow.subcategory = '';
+      debugLog('record field changed', { field: input.dataset.recordField, value: input.value });
+      render();
+    };
+    input.addEventListener('input', update);
+    input.addEventListener('change', update);
+  });
   document.querySelectorAll('[data-record-sub]').forEach(button => button.addEventListener('click', () => {
     state.ui.recordFlow.subcategory = button.dataset.recordSub;
     render();
@@ -187,8 +263,10 @@ function bindRecordEvents() {
   }
   document.querySelector('[data-record-save]')?.addEventListener('click', async () => {
     const payload = recordPayload(state.ui.recordFlow);
-    await saveTransaction(payload);
-    state.ui.recordFlow = null;
+    debugLog('record save validation', payload);
+    const saved = await saveTransaction(payload);
+    debugLog('record save result', { saved, transactions: state.transactions.length, budgets: state.budgets.length });
+    if (saved) state.ui.recordFlow = null;
     render();
   });
 }
@@ -284,6 +362,10 @@ function bindFilters() {
     state.filters.categories.view = button.dataset.catView;
     render();
   }));
+  document.querySelector('[data-budget-toggle]')?.addEventListener('click', () => {
+    state.filters.categories.budgetExpanded = state.filters.categories.budgetExpanded === false;
+    render();
+  });
   document.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
     const list = state.filters.categories.expanded;
     const name = button.dataset.catExpand;
@@ -322,6 +404,23 @@ function bindFilters() {
     state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
     render();
   }));
+  document.querySelectorAll('[data-open-filter]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditFilter = button.dataset.openFilter;
+    state.ui.filterSearch = '';
+    openSheet('audit-filter');
+  }));
+  document.querySelectorAll('[data-filter-add]').forEach(button => button.addEventListener('click', () => {
+    const [type, value] = splitPair(button.dataset.filterAdd);
+    const key = auditFilterKey(type);
+    if (key && value && !state.filters.audit[key].includes(value)) state.filters.audit[key].push(value);
+    debugLog('audit filter added', { type, value });
+    closeSheet();
+    render();
+  }));
+  document.querySelector('[data-audit-excess]')?.addEventListener('dblclick', () => {
+    setView('audit');
+    showToast('Auditoría abierta. Filtra gastos no presupuestados o excesos por categoría.');
+  });
   document.querySelectorAll('[data-audit-account]').forEach(button => {
     button.addEventListener('dblclick', () => {
       state.filters.audit.accounts = [button.dataset.auditAccount];
@@ -375,24 +474,55 @@ function bindTools() {
     state.ui.selectedTransactionId = button.dataset.txMenu;
     openSheet('transaction-menu');
   }));
+  document.querySelectorAll('[data-open-tx]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedTransactionId = button.dataset.openTx;
+    openSheet('transaction-menu');
+  }));
+  document.querySelectorAll('[data-debug-action]').forEach(button => button.addEventListener('click', () => {
+    handleDebugAction(button.dataset.debugAction).catch(error => captureError(`debug:${button.dataset.debugAction}`, error));
+  }));
 }
 
 function bindSheetActions() {
   document.querySelectorAll('[data-create-action]').forEach(button => button.addEventListener('click', async () => {
     const data = Object.fromEntries([...document.querySelectorAll('[data-create-field]')].map(input => [input.dataset.createField, input.value]));
-    if (button.dataset.createAction === 'create-account') await addAccount(data);
-    if (button.dataset.createAction === 'create-category') await addCategory({ ...data, subcategories: data.subcategories?.split(',').map(s => s.trim()).filter(Boolean) || [] });
-    if (button.dataset.createAction === 'create-provision') await addProvision({ ...data, balance: parseAmount(data.balance), monthlyAmount: parseAmount(data.monthlyAmount) });
-    closeSheet();
+    let saved = false;
+    debugLog('create action validation', { action: button.dataset.createAction, data });
+    if (button.dataset.createAction === 'create-account') saved = await addAccount(data);
+    if (button.dataset.createAction === 'create-category') {
+      if (!data.name?.trim()) {
+        showToast('Nombre de categoría requerido');
+      } else if (state.categories.some(c => canon(c.name) === canon(data.name))) {
+        showToast('La categoría ya existe');
+      } else {
+        const before = state.categories.length;
+        await addCategory({ ...data, subcategories: data.subcategories?.split(',').map(s => s.trim()).filter(Boolean) || [] });
+        saved = state.categories.length > before;
+      }
+    }
+    if (button.dataset.createAction === 'create-provision') {
+      if (!data.name?.trim()) showToast('Nombre de provisión requerido');
+      else {
+        const before = state.provisions.length;
+        await addProvision({ ...data, balance: parseAmount(data.balance), monthlyAmount: parseAmount(data.monthlyAmount) });
+        saved = state.provisions.length > before;
+      }
+    }
+    debugLog('create action result', { action: button.dataset.createAction, saved });
+    if (saved) closeSheet();
     render();
   }));
   document.querySelectorAll('[data-save-recurring]').forEach(button => button.addEventListener('click', async () => {
     const data = Object.fromEntries([...document.querySelectorAll('[data-rec-field]')].map(input => [input.dataset.recField, input.value]));
-    await saveRecurring({ ...data, amount: parseAmount(data.amount) || 0 });
-    closeSheet();
+    debugLog('recurring save validation', data);
+    const saved = await saveRecurring({ ...data, amount: parseAmount(data.amount) || 0 });
+    debugLog('recurring save result', { saved, recurring: state.recurring.length });
+    if (saved) closeSheet();
     render();
   }));
-  document.querySelectorAll('[data-import-confirm]').forEach(button => button.addEventListener('click', confirmImportDraft));
+  document.querySelectorAll('[data-import-confirm]').forEach(button => button.addEventListener('click', () => {
+    confirmImportDraft().catch(error => captureError('confirm import', error));
+  }));
   document.querySelectorAll('[data-tx-duplicate]').forEach(button => button.addEventListener('click', async () => {
     await duplicateTransaction(button.dataset.txDuplicate);
     closeSheet();
@@ -415,11 +545,13 @@ function bindSheetActions() {
   }));
 }
 
-function handleTool(action) {
+async function handleTool(action) {
   state.ui.importDraft = null;
+  debugLog('tool action', { action });
   if (action === 'export-csv') return exportCSVs(state);
   if (action === 'backup') return createBackup(state);
   if (action === 'restore') return openSheet('restore');
+  if (action === 'debug') return openSheet('debug');
   if (action === 'reset-data') return openSheet('confirm-reset');
   if (action === 'templates') return openSheet('templates');
   if (action === 'import-transactions') return openSheet('import-transactions');
@@ -444,7 +576,7 @@ function importSheet(defaultKind) {
         <div class="field"><label>Tipo</label><select data-import-kind>${kinds.map(([k, label]) => `<option value="${k}" ${draft.kind === k ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
         <label class="card" style="display:grid;place-items:center;gap:8px;text-align:center;">
           ${icon('fileUp')}<strong>Seleccionar CSV</strong><small class="muted">Se validará antes de guardar</small>
-          <input type="file" accept=".csv" data-import-file class="hidden">
+          <input type="file" accept=".csv,text/csv" data-import-file class="file-input-native">
         </label>
         ${draft.objects?.length ? `<div class="card"><strong>${draft.objects.length} filas leídas</strong><p class="muted">${draft.issues.length ? `${draft.issues.length} filas requieren revisión.` : 'Sin errores detectados.'}</p></div>` : ''}
         ${draft.issues?.length ? draft.issues.map(issue => `<div class="import-preview-row issue"><strong>Fila ${issue.row.__row}</strong><small>${issue.fields.join(' · ')}</small><pre style="white-space:pre-wrap;margin:0;">${JSON.stringify(issue.row, null, 2)}</pre></div>`).join('') : ''}
@@ -532,13 +664,88 @@ function transactionMenuSheet() {
   `;
 }
 
+function auditFilterSheet() {
+  const type = state.ui.auditFilter || 'account';
+  const title = {
+    account: 'Filtrar cuenta',
+    type: 'Filtrar tipo',
+    category: 'Filtrar categoría',
+    subcategory: 'Filtrar subcategoría'
+  }[type] || 'Filtrar';
+  const search = state.ui.filterSearch || '';
+  const options = auditFilterOptions(type)
+    .filter(value => !search || canon(value).includes(canon(search)))
+    .slice(0, 80);
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div><h2 class="sheet-title">${title}</h2>
+      <input class="input" data-filter-search placeholder="Buscar..." value="${html(search)}" autofocus>
+      <div class="chip-row" style="margin-top:14px;">
+        ${options.map(value => `<button class="chip" data-filter-add="${type}:${html(value)}">${html(value)}</button>`).join('') || '<div class="empty-state">Sin opciones</div>'}
+      </div>
+      <button class="secondary-button" data-sheet-close style="margin-top:12px;">Cerrar</button>
+    </section></div>
+  `;
+}
+
+function auditFilterOptions(type) {
+  if (type === 'account') return state.accounts.map(account => account.name);
+  if (type === 'type') return ['Gasto', 'Ingreso', 'Transferencia', 'Provisión'];
+  if (type === 'category') return [...new Set([...state.categories.map(cat => cat.name), ...state.transactions.map(tx => tx.category).filter(Boolean)])];
+  if (type === 'subcategory') return [...new Set([
+    ...state.categories.flatMap(cat => cat.subcategories || []).map(sub => sub.name || sub),
+    ...state.transactions.map(tx => tx.subcategory).filter(Boolean)
+  ])];
+  return [];
+}
+
+function debugSheet() {
+  const localKeys = Object.keys(localStorage);
+  const debug = state.debug || {};
+  const controller = navigator.serviceWorker?.controller ? 'Activo' : 'Sin controlador';
+  const logs = window.CFO_DEBUG?.logs || [];
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div><h2 class="sheet-title">Debug / Storage Inspector</h2>
+      <div class="debug-grid">
+        <div class="debug-item"><small>Versión</small><strong>${html(state.version || APP_VERSION)}</strong></div>
+        <div class="debug-item"><small>Origen</small><strong>${html(location.origin)}</strong></div>
+        <div class="debug-item"><small>Ruta</small><strong>${html(location.pathname)}</strong></div>
+        <div class="debug-item"><small>Service worker</small><strong>${controller}</strong></div>
+        <div class="debug-item"><small>Registros</small><strong>${state.transactions.length}</strong></div>
+        <div class="debug-item"><small>Cuentas</small><strong>${state.accounts.length}</strong></div>
+        <div class="debug-item"><small>Categorías</small><strong>${state.categories.length}</strong></div>
+        <div class="debug-item"><small>Presupuestos</small><strong>${state.budgets.length}</strong></div>
+      </div>
+      <div class="card">
+        <strong>localStorage</strong>
+        <p class="muted">${localKeys.length ? localKeys.map(html).join(' · ') : 'Sin claves en localStorage'}</p>
+      </div>
+      <div class="card">
+        <strong>Última acción</strong>
+        <p class="muted">${html(debug.lastAction || 'Sin acciones registradas')}</p>
+        <strong>Último error</strong>
+        <p class="muted">${html(debug.lastError || 'Sin errores capturados')}</p>
+      </div>
+      <div class="card">
+        <strong>Logs temporales</strong>
+        <pre class="debug-log">${html(JSON.stringify(logs.slice(-12), null, 2))}</pre>
+      </div>
+      <button class="primary-button" data-debug-action="storage-test">Probar escritura/lectura storage</button>
+      <button class="secondary-button" data-debug-action="refresh" style="margin-top:8px;">Refrescar inspector</button>
+      <button class="danger-button" data-debug-action="clear-cache" style="margin-top:8px;">Limpiar service worker/cache de esta app</button>
+      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+    </section></div>
+  `;
+}
+
 function restoreSheet() {
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Restaurar respaldo</h2>
       <label class="card" style="display:grid;place-items:center;gap:8px;text-align:center;">
         ${icon('upload')}<strong>Seleccionar JSON</strong><small class="muted">Reemplaza los datos locales de V7</small>
-        <input type="file" accept=".json" data-restore-file class="hidden">
+        <input type="file" accept=".json,application/json" data-restore-file class="file-input-native">
       </label>
       <button class="secondary-button" data-sheet-close>Cerrar</button>
     </section></div>
@@ -555,31 +762,110 @@ function confirmResetSheet() {
   `;
 }
 
+async function handleDebugAction(action) {
+  debugLog('debug action', { action });
+  if (action === 'storage-test') {
+    const result = await debugStorageRoundTripLocal();
+    state.debug = { ...(state.debug || {}), storageTestAt: result?.at || new Date().toISOString(), lastError: '' };
+    await persist();
+    showToast(result?.ok ? 'Storage OK: escritura y lectura completadas' : 'Storage respondió sin confirmación');
+    render();
+    return;
+  }
+  if (action === 'clear-cache') {
+    const deleted = await clearAppServiceWorkerAndCaches();
+    state.debug = { ...(state.debug || {}), lastAction: `${new Date().toISOString()} · cache limpia (${deleted.caches} caches, ${deleted.registrations} SW)` };
+    showToast('Cache/SW de V7 limpiados. Recarga la app.');
+    render();
+    return;
+  }
+  if (action === 'refresh') {
+    render();
+  }
+}
+
+async function debugStorageRoundTripLocal() {
+  const value = { ok: true, at: new Date().toISOString() };
+  localStorage.setItem('cfo_personal_v7_debug_test', JSON.stringify(value));
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open('cfo_personal_v7', 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains('app')) db.createObjectStore('app', { keyPath: 'key' });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('app', 'readwrite');
+    tx.objectStore('app').put({ key: 'debug-test', value, savedAt: value.at });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('app', 'readonly');
+    const req = tx.objectStore('app').get('debug-test');
+    req.onsuccess = () => resolve(req.result?.value || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function clearAppServiceWorkerAndCaches() {
+  let cacheCount = 0;
+  let registrationCount = 0;
+  if ('caches' in window) {
+    const keys = await caches.keys();
+    const appKeys = keys.filter(key => key.startsWith('cfo-personal-v7-'));
+    await Promise.all(appKeys.map(key => caches.delete(key).then(done => {
+      if (done) cacheCount += 1;
+    })));
+  }
+  if ('serviceWorker' in navigator) {
+    const expectedScope = new URL('../', import.meta.url).href;
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations
+      .filter(registration => registration.scope === expectedScope)
+      .map(registration => registration.unregister().then(done => {
+        if (done) registrationCount += 1;
+      })));
+  }
+  debugLog('cache cleared', { caches: cacheCount, registrations: registrationCount });
+  return { caches: cacheCount, registrations: registrationCount };
+}
+
 document.addEventListener('input', event => {
   if (event.target.matches('[data-global-search-input]')) {
     state.ui.searchText = event.target.value;
+    render();
+  }
+  if (event.target.matches('[data-filter-search]')) {
+    state.ui.filterSearch = event.target.value;
     render();
   }
 });
 
 document.addEventListener('change', event => {
   if (event.target.matches('[data-import-kind]')) {
+    debugLog('import kind changed', { kind: event.target.value });
     state.ui.importDraft = { kind: event.target.value, objects: [], issues: [] };
     render();
   }
   if (event.target.matches('[data-import-file]')) {
-    readImportFile(event.target.files[0]);
+    readImportFile(event.target.files[0]).catch(error => captureError('import csv', error));
   }
   if (event.target.matches('[data-restore-file]')) {
+    debugLog('restore file selected', { name: event.target.files[0]?.name || '' });
     restoreBackupFile(event.target.files[0]).then(() => {
+      debugLog('restore completed', { transactions: state.transactions.length });
       closeSheet();
       render();
-    }).catch(() => showToast('No se pudo restaurar el JSON'));
+    }).catch(error => captureError('restore json', error));
   }
 });
 
 async function readImportFile(file) {
   if (!file) return;
+  debugLog('import file read start', { name: file.name, size: file.size });
   const text = await file.text();
   const parsed = parseCSV(text);
   const objects = rowsToObjects(parsed.rows);
@@ -590,14 +876,23 @@ async function readImportFile(file) {
     issues: importIssues(kind, objects, state),
     delimiter: parsed.delimiter
   };
+  debugLog('import file parsed', { kind, rows: objects.length, issues: state.ui.importDraft.issues.length, delimiter: parsed.delimiter });
   render();
 }
 
 async function confirmImportDraft() {
   const draft = state.ui.importDraft;
   if (!draft?.objects?.length) return;
+  debugLog('import confirm start', { kind: draft.kind, rows: draft.objects.length });
   if (['accounts', 'categories', 'provisions', 'recurring'].includes(draft.kind)) await importCatalog(draft.kind, draft.objects);
   else await importTransactions(draft.kind, draft.objects, state);
+  debugLog('import confirm complete', {
+    kind: draft.kind,
+    accounts: state.accounts.length,
+    categories: state.categories.length,
+    transactions: state.transactions.length,
+    budgets: state.budgets.length
+  });
   closeSheet();
   render();
 }
@@ -607,8 +902,11 @@ async function registerServiceWorker() {
     try {
       const swUrl = new URL('../service-worker.js', import.meta.url);
       const scope = new URL('../', import.meta.url);
-      await navigator.serviceWorker.register(swUrl.href, { scope: scope.href });
+      const registration = await navigator.serviceWorker.register(swUrl.href, { scope: scope.href });
+      await registration.update();
+      debugLog('service worker registered', { scope: registration.scope, script: swUrl.href });
     } catch (error) {
+      captureError('service worker register', error);
       console.warn('Service worker no registrado', error);
     }
   }

@@ -12,7 +12,7 @@ export function renderCategories(state) {
   rows = rows.filter(row => filters.view === 'budget' ? row.planned > 0 : filters.view === 'spend' ? row.spent > 0 : row.planned > 0 || row.spent > 0);
   return `
     ${renderFilterPanel(filters, state)}
-    ${renderBudgetExecution(budget)}
+    ${renderBudgetExecution(budget, filters.budgetExpanded !== false)}
     <div class="segmented">
       <button class="${filters.view === 'combined' ? 'active' : ''}" data-cat-view="combined">Combinado</button>
       <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget">Solo presupuesto</button>
@@ -40,14 +40,14 @@ function renderFilterPanel(filters, state) {
   `);
 }
 
-function renderBudgetExecution(budget) {
+function renderBudgetExecution(budget, expanded = true) {
   return card(`
     <div class="metric-top">
       <div><div class="metric-title">Ejecución presupuestaria</div><div class="metric-value blue" style="font-size:30px;">${budget.executedPct.toFixed(0)}%</div></div>
-      <button class="chip active" data-budget-toggle>Detalle</button>
+      <button class="chip ${expanded ? 'active' : ''}" data-budget-toggle>${expanded ? 'Cerrar' : 'Detalle'}</button>
     </div>
     <div class="progress" style="margin:10px 0 14px;"><span style="width:${Math.min(100, budget.executedPct)}%;background:${budget.executedPct > 100 ? 'var(--red)' : 'var(--green)'}"></span></div>
-    <div class="budget-grid">
+    ${expanded ? `<div class="budget-grid">
       ${budgetLine('Presupuesto total', budget.totalBudget, 'blue')}
       ${budgetLine('Gasto dentro del presupuesto', budget.used)}
       ${budgetLine('Pendiente por usar', budget.pending)}
@@ -56,7 +56,7 @@ function renderBudgetExecution(budget) {
       ${budgetLine('Excedente total', budget.excessTotal, 'danger', 'data-audit-excess')}
       ${budgetLine('Disponible', budget.available, budget.available < 0 ? 'danger' : 'success')}
       ${budgetLine(budget.margin >= 0 ? 'Margen para cubrir pendiente' : 'Faltante para cubrir pendiente', budget.margin, budget.margin < 0 ? 'danger' : 'success')}
-    </div>
+    </div>` : ''}
   `);
 }
 

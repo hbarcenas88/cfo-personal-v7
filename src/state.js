@@ -6,7 +6,7 @@ import { inferIcon } from './icons.js';
 const listeners = new Set();
 
 export const initialState = {
-  version: '7.0.0',
+  version: '7.0.1',
   onboarded: false,
   activeView: 'balances',
   settingsPage: '',
@@ -20,7 +20,7 @@ export const initialState = {
   recurringDone: {},
   filters: {
     audit: { text: '', accounts: [], types: [], categories: [], subcategories: [] },
-    categories: { text: '', categories: [], view: 'combined', expanded: [] },
+    categories: { text: '', categories: [], view: 'combined', expanded: [], budgetExpanded: true },
     excludedChartCategories: []
   },
   rules: {
@@ -31,6 +31,11 @@ export const initialState = {
   },
   healthDismissed: {},
   backups: [],
+  debug: {
+    lastAction: '',
+    lastError: '',
+    storageTestAt: ''
+  },
   ui: {
     drawerOpen: false,
     activeSheet: '',
@@ -42,7 +47,9 @@ export const initialState = {
     iconPicker: null,
     importDraft: null,
     selectedTransactionId: '',
-    selectedHealthIssue: ''
+    selectedHealthIssue: '',
+    auditFilter: '',
+    filterSearch: ''
   }
 };
 
@@ -67,6 +74,7 @@ function mergeState(saved) {
     categories: { ...initialState.filters.categories, ...(saved.filters?.categories || {}) }
   };
   merged.rules = { ...initialState.rules, ...(saved.rules || {}) };
+  merged.debug = { ...initialState.debug, ...(saved.debug || {}) };
   merged.accounts = Array.isArray(saved.accounts) ? saved.accounts : [];
   merged.categories = Array.isArray(saved.categories) ? saved.categories : [];
   merged.transactions = Array.isArray(saved.transactions) ? saved.transactions : [];
@@ -170,8 +178,14 @@ export function dismissToast() {
 
 export async function addAccount(payload) {
   const name = payload.name?.trim();
-  if (!name) return showToast('Nombre de cuenta requerido');
-  if (state.accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return showToast('La cuenta ya existe');
+  if (!name) {
+    showToast('Nombre de cuenta requerido');
+    return false;
+  }
+  if (state.accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    showToast('La cuenta ya existe');
+    return false;
+  }
   await mutate(s => {
     s.accounts.push({
       id: uid('account'),
@@ -183,6 +197,8 @@ export async function addAccount(payload) {
     });
     s.onboarded = true;
   }, { undo: 'Cuenta creada' });
+  showToast('Cuenta creada');
+  return true;
 }
 
 export async function addCategory(payload) {
@@ -220,10 +236,19 @@ export async function addProvision(payload) {
 export async function saveTransaction(payload) {
   const type = payload.movement || payload.type || 'Gasto';
   const amount = Number(payload.amount) || 0;
-  if (!payload.date || !amount) return showToast('Fecha y monto requeridos');
-  if (type !== 'Presupuesto' && !payload.account) return showToast('Cuenta requerida');
+  if (!payload.date || !amount) {
+    showToast('Fecha y monto requeridos');
+    return false;
+  }
+  if (type !== 'Presupuesto' && !payload.account) {
+    showToast('Cuenta requerida');
+    return false;
+  }
   if (type === 'Transferencia') {
-    if (!payload.account || !payload.accountTo || payload.account === payload.accountTo) return showToast('Selecciona cuentas distintas');
+    if (!payload.account || !payload.accountTo || payload.account === payload.accountTo) {
+      showToast('Selecciona cuentas distintas');
+      return false;
+    }
     await mutate(s => {
       s.transactions.push(...createTransfer({
         from: payload.account,
@@ -236,7 +261,7 @@ export async function saveTransaction(payload) {
       s.onboarded = true;
     }, { undo: 'Transferencia registrada' });
     showToast('Transferencia guardada');
-    return;
+    return true;
   }
   if (type === 'Presupuesto') {
     await mutate(s => {
@@ -252,7 +277,7 @@ export async function saveTransaction(payload) {
       s.onboarded = true;
     }, { undo: 'Presupuesto guardado' });
     showToast('Presupuesto guardado');
-    return;
+    return true;
   }
   await mutate(s => {
     const tx = normalizeTransaction({
@@ -272,6 +297,7 @@ export async function saveTransaction(payload) {
     s.onboarded = true;
   }, { undo: `${type} guardado` });
   showToast(`${type} guardado`);
+  return true;
 }
 
 export async function deleteTransaction(id) {
@@ -328,7 +354,10 @@ export async function convertToTransfer(id) {
 
 export async function saveRecurring(payload) {
   const name = payload.name?.trim();
-  if (!name) return showToast('Nombre requerido');
+  if (!name) {
+    showToast('Nombre requerido');
+    return false;
+  }
   await mutate(s => {
     const item = {
       id: payload.id || uid('recurring'),
@@ -346,6 +375,8 @@ export async function saveRecurring(payload) {
     else s.recurring.push(item);
     s.onboarded = true;
   }, { undo: 'Recurrencia guardada' });
+  showToast('Recurrencia guardada');
+  return true;
 }
 
 export async function markRecurring(month, recurringId, done) {
@@ -366,4 +397,10 @@ export async function restoreSnapshot(snapshotData) {
   await persist();
   notify();
   showToast('Respaldo restaurado');
+}
+
+export async function setDebugInfo(patch, options = {}) {
+  state.debug = { ...(state.debug || {}), ...patch };
+  if (options.persist) await persist();
+  if (options.notify) notify();
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-6';
+const CACHE_NAME = 'cfo-personal-v7-cache-8';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -39,19 +39,26 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+    caches.keys().then(keys => Promise.all(
+      keys
+        .filter(key => key.startsWith('cfo-personal-v7-') && key !== CACHE_NAME)
+        .map(key => caches.delete(key))
+    ))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith(APP_BASE.href)) return;
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      if (!event.request.url.startsWith(APP_BASE.href)) return response;
+    fetch(event.request).then(response => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
       return response;
-    }).catch(() => caches.match(appUrl('./index.html'))))
+    }).catch(() => {
+      if (event.request.mode === 'navigate') return caches.match(appUrl('./index.html'));
+      return caches.match(event.request);
+    })
   );
 });

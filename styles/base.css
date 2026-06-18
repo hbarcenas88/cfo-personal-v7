@@ -141,3 +141,12 @@ svg {
 .hidden {
   display: none !important;
 }
+
+.file-input-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: .01;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

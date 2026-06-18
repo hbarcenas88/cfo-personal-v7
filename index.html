@@ -19,6 +19,20 @@
     </div>
   </div>
   <div id="toast-root" aria-live="polite"></div>
+  <script>
+    window.CFO_BOOT_ERRORS = [];
+    function cfoBootError(context, error) {
+      var message = context + ': ' + (error && (error.message || error.reason || error.filename) || String(error || 'Error desconocido'));
+      window.CFO_BOOT_ERRORS.push({ at: new Date().toISOString(), message: message });
+      console.error('[CFO V7 boot]', message, error);
+      var app = document.getElementById('app');
+      if (app) {
+        app.innerHTML = '<div class="boot-screen"><div class="boot-logo">CFO <span>Personal</span></div><p>No se pudo iniciar la app.</p><pre style="max-width:92vw;white-space:pre-wrap;text-align:left;color:#dc3f61;">' + message.replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]; }) + '</pre></div>';
+      }
+    }
+    window.addEventListener('error', function (event) { cfoBootError('error', event.error || event.message); });
+    window.addEventListener('unhandledrejection', function (event) { cfoBootError('promise', event.reason); });
+  </script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

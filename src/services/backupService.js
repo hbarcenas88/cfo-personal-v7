@@ -20,13 +20,16 @@ export function createBackup(state) {
       healthDismissed: state.healthDismissed
     }
   };
-  downloadText(datedName('respaldo_cfo_personal', 'json'), JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
-  showToast('Respaldo JSON creado');
+  const filename = downloadText(datedName('respaldo_cfo_personal', 'json'), JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+  showToast(`Respaldo JSON creado: ${filename}`);
+  return filename;
 }
 
 export async function restoreBackupFile(file) {
+  if (!file) return false;
   const text = await file.text();
   const parsed = JSON.parse(text);
   const data = parsed.data || parsed;
   await restoreSnapshot(data);
+  return true;
 }

@@ -78,7 +78,8 @@ export function downloadText(filename, text, type = 'text/csv;charset=utf-8') {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return filename;
 }
 
 export function datedName(prefix, extension = 'csv') {
@@ -167,12 +168,14 @@ export function exportCSVs(state) {
     }
   ];
   files.forEach(file => downloadText(file.name, toCSV(file.headers, file.rows)));
+  showToast(`${files.length} CSV generados`);
 }
 
 export function downloadTemplate(kind) {
   const headers = templateHeaders[kind];
   if (!headers) return;
-  downloadText(datedName(`template_${kind}`), `${headers.join(',')}\r\n`);
+  const filename = downloadText(datedName(`template_${kind}`), `${headers.join(',')}\r\n`);
+  showToast(`Template descargado: ${filename}`);
 }
 
 export async function importCatalog(kind, objects) {

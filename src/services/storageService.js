@@ -46,3 +46,20 @@ export async function clearState() {
     tx.onerror = () => reject(tx.error);
   });
 }
+
+export async function debugStorageRoundTrip() {
+  const db = await openDB();
+  const value = { ok: true, at: new Date().toISOString() };
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put({ key: 'debug-test', value, savedAt: value.at });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get('debug-test');
+    req.onsuccess = () => resolve(req.result?.value || null);
+    req.onerror = () => reject(req.error);
+  });
+}
