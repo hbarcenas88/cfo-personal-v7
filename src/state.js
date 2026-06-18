@@ -1,16 +1,18 @@
 import { loadState, saveState, clearState } from './services/storageService.js';
 import { createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
-import { currentMonth, uid } from './utils/format.js';
+import { canon, currentMonth, parseAmount, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
 const listeners = new Set();
+export const DEFAULT_ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'];
 
 export const initialState = {
-  version: '7.0.1',
+  version: '7.0.2',
   onboarded: false,
   activeView: 'balances',
   settingsPage: '',
   period: { mode: 'month', month: currentMonth(), compareMode: 'previous' },
+  accountTypes: [...DEFAULT_ACCOUNT_TYPES],
   accounts: [],
   categories: [],
   transactions: [],
@@ -75,13 +77,46 @@ function mergeState(saved) {
   };
   merged.rules = { ...initialState.rules, ...(saved.rules || {}) };
   merged.debug = { ...initialState.debug, ...(saved.debug || {}) };
-  merged.accounts = Array.isArray(saved.accounts) ? saved.accounts : [];
+  merged.activeView = 'balances';
+  merged.settingsPage = '';
+  merged.accountTypes = mergeAccountTypes(saved.accountTypes, saved.accounts);
+  merged.accounts = migrateAccounts(saved.accounts);
   merged.categories = Array.isArray(saved.categories) ? saved.categories : [];
   merged.transactions = Array.isArray(saved.transactions) ? saved.transactions : [];
   merged.budgets = Array.isArray(saved.budgets) ? saved.budgets : [];
   merged.provisions = Array.isArray(saved.provisions) ? saved.provisions : [];
   merged.recurring = Array.isArray(saved.recurring) ? saved.recurring : [];
   return merged;
+}
+
+function mergeAccountTypes(savedTypes = [], accounts = []) {
+  const types = [...DEFAULT_ACCOUNT_TYPES];
+  (Array.isArray(savedTypes) ? savedTypes : []).forEach(type => pushUnique(types, type));
+  (Array.isArray(accounts) ? accounts : []).forEach(account => pushUnique(types, account.type));
+  return types.filter(Boolean);
+}
+
+function pushUnique(list, value) {
+  const text = String(value || '').trim();
+  if (text && !list.some(item => canon(item) === canon(text))) list.push(text);
+}
+
+function migrateAccounts(accounts = []) {
+  return (Array.isArray(accounts) ? accounts : []).map((account, index) => ({
+    ...account,
+    id: account.id || uid('account'),
+    type: account.type || 'Cuenta Corriente',
+    icon: account.icon || inferIcon(account.name, 'account'),
+    color: account.color || '#0A8FE8',
+    order: Number.isFinite(Number(account.order)) ? Number(account.order) : index,
+    kpi: {
+      income: account.kpi?.income !== false,
+      expense: account.kpi?.expense !== false,
+      balance: account.kpi?.balance !== false,
+      available: account.kpi?.available !== false,
+      visible: account.kpi?.visible !== false
+    }
+  })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
 export function subscribe(listener) {
@@ -187,17 +222,110 @@ export async function addAccount(payload) {
     return false;
   }
   await mutate(s => {
+    if (payload.type && !s.accountTypes.some(type => canon(type) === canon(payload.type))) s.accountTypes.push(payload.type);
+    const nextOrder = Math.max(-1, ...s.accounts.map(account => Number(account.order) || 0)) + 1;
     s.accounts.push({
       id: uid('account'),
       name,
-      type: payload.type || 'Cuenta',
+      type: payload.type || 'Cuenta Corriente',
       icon: payload.icon || inferIcon(name, 'account'),
       color: payload.color || '#0A8FE8',
-      kpi: { income: true, expense: true, balance: true, visible: true }
+      order: nextOrder,
+      kpi: {
+        income: payload.kpi?.income !== false,
+        expense: payload.kpi?.expense !== false,
+        balance: payload.kpi?.balance !== false,
+        available: payload.kpi?.available !== false,
+        visible: payload.kpi?.visible !== false
+      }
     });
     s.onboarded = true;
   }, { undo: 'Cuenta creada' });
   showToast('Cuenta creada');
+  return true;
+}
+
+export async function updateAccount(id, payload) {
+  const name = payload.name?.trim();
+  if (!name) {
+    showToast('Nombre de cuenta requerido');
+    return false;
+  }
+  const current = state.accounts.find(account => account.id === id);
+  if (!current) {
+    showToast('Cuenta no encontrada');
+    return false;
+  }
+  if (state.accounts.some(account => account.id !== id && canon(account.name) === canon(name))) {
+    showToast('La cuenta ya existe');
+    return false;
+  }
+  const oldName = current.name;
+  await mutate(s => {
+    if (payload.type && !s.accountTypes.some(type => canon(type) === canon(payload.type))) s.accountTypes.push(payload.type);
+    const account = s.accounts.find(item => item.id === id);
+    if (!account) return;
+    Object.assign(account, {
+      name,
+      type: payload.type || account.type || 'Cuenta Corriente',
+      icon: payload.icon || account.icon || inferIcon(name, 'account'),
+      color: payload.color || account.color || '#0A8FE8',
+      kpi: {
+        income: payload.kpi?.income !== false,
+        expense: payload.kpi?.expense !== false,
+        balance: payload.kpi?.balance !== false,
+        available: payload.kpi?.available !== false,
+        visible: payload.kpi?.visible !== false
+      }
+    });
+    s.transactions.forEach(tx => {
+      if (canon(tx.account) === canon(oldName)) tx.account = name;
+      if (canon(tx.accountTo) === canon(oldName)) tx.accountTo = name;
+    });
+    s.budgets.forEach(row => {
+      if (canon(row.account) === canon(oldName)) row.account = name;
+    });
+    s.recurring.forEach(row => {
+      if (canon(row.account) === canon(oldName)) row.account = name;
+    });
+  }, { undo: 'Cuenta actualizada' });
+  showToast('Cuenta actualizada');
+  return true;
+}
+
+export async function moveAccount(id, direction) {
+  await mutate(s => {
+    const accounts = s.accounts.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const index = accounts.findIndex(account => account.id === id);
+    const target = index + Number(direction);
+    if (index < 0 || target < 0 || target >= accounts.length) return;
+    const [item] = accounts.splice(index, 1);
+    accounts.splice(target, 0, item);
+    accounts.forEach((account, order) => { account.order = order; });
+    s.accounts = accounts;
+  }, { undo: 'Orden de cuentas actualizado' });
+}
+
+export async function createOpeningAdjustment(accountName, openingBalance, source = 'CSV') {
+  const amount = parseAmount(openingBalance);
+  if (!Number.isFinite(amount) || amount === 0) return false;
+  await mutate(s => {
+    s.transactions.push(normalizeTransaction({
+      account: accountName,
+      movement: amount >= 0 ? 'Ingreso' : 'Gasto',
+      amount: Math.abs(amount),
+      date: new Date().toISOString().slice(0, 10),
+      category: '',
+      subcategory: '',
+      description: 'Ajuste inicial de saldo',
+      source,
+      affectsIncome: false,
+      affectsExpense: false,
+      affectsBudget: false,
+      affectsBalance: true,
+      recordKind: 'Ajuste inicial'
+    }, s));
+  }, { undo: 'Ajuste inicial creado' });
   return true;
 }
 

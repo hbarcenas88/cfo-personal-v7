@@ -1,8 +1,8 @@
 import { COLOR_CATALOG, ICON_CATALOG, icon } from '../icons.js';
 import { dataHealth } from '../services/healthService.js';
-import { card, emptyState, softColor } from '../components/ui.js';
+import { card, emptyState } from '../components/ui.js';
 import { explainTemplate, templateHeaders } from '../services/importExportService.js';
-import { formatMoney } from '../utils/format.js';
+import { formatMoney, html } from '../utils/format.js';
 
 export function renderSettings(state) {
   const page = state.settingsPage || 'tools';
@@ -14,6 +14,9 @@ export function renderSettings(state) {
     ${page === 'tools' ? renderTools() : ''}
     ${page === 'planning' ? renderPlanning(state) : ''}
     ${page === 'catalogs' ? renderCatalogs(state) : ''}
+    ${page === 'accounts' ? renderAccountsAdmin(state) : ''}
+    ${page === 'categories-admin' ? renderCategoriesAdmin(state) : ''}
+    ${page === 'provisions-admin' ? renderProvisionsAdmin(state) : ''}
     ${page === 'health' ? renderHealth(state) : ''}
     ${page === 'settings' ? renderPreferences(state) : ''}
   `;
@@ -24,6 +27,9 @@ function pageTitle(page) {
     tools: 'Gestión de datos',
     planning: 'Planeación',
     catalogs: 'Catálogos',
+    accounts: 'Cuentas',
+    'categories-admin': 'Categorías y subcategorías',
+    'provisions-admin': 'Provisiones',
     health: 'Salud de datos',
     settings: 'Configuración'
   }[page] || 'Configuración';
@@ -45,15 +51,73 @@ function renderTools() {
 function renderPlanning(state) {
   return `
     ${card(`${tool('budget-planner', 'calendar', 'Planeación presupuestaria', 'Crea o ajusta presupuesto mensual')}${tool('provision-planner', 'shield', 'Planeación de provisiones', 'Reserva mensual y distribución conceptual')}${tool('recurring', 'calendarClock', 'Pagos e ingresos recurrentes', 'Recordatorios mensuales')}`, 'tool-card')}
-    ${card(`<h3 style="margin-top:0;">Recurrentes actuales</h3>${state.recurring.length ? state.recurring.map(r => `<div class="row-card"><span class="row-icon" style="background:${softColor(r.color || '#0A8FE8')};color:${r.color || '#0A8FE8'}">${icon(r.icon || 'calendarClock')}</span><span class="row-main"><span class="row-title">${r.name}</span><span class="row-subtitle">${r.type} · día ${r.day}${r.amount ? ` · ${formatMoney(r.amount)}` : ''}</span></span></div>`).join('') : emptyState('calendarClock', 'Sin recurrentes')}`)}
+    ${card(`<h3 style="margin-top:0;">Recurrentes actuales</h3>${state.recurring.length ? state.recurring.map(r => `<div class="row-card"><span class="row-icon solid-icon" style="background:${r.color || '#0A8FE8'};color:#fff;">${icon(r.icon || 'calendarClock')}</span><span class="row-main"><span class="row-title">${html(r.name)}</span><span class="row-subtitle">${r.type} · día ${r.day}${r.amount ? ` · ${formatMoney(r.amount)}` : ''}</span></span></div>`).join('') : emptyState('calendarClock', 'Sin recurrentes')}`)}
   `;
 }
 
 function renderCatalogs(state) {
+  return card(`
+    ${settingsLink('accounts', 'landmark', 'Cuentas', `${state.accounts.length} cuentas · orden, KPIs, iconos y colores`)}
+    ${settingsLink('categories-admin', 'tags', 'Categorías y subcategorías', `${state.categories.length} categorías`)}
+    ${settingsLink('provisions-admin', 'shield', 'Provisiones', `${state.provisions.length} provisiones conceptuales`)}
+  `, 'tool-card');
+}
+
+function renderAccountsAdmin(state) {
+  const accounts = [...state.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   return `
-    ${card(`${tool('new-account', 'landmark', 'Cuentas', 'Crear, editar, ocultar e iconos')}${tool('new-category', 'tags', 'Categorías y subcategorías', 'Estructura de presupuesto y gastos')}${tool('new-provision', 'shield', 'Provisiones', 'Conceptos de reserva y planeación')}${tool('icons', 'sparkles', 'Iconos y colores', 'Biblioteca visual de la app')}`, 'tool-card')}
-    ${card(`<h3 style="margin-top:0;">Cuentas (${state.accounts.length})</h3>${state.accounts.length ? state.accounts.map(a => catalogRow(a, 'account')).join('') : emptyState('landmark', 'Sin cuentas')}`)}
+    ${card(`<button class="primary-button" data-tool="new-account">${icon('plus')} Nueva cuenta</button>`, 'tool-card')}
+    ${accounts.length ? accounts.map((account, index) => accountAdminCard(account, index, accounts.length)).join('') : card(emptyState('landmark', 'Sin cuentas', 'Crea una cuenta o importa catálogos para empezar'))}
+  `;
+}
+
+function accountAdminCard(account, index, total) {
+  const color = account.color || '#0A8FE8';
+  return card(`
+    <div class="account-admin-head">
+      <span class="row-icon solid-icon" style="background:${color};color:#fff;">${icon(account.icon || 'landmark')}</span>
+      <span class="row-main">
+        <span class="row-title">${html(account.name)}</span>
+        <span class="row-subtitle">${html(account.type || 'Cuenta Corriente')}</span>
+      </span>
+      <button class="ghost-icon" data-account-edit="${account.id}" aria-label="Editar cuenta">${icon('edit')}</button>
+    </div>
+    <div class="account-order-row">
+      <button class="chip" data-account-move="${account.id}" data-direction="-1" ${index === 0 ? 'disabled' : ''}>${icon('chevronLeft')} Subir</button>
+      <button class="chip" data-account-move="${account.id}" data-direction="1" ${index === total - 1 ? 'disabled' : ''}>Bajar ${icon('chevronRight')}</button>
+    </div>
+    <div class="switch-grid">
+      ${kpiSwitch(account, 'income', 'Ingresos')}
+      ${kpiSwitch(account, 'expense', 'Gastos')}
+      ${kpiSwitch(account, 'balance', 'Balance')}
+      ${kpiSwitch(account, 'available', 'Disponible')}
+      ${kpiSwitch(account, 'visible', 'Visible')}
+    </div>
+  `, 'account-admin-card');
+}
+
+function kpiSwitch(account, key, label) {
+  const checked = account.kpi?.[key] !== false;
+  return `
+    <label class="switch-row">
+      <span>${label}</span>
+      <input type="checkbox" data-account-kpi="${account.id}:${key}" ${checked ? 'checked' : ''}>
+      <i></i>
+    </label>
+  `;
+}
+
+function renderCategoriesAdmin(state) {
+  return `
+    ${card(`<button class="primary-button" data-tool="new-category">${icon('plus')} Nueva categoría</button>`, 'tool-card')}
     ${card(`<h3 style="margin-top:0;">Categorías (${state.categories.length})</h3>${state.categories.length ? state.categories.map(c => catalogRow(c, 'category')).join('') : emptyState('tags', 'Sin categorías')}`)}
+  `;
+}
+
+function renderProvisionsAdmin(state) {
+  return `
+    ${card(`<button class="primary-button" data-tool="new-provision">${icon('plus')} Nueva provisión</button>`, 'tool-card')}
+    ${card(`<h3 style="margin-top:0;">Provisiones (${state.provisions.length})</h3>${state.provisions.length ? state.provisions.map(p => catalogRow(p, 'provision')).join('') : emptyState('shield', 'Sin provisiones')}`)}
   `;
 }
 
@@ -89,8 +153,18 @@ function tool(action, iconName, title, subtitle) {
   `;
 }
 
+function settingsLink(page, iconName, title, subtitle) {
+  return `
+    <button class="settings-row" data-settings="${page}">
+      <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
+      <span><strong>${title}</strong><small>${subtitle}</small></span>
+      ${icon('chevronRight')}
+    </button>
+  `;
+}
+
 function catalogRow(item, type) {
-  return `<div class="row-card"><span class="row-icon" style="background:${softColor(item.color || '#0A8FE8')};color:${item.color || '#0A8FE8'}">${icon(item.icon || 'folder')}</span><span><span class="row-title">${item.name}</span><span class="row-subtitle">${type === 'category' ? `${item.subcategories?.length || 0} subcategorías` : item.type || 'Cuenta'}</span></span><button class="chip" data-open-icon="${type}:${item.id}">Icono</button></div>`;
+  return `<div class="row-card"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${type === 'category' ? `${item.subcategories?.length || 0} subcategorías` : item.type || 'Cuenta'}</span></span><button class="chip" data-open-icon="${type}:${item.id}">Icono</button></div>`;
 }
 
 function yes(value) {
@@ -118,22 +192,46 @@ export function renderTemplateSheet() {
 
 export function renderIconPickerSheet(state) {
   const picker = state.ui.iconPicker || {};
+  const tab = picker.tab || 'icon';
   return `
     <div class="sheet-backdrop open" data-sheet-close>
-      <section class="sheet wide" onclick="event.stopPropagation()">
-        <div class="sheet-handle"></div>
-        <h2 class="sheet-title">Icono y color</h2>
-        <div class="icon-grid">${ICON_CATALOG.map(name => `<button class="icon-choice ${picker.icon === name ? 'active' : ''}" data-pick-icon="${name}">${icon(name)}</button>`).join('')}</div>
-        <div class="card" style="margin-top:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span class="row-icon" style="background:${picker.color || '#0A8FE8'}18;color:${picker.color || '#0A8FE8'}">${icon(picker.icon || 'folder')}</span>
-            <div><strong>Color del icono</strong><small style="display:block;color:var(--text-muted);margin-top:3px;">Desliza para ver más opciones</small></div>
-          </div>
-          <div class="color-strip" style="margin-top:12px;">${COLOR_CATALOG.map(color => `<button class="color-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" data-pick-color="${color}"></button>`).join('')}</div>
+      <section class="sheet wide icon-picker-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-head-row">
+          <button class="ghost-icon" data-sheet-close aria-label="Cerrar">${icon('x')}</button>
+          <h2 class="sheet-title">Icono y color</h2>
+          <button class="done-button" data-save-icon>Hecho</button>
         </div>
-        <button class="primary-button" data-save-icon>Guardar icono</button>
-        <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+        <div class="icon-preview-large" style="background:${picker.color || '#0A8FE8'}">${icon(picker.icon || 'folder')}</div>
+        <div class="segmented">
+          <button class="${tab === 'icon' ? 'active' : ''}" data-picker-tab="icon">${icon('sparkles')} Icono</button>
+          <button class="${tab === 'color' ? 'active' : ''}" data-picker-tab="color">${icon('pie')} Color</button>
+        </div>
+        ${tab === 'icon' ? groupedIcons(picker) : colorGrid(picker)}
       </section>
+    </div>
+  `;
+}
+
+function groupedIcons(picker) {
+  const accountIcons = ICON_CATALOG.slice(0, 24);
+  const categoryIcons = ICON_CATALOG.slice(24);
+  return `
+    <h3 class="picker-group-title">Cuentas</h3>
+    <div class="icon-circle-grid">${accountIcons.map(name => iconChoice(name, picker)).join('')}</div>
+    <h3 class="picker-group-title">Categorías</h3>
+    <div class="icon-circle-grid">${categoryIcons.map(name => iconChoice(name, picker)).join('')}</div>
+  `;
+}
+
+function iconChoice(name, picker) {
+  const active = picker.icon === name;
+  return `<button class="icon-circle-choice ${active ? 'active' : ''}" data-pick-icon="${name}" style="${active ? `background:${picker.color || '#0A8FE8'};color:#fff;` : ''}">${icon(name)}</button>`;
+}
+
+function colorGrid(picker) {
+  return `
+    <div class="color-circle-grid">
+      ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" data-pick-color="${color}" aria-label="${color}"></button>`).join('')}
     </div>
   `;
 }

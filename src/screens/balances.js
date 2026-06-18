@@ -6,12 +6,13 @@ import { formatDate, formatMoney, formatSignedMoney, monthEnd } from '../utils/f
 export function renderBalances(state) {
   const data = kpis(state);
   const balances = accountBalances(state);
-  const visible = state.accounts.filter(account => account.kpi?.visible !== false);
-  const hidden = state.accounts.filter(account => account.kpi?.visible === false);
+  const ordered = [...state.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const visible = ordered.filter(account => account.kpi?.visible !== false);
+  const hidden = ordered.filter(account => account.kpi?.visible === false);
   return `
     <div class="metric-grid">
       ${metricCard({ title: 'Balance total', value: formatSignedMoney(data.balanceTotal), note: `${data.includedAccounts} de ${data.totalAccounts} cuentas · hasta ${formatDate(monthEnd(state.period.month || new Date().toISOString().slice(0, 7)))}`, iconName: 'walletCards', color: data.balanceTotal < 0 ? 'var(--red)' : 'var(--blue)', wide: true })}
-      ${metricCard({ title: 'Disponible', value: formatSignedMoney(data.available), note: 'Balance menos reserva acumulada', iconName: 'badgeDollar', color: data.available < 0 ? 'var(--red)' : 'var(--green)' })}
+      ${metricCard({ title: 'Disponible', value: formatSignedMoney(data.available), note: `${data.availableAccounts} de ${data.totalAccounts} cuentas · menos reserva`, iconName: 'badgeDollar', color: data.available < 0 ? 'var(--red)' : 'var(--green)' })}
       ${metricCard({ title: 'Ingresos período', value: formatMoney(data.income), note: 'Según selector de período', iconName: 'arrowUpRight', color: 'var(--green)', delta: data.incomeDelta })}
       ${metricCard({ title: 'Gastos período', value: formatMoney(data.expense), note: 'Sin transferencias', iconName: 'arrowDownRight', color: 'var(--red)', delta: data.expenseDelta })}
     </div>

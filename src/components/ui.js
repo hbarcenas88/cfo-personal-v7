@@ -77,29 +77,16 @@ export function renderDrawer() {
           <div class="brand-title">CFO <span>Personal</span></div>
           <div class="brand-subtitle">Centro operativo</div>
         </div>
-        <div class="drawer-section">Principal</div>
-        ${drawerRow('balances', 'walletCards', 'Balances', 'Situación financiera')}
-        ${drawerRow('summary', 'barChart', 'Resumen', 'Indicadores y gráficos')}
-        ${drawerRow('categories', 'grid', 'Categorías', 'Presupuesto detallado')}
-        ${drawerRow('audit', 'listChecks', 'Auditoría', 'Explorar movimientos')}
         <div class="drawer-section">Herramientas</div>
         ${settingsRow('tools', 'database', 'Gestión de datos', 'Importación, exportación y respaldos')}
         ${settingsRow('planning', 'calendarClock', 'Planeación', 'Presupuesto, provisiones y recurrencias')}
-        ${settingsRow('catalogs', 'tags', 'Catálogos', 'Cuentas, categorías, iconos y colores')}
+        ${settingsRow('accounts', 'landmark', 'Cuentas', 'Orden, KPIs, iconos y colores')}
+        ${settingsRow('categories-admin', 'tags', 'Categorías y subcategorías', 'Catálogo de gasto y presupuesto')}
+        ${settingsRow('provisions-admin', 'shield', 'Provisiones', 'Reservas y conceptos')}
         ${settingsRow('health', 'chart', 'Salud de datos', 'Calidad y posibles errores')}
         ${settingsRow('settings', 'settings', 'Configuración', 'Preferencias y reglas KPI')}
       </aside>
     </div>
-  `;
-}
-
-function drawerRow(view, iconName, title, subtitle) {
-  return `
-    <button class="drawer-row" data-view="${view}">
-      <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
-      <span><strong>${title}</strong><small>${subtitle}</small></span>
-      ${icon('chevronRight')}
-    </button>
   `;
 }
 
@@ -201,6 +188,7 @@ export function emptyState(iconName, title, subtitle = '') {
 export function toastRoot() {
   const root = document.getElementById('toast-root');
   const toast = state.ui.toast;
+  if (!root) return;
   root.innerHTML = toast ? `
     <div class="toast show">
       <span>${toast.message}</span>

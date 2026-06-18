@@ -1,10 +1,10 @@
-import { addAccount, addCategory, addProvision, mutate, showToast } from '../state.js';
+import { addAccount, addCategory, addProvision, createOpeningAdjustment, mutate, showToast } from '../state.js';
 import { normalizeBudget, normalizeTransaction } from './financeService.js';
 import { canon, formatDate, parseAmount, parseDate, todayISO } from '../utils/format.js';
 import { inferIcon } from '../icons.js';
 
 export const templateHeaders = {
-  accounts: ['nombre', 'tipo', 'icono', 'color', 'visible', 'impacta_ingresos', 'impacta_gastos', 'impacta_balance'],
+  accounts: ['nombre', 'tipo', 'saldo_inicial', 'icono', 'color', 'visible', 'impacta_ingresos', 'impacta_gastos', 'impacta_balance', 'impacta_disponible'],
   categories: ['categoria', 'icono_categoria', 'color_categoria', 'subcategoria'],
   provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual', 'icono', 'color'],
   recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria', 'icono', 'color'],
@@ -123,12 +123,14 @@ export function exportCSVs(state) {
       rows: state.accounts.map(account => ({
         nombre: account.name,
         tipo: account.type || '',
+        saldo_inicial: '',
         icono: account.icon || '',
         color: account.color || '',
         visible: account.kpi?.visible !== false ? 'si' : 'no',
         impacta_ingresos: account.kpi?.income !== false ? 'si' : 'no',
         impacta_gastos: account.kpi?.expense !== false ? 'si' : 'no',
-        impacta_balance: account.kpi?.balance !== false ? 'si' : 'no'
+        impacta_balance: account.kpi?.balance !== false ? 'si' : 'no',
+        impacta_disponible: account.kpi?.available !== false ? 'si' : 'no'
       }))
     },
     {
@@ -180,13 +182,29 @@ export function downloadTemplate(kind) {
 
 export async function importCatalog(kind, objects) {
   if (kind === 'accounts') {
-    for (const row of objects) await addAccount({
-      name: row.nombre || row.cuenta || row.name,
-      type: row.tipo || row.type || 'Cuenta',
-      icon: row.icono || inferIcon(row.nombre || row.cuenta, 'account'),
-      color: row.color || '#0A8FE8'
-    });
-    showToast(`${objects.length} cuentas importadas`);
+    const created = [];
+    for (const row of objects) {
+      const name = row.nombre || row.cuenta || row.name;
+      const saved = await addAccount({
+        name,
+        type: row.tipo || row.type || 'Cuenta',
+        icon: row.icono || inferIcon(row.nombre || row.cuenta, 'account'),
+        color: row.color || '#0A8FE8',
+        kpi: {
+          visible: csvBool(row.visible, true),
+          income: csvBool(row.impacta_ingresos, true),
+          expense: csvBool(row.impacta_gastos, true),
+          balance: csvBool(row.impacta_balance, true),
+          available: csvBool(row.impacta_disponible, true)
+        }
+      });
+      if (saved && name) created.push(row);
+    }
+    for (const row of created) {
+      const name = row.nombre || row.cuenta || row.name;
+      await createOpeningAdjustment(name, row.saldo_inicial, 'CSV');
+    }
+    showToast(`${created.length} cuentas importadas`);
     return;
   }
   if (kind === 'categories') {
@@ -286,9 +304,45 @@ export function importIssues(kind, objects, state) {
   return issues;
 }
 
+export function importIssuesV702(kind, objects, state) {
+  const issues = [];
+  objects.forEach(row => {
+    const fields = [];
+    if (kind === 'accounts') {
+      if (!(row.nombre || row.cuenta || row.name)) fields.push('Nombre requerido');
+      if (row.saldo_inicial && Number.isNaN(parseAmount(row.saldo_inicial))) fields.push('Saldo inicial inválido');
+    }
+    if (kind === 'categories' && !(row.categoria || row.category)) fields.push('Categoría requerida');
+    if (kind === 'provisions') {
+      if (!(row.nombre || row.name)) fields.push('Nombre requerido');
+      if (row.saldo_conceptual && Number.isNaN(parseAmount(row.saldo_conceptual))) fields.push('Saldo conceptual inválido');
+      if (row.planeacion_mensual && Number.isNaN(parseAmount(row.planeacion_mensual))) fields.push('Planeación mensual inválida');
+    }
+    if (kind === 'recurring') {
+      if (!(row.nombre || row.name)) fields.push('Nombre requerido');
+      if (row.dia_mensual && (Number(row.dia_mensual) < 1 || Number(row.dia_mensual) > 31)) fields.push('Día inválido');
+      if (row.monto_esperado && Number.isNaN(parseAmount(row.monto_esperado))) fields.push('Monto inválido');
+    }
+    if ((kind === 'transactions' || kind === 'budgets') && !parseAmount(row.monto || row.amount || 0)) fields.push('Monto inválido');
+    if (kind === 'transactions' && !parseDate(row.fecha)) fields.push('Fecha inválida');
+    if (kind === 'transactions' && row.cuenta && !state.accounts.some(a => canon(a.name) === canon(row.cuenta))) fields.push('Cuenta nueva');
+    if ((kind === 'transactions' || kind === 'budgets') && row.categoria && !state.categories.some(c => canon(c.name) === canon(row.categoria))) fields.push('Categoría nueva');
+    if (fields.length) issues.push({ row, fields });
+  });
+  return issues;
+}
+
+function csvBool(value, fallback = true) {
+  const key = canon(value);
+  if (!key) return fallback;
+  if (['si', 'sí', 'yes', 'true', '1', 'x'].includes(key)) return true;
+  if (['no', 'false', '0'].includes(key)) return false;
+  return fallback;
+}
+
 export function explainTemplate(kind) {
   const descriptions = {
-    accounts: 'Cuentas admite icono, color y reglas KPI desde CSV.',
+    accounts: 'Cuentas admite tipo, saldo inicial opcional, icono, color y reglas KPI.',
     categories: 'Categorias agrupa categoria y subcategoria. Repite categoria para varias subcategorias.',
     provisions: 'Provisiones admite nombre, saldo conceptual y planeacion mensual.',
     recurring: 'Recurrentes admite pagos e ingresos mensuales; monto puede quedar vacio.',

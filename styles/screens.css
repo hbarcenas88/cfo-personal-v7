@@ -583,6 +583,265 @@
   box-shadow: 0 0 0 3px var(--blue);
 }
 
+.solid-icon svg {
+  stroke: currentColor;
+}
+
+.account-admin-card {
+  display: grid;
+  gap: 14px;
+}
+
+.account-admin-head,
+.account-form-preview,
+.inline-picker-head,
+.import-row-head,
+.sheet-head-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-admin-head .row-main,
+.account-form-preview div,
+.sheet-head-row h2 {
+  flex: 1;
+}
+
+.account-order-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.switch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.switch-row {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+  background: var(--surface-soft);
+}
+
+.switch-row input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch-row i {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: #cbd8e4;
+  position: relative;
+  transition: .18s ease;
+  flex: 0 0 auto;
+}
+
+.switch-row i::after {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 35, 55, .16);
+  transition: .18s ease;
+}
+
+.switch-row input:checked + i {
+  background: var(--blue);
+}
+
+.switch-row input:checked + i::after {
+  transform: translateX(18px);
+}
+
+.icon-preview-medium {
+  width: 62px;
+  height: 62px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.icon-preview-medium svg {
+  width: 30px;
+  height: 30px;
+}
+
+.inline-picker-card {
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  border-radius: 22px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.inline-picker-head {
+  justify-content: space-between;
+}
+
+.inline-picker-head small {
+  color: var(--text-muted);
+}
+
+.mini-icon-grid,
+.mini-color-grid,
+.icon-circle-grid,
+.color-circle-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.mini-icon-grid {
+  grid-template-columns: repeat(6, 1fr);
+  max-height: 168px;
+  overflow: auto;
+}
+
+.mini-color-grid {
+  grid-template-columns: repeat(8, 1fr);
+}
+
+.icon-circle-choice,
+.color-circle-choice {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 0;
+  background: #eef2f7;
+  color: #546274;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgba(15, 35, 55, .05);
+}
+
+.icon-circle-choice svg {
+  width: 25px;
+  height: 25px;
+}
+
+.icon-circle-choice.active,
+.color-circle-choice.active {
+  box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--blue);
+}
+
+.icon-picker-sheet {
+  display: grid;
+  gap: 16px;
+}
+
+.done-button {
+  border: 0;
+  background: var(--blue);
+  color: #fff;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-weight: 800;
+}
+
+.icon-preview-large {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  color: #fff;
+}
+
+.icon-preview-large svg {
+  width: 46px;
+  height: 46px;
+}
+
+.icon-circle-grid,
+.color-circle-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.picker-group-title {
+  margin: 8px 0 -4px;
+  color: #4f46c6;
+  font-size: 16px;
+}
+
+.import-dropzone {
+  min-height: 86px;
+  border: 1px dashed #9fb9d0;
+  border-radius: 22px;
+  background: var(--surface-soft);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+}
+
+.import-dropzone small,
+.import-summary small {
+  display: block;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.import-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.import-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.compact-field {
+  margin: 0;
+}
+
+.compact-field span {
+  display: block;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: .08em;
+  margin-bottom: 5px;
+}
+
+.issue-pill,
+.ok-pill {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.issue-pill {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.ok-pill {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
 @media (max-width: 420px) {
   .metric-grid {
     gap: 10px;

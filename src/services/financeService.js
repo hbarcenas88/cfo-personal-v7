@@ -130,10 +130,12 @@ export function kpis(state, period = state.period) {
   const balances = accountBalances(state, period);
   const includedAccounts = state.accounts.filter(account => account.kpi?.balance !== false);
   const totalBalance = includedAccounts.reduce((sum, account) => sum + (balances[account.name] || 0), 0);
+  const availableAccounts = state.accounts.filter(account => account.kpi?.available !== false);
+  const availableBalance = availableAccounts.reduce((sum, account) => sum + (balances[account.name] || 0), 0);
   const reserve = provisionReserve(state, period);
   return {
     balanceTotal: totalBalance,
-    available: totalBalance - reserve,
+    available: availableBalance - reserve,
     reserve,
     income: currentIncome,
     expense: currentExpense,
@@ -141,6 +143,7 @@ export function kpis(state, period = state.period) {
     expenseDelta: delta(currentExpense, prevExpense),
     balances,
     includedAccounts: includedAccounts.length,
+    availableAccounts: availableAccounts.length,
     totalAccounts: state.accounts.length,
     transactionCount: current.length
   };
@@ -163,6 +166,7 @@ export function accountConfig(state, accountName) {
     income: true,
     expense: true,
     balance: true,
+    available: true,
     visible: true
   };
 }

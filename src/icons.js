@@ -20,6 +20,13 @@ export const ICONS = {
   badgeDollar: '<path d="M12 2 9.7 4.3 6.5 4.1 6.3 7.3 4 9.6 6.3 12 6.5 15.2l3.2-.2L12 17.3l2.3-2.3 3.2.2.2-3.2L20 9.6l-2.3-2.3-.2-3.2-3.2.2Z"/><path d="M12 7v5M10.5 9h2.2a1.4 1.4 0 1 1 0 2.8h-1.4a1.4 1.4 0 1 0 0 2.8H14"/>',
   piggyBank: '<path d="M19 10h2v4h-2"/><path d="M16 9.5V7a3 3 0 0 0-3-3H8v3"/><path d="M7 14H4a2 2 0 0 1 0-4h2"/><path d="M7 10a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v3a5 5 0 0 1-5 5H9l-2 3v-3a5 5 0 0 1-5-5"/><path d="M13 10h.01"/>',
   vault: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="12" r="3"/><path d="M12 9v6M9 12h6"/>',
+  safe: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="12" r="2.8"/><path d="M12 9v6M9 12h6M7 8h.01M17 16h.01"/>',
+  calculator: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"/>',
+  percentCircle: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9h.01M15 15h.01"/>',
+  currencyDollar: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9h3.4a1.8 1.8 0 1 1 0 3.6h-1.8a1.8 1.8 0 1 0 0 3.6H15"/>',
+  currencyEuro: '<circle cx="12" cy="12" r="9"/><path d="M16 8.5A4.5 4.5 0 1 0 16 15.5M7 10h7M7 14h7"/>',
+  currencyPound: '<circle cx="12" cy="12" r="9"/><path d="M15 8.5a2.5 2.5 0 0 0-5 0V17M8.5 12H14M9 17h7"/>',
+  currencyYen: '<circle cx="12" cy="12" r="9"/><path d="m8 7 4 5 4-5M12 12v5M9 13h6M9 16h6"/>',
   receipt: '<path d="M4 2v20l3-2 3 2 3-2 3 2 4-2V2l-4 2-3-2-3 2-3-2Z"/><path d="M8 7h8M8 11h8M8 15h5"/>',
   fileUp: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3"/>',
   fileDown: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M12 12v6M9 15l3 3 3-3"/>',
@@ -71,9 +78,17 @@ export const ICONS = {
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-5"/>',
   umbrella: '<path d="M22 12a10 10 0 0 0-20 0Z"/><path d="M12 12v7a3 3 0 0 0 6 0"/>',
   handCoins: '<path d="M10 13h4a2 2 0 0 0 0-4h-3l-2 2"/><path d="M3 14h3l4 4h8l3-3"/><path d="M18 9a3 3 0 1 0-6 0"/>',
+  handshake: '<path d="m11 17 2 2a3 3 0 0 0 4.2 0l3.8-3.8a3 3 0 0 0 0-4.2L17 7"/><path d="m7 7-4 4a3 3 0 0 0 0 4.2L7 19a3 3 0 0 0 4.2 0l.8-.8"/><path d="m8 13 3-3 2 2 3-3"/>',
+  scanLine: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>',
   handHeart: '<path d="M10 14h4a2 2 0 0 0 0-4h-3l-2 2"/><path d="M3 14h3l4 4h8l3-3"/><path d="M16 4.5a2.5 2.5 0 0 0-4 3L16 11l4-3.5a2.5 2.5 0 0 0-4-3Z"/>',
   gem: '<path d="M6 3h12l4 6-10 12L2 9Z"/><path d="M2 9h20M12 21 8 9l4-6 4 6Z"/>',
   sparkles: '<path d="M12 3 9.5 8.5 4 11l5.5 2.5L12 19l2.5-5.5L20 11l-5.5-2.5Z"/><path d="M4 4v4M2 6h4M20 18v4M18 20h4"/>',
+  smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
+  ticket: '<path d="M3 9a3 3 0 1 0 0 6v3h18v-3a3 3 0 1 0 0-6V6H3Z"/><path d="M13 6v12"/>',
+  package: '<path d="m7.5 4.3 9 5.2M21 8l-9 5-9-5M3 8v8l9 5 9-5V8L12 3Z"/><path d="M12 13v8"/>',
+  train: '<rect x="5" y="3" width="14" height="13" rx="2"/><path d="M8 16l-2 5M16 16l2 5M8 21h8M8 7h8M8 11h.01M16 11h.01"/>',
+  church: '<path d="M12 2v6M9 5h6M5 22V10l7-4 7 4v12M9 22v-7h6v7"/>',
+  scale: '<path d="m16 16 3-8 3 8c-.9 1-2 1.5-3 1.5S16.9 17 16 16ZM2 16l3-8 3 8c-.9 1-2 1.5-3 1.5S2.9 17 2 16ZM7 8h10M12 3v19"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 11v6M14 11v6"/>',
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>',
   copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a2 2 0 0 1 2-2h11"/>',
@@ -86,18 +101,23 @@ export const ICONS = {
 
 export const ICON_CATALOG = [
   'landmark', 'building', 'wallet', 'walletCards', 'creditCard', 'banknote', 'coins', 'badgeDollar', 'piggyBank', 'vault',
+  'safe', 'calculator', 'percentCircle', 'currencyDollar', 'currencyEuro', 'currencyPound', 'currencyYen', 'handshake', 'scanLine',
   'receipt', 'cart', 'bag', 'store', 'house', 'car', 'bus', 'plane', 'fuel', 'utensils',
   'coffee', 'salad', 'heartPulse', 'stethoscope', 'pill', 'dumbbell', 'graduation', 'book', 'briefcase', 'laptop',
   'phone', 'wifi', 'lightbulb', 'droplets', 'shirt', 'scissors', 'gift', 'film', 'gamepad', 'music',
   'folder', 'tags', 'chart', 'pie', 'barChart', 'shield', 'umbrella', 'calendarClock', 'handCoins', 'handHeart',
-  'gem', 'sparkles'
+  'gem', 'sparkles', 'smile', 'ticket', 'package', 'train', 'church', 'scale'
 ];
 
 export const COLOR_CATALOG = [
   '#0A8FE8', '#07966F', '#DC3F61', '#7C5CFF', '#C68000', '#00A6C8',
   '#E0569B', '#64748B', '#2563EB', '#0F766E', '#16A34A', '#65A30D',
   '#CA8A04', '#EA580C', '#DC2626', '#BE123C', '#C026D3', '#7C3AED',
-  '#4F46E5', '#0369A1', '#475569', '#334155', '#7C2D12', '#6B7280'
+  '#4F46E5', '#0369A1', '#475569', '#334155', '#7C2D12', '#6B7280',
+  '#EF4444', '#F43F5E', '#EC4899', '#D946EF', '#A855F7', '#8B5CF6',
+  '#6366F1', '#3B82F6', '#06B6D4', '#14B8A6', '#10B981', '#22C55E',
+  '#84CC16', '#EAB308', '#F59E0B', '#F97316', '#0EA5E9', '#0891B2',
+  '#0D9488', '#059669', '#047857', '#155E75', '#1E40AF', '#312E81'
 ];
 
 export function icon(name = 'folder', attrs = '') {
