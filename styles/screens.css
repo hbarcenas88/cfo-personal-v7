@@ -514,6 +514,11 @@
   font-weight: 800;
 }
 
+.health-pill svg {
+  width: 20px;
+  height: 20px;
+}
+
 .health-pill.good {
   background: var(--green-soft);
   color: var(--green);
@@ -589,7 +594,7 @@
 
 .account-admin-card {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .account-admin-head,
@@ -611,17 +616,22 @@
 .account-order-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
+}
+
+.account-order-row .chip {
+  min-height: 40px;
+  justify-content: center;
 }
 
 .switch-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .switch-row {
-  min-height: 46px;
+  min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 8px 10px;
@@ -631,6 +641,7 @@
   gap: 10px;
   color: var(--text);
   background: var(--surface-soft);
+  font-size: 14px;
 }
 
 .switch-row input {
@@ -671,34 +682,40 @@
 }
 
 .icon-preview-medium {
-  width: 62px;
-  height: 62px;
-  border-radius: 22px;
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
 }
 
 .icon-preview-medium svg {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
 }
 
 .inline-picker-card {
   border: 1px solid var(--line);
   background: var(--surface-soft);
-  border-radius: 22px;
-  padding: 14px;
+  border-radius: 20px;
+  padding: 12px;
   display: grid;
-  gap: 12px;
+  gap: 11px;
+  overflow: hidden;
 }
 
 .inline-picker-head {
   justify-content: space-between;
+  align-items: flex-start;
 }
 
 .inline-picker-head small {
   color: var(--text-muted);
+  display: block;
+  max-width: 170px;
+  text-align: right;
+  line-height: 1.25;
 }
 
 .mini-icon-grid,
@@ -706,23 +723,23 @@
 .icon-circle-grid,
 .color-circle-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .mini-icon-grid {
-  grid-template-columns: repeat(6, 1fr);
-  max-height: 168px;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  max-height: 150px;
   overflow: auto;
 }
 
 .mini-color-grid {
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
 }
 
 .icon-circle-choice,
 .color-circle-choice {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: 0;
   background: #eef2f7;
@@ -733,8 +750,8 @@
 }
 
 .icon-circle-choice svg {
-  width: 25px;
-  height: 25px;
+  width: 23px;
+  height: 23px;
 }
 
 .icon-circle-choice.active,
@@ -744,7 +761,7 @@
 
 .icon-picker-sheet {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .done-button {
@@ -757,8 +774,8 @@
 }
 
 .icon-preview-large {
-  width: 96px;
-  height: 96px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -767,13 +784,13 @@
 }
 
 .icon-preview-large svg {
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
 }
 
 .icon-circle-grid,
 .color-circle-grid {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
 }
 
 .picker-group-title {
@@ -783,14 +800,14 @@
 }
 
 .import-dropzone {
-  min-height: 86px;
+  min-height: 72px;
   border: 1px dashed #9fb9d0;
-  border-radius: 22px;
+  border-radius: 20px;
   background: var(--surface-soft);
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px;
+  padding: 12px;
 }
 
 .import-dropzone small,
@@ -809,6 +826,141 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.account-create-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.account-create-button {
+  width: 100%;
+  min-height: 92px;
+  border: 0;
+  background: linear-gradient(135deg, var(--blue) 0%, #36b7ff 100%);
+  color: #fff;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  text-align: left;
+}
+
+.account-create-button .create-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .18);
+  display: grid;
+  place-items: center;
+}
+
+.account-create-button .create-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.account-create-button strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.account-create-button small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, .78);
+}
+
+.account-form-preview {
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-soft);
+}
+
+.account-form-preview strong,
+.account-form-preview small {
+  display: block;
+  line-height: 1.25;
+}
+
+.account-form-preview strong {
+  font-size: 17px;
+}
+
+.account-form-preview small {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.rules-card {
+  display: grid;
+  gap: 10px;
+}
+
+.rule-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-soft);
+}
+
+.rule-row strong {
+  font-size: 15px;
+}
+
+.rule-chip-row {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.rule-chip {
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 760;
+  background: #fff;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+}
+
+.rule-chip.on {
+  background: var(--green-soft);
+  color: var(--green);
+  border-color: transparent;
+}
+
+.rule-chip.off {
+  background: var(--surface);
+  color: var(--text-soft);
+}
+
+@media (max-width: 420px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .import-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-picker-head {
+    display: grid;
+    gap: 2px;
+  }
+
+  .inline-picker-head small {
+    max-width: none;
+    text-align: left;
+  }
 }
 
 .compact-field {

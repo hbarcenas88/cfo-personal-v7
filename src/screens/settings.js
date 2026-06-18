@@ -66,7 +66,7 @@ function renderCatalogs(state) {
 function renderAccountsAdmin(state) {
   const accounts = [...state.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   return `
-    ${card(`<button class="primary-button" data-tool="new-account">${icon('plus')} Nueva cuenta</button>`, 'tool-card')}
+    ${card(`<button class="account-create-button" data-tool="new-account"><span class="create-icon">${icon('plus')}</span><span><strong>Nueva cuenta</strong><small>Define nombre, tipo, icono, color y KPIs.</small></span>${icon('chevronRight')}</button>`, 'account-create-card')}
     ${accounts.length ? accounts.map((account, index) => accountAdminCard(account, index, accounts.length)).join('') : card(emptyState('landmark', 'Sin cuentas', 'Crea una cuenta o importa catálogos para empezar'))}
   `;
 }
@@ -139,8 +139,33 @@ function renderHealth(state) {
 function renderPreferences(state) {
   return `
     ${card(`${tool('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card')}
-    ${card(`<h3 style="margin-top:0;">Reglas KPI</h3>${Object.entries(state.rules).map(([key, rule]) => `<div class="row-card" style="grid-template-columns:1fr auto;"><span><strong>${key}</strong><span class="row-subtitle">Ingresos ${yes(rule.income)} · Gastos ${yes(rule.expense)} · Presupuesto ${yes(rule.budget)} · Balance ${yes(rule.balance)}</span></span></div>`).join('')}`)}
+    ${card(`<h3 style="margin-top:0;">Reglas KPI</h3><p class="muted" style="margin-top:-6px;">Resumen visual de cómo cada tipo de movimiento impacta las métricas. Es lectura, no edición.</p><div class="rules-card">${Object.entries(state.rules).map(([key, rule]) => ruleRow(key, rule)).join('')}</div>`)}
   `;
+}
+
+function ruleRow(key, rule) {
+  const title = {
+    income: 'Ingresos',
+    expense: 'Gastos',
+    transfer: 'Transferencias',
+    provision: 'Provisiones',
+    adjustment: 'Ajustes'
+  }[key] || key;
+  return `
+    <div class="rule-row">
+      <strong>${title}</strong>
+      <div class="rule-chip-row">
+        ${ruleChip('Ingresos', rule.income)}
+        ${ruleChip('Gastos', rule.expense)}
+        ${ruleChip('Presupuesto', rule.budget)}
+        ${ruleChip('Balance', rule.balance)}
+      </div>
+    </div>
+  `;
+}
+
+function ruleChip(label, enabled) {
+  return `<span class="rule-chip ${enabled ? 'on' : 'off'}">${label}: ${enabled ? 'Sí' : 'No'}</span>`;
 }
 
 function tool(action, iconName, title, subtitle) {

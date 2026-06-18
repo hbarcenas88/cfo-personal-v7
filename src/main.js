@@ -18,7 +18,7 @@ import { COLOR_CATALOG, ICON_CATALOG, icon, inferIcon, renderIcons } from './ico
 
 let keypad;
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
-const APP_VERSION = '7.0.2';
+const APP_VERSION = '7.0.3';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 
 function debugLog(action, detail = {}) {
@@ -202,15 +202,19 @@ function bindDynamicEvents() {
 function bindSheetDragClose() {
   document.querySelectorAll('.sheet').forEach(sheet => {
     let startY = 0;
+    let startScroll = 0;
     sheet.addEventListener('pointerdown', event => {
-      if (!event.target.closest('.sheet-handle,.sheet-head-row')) return;
+      const rect = sheet.getBoundingClientRect();
+      const inGripZone = event.clientY - rect.top < 160;
+      if (!event.target.closest('.sheet-handle,.sheet-head-row') && !inGripZone) return;
       startY = event.clientY;
+      startScroll = sheet.scrollTop;
     });
     sheet.addEventListener('pointerup', event => {
       if (!startY) return;
       const delta = event.clientY - startY;
       startY = 0;
-      if (delta > 80) closeSheet();
+      if (delta > 72 && startScroll <= 2) closeSheet();
     });
   });
 }
@@ -723,7 +727,10 @@ function accountSheetV702() {
       <h2 class="sheet-title">${account ? 'Editar cuenta' : 'Nueva cuenta'}</h2>
       <div class="account-form-preview">
         <span class="icon-preview-medium" data-form-icon-preview style="background:${color};color:#fff;">${icon(iconName)}</span>
-        <div><strong>${account ? html(account.name) : 'Cuenta nueva'}</strong><small>Define icono, color, tipo y KPIs antes de guardar</small></div>
+        <div>
+          <strong>${account ? html(account.name) : 'Cuenta nueva'}</strong>
+          <small>Define icono, color, tipo y KPIs antes de guardar.</small>
+        </div>
       </div>
       <input type="hidden" data-create-field="icon" value="${iconName}">
       <input type="hidden" data-create-field="color" value="${color}">
@@ -733,7 +740,7 @@ function accountSheetV702() {
         <div class="field"><label>Otro tipo</label><input class="input" data-create-field="customType" placeholder="Personalizado"></div>
       </div>
       <div class="inline-picker-card">
-        <div class="inline-picker-head"><strong>Icono</strong><small>Toca un icono y luego elige color</small></div>
+        <div class="inline-picker-head"><strong>Icono y color</strong><small>Selecciona un icono; el color se aplica al fondo.</small></div>
         <div class="mini-icon-grid">${ICON_CATALOG.slice(0, 30).map(name => `<button class="icon-circle-choice ${name === iconName ? 'active' : ''}" data-form-icon="${name}" style="${name === iconName ? `background:${color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
         <div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(item => `<button class="color-circle-choice ${item === color ? 'active' : ''}" style="background:${item}" data-form-color="${item}" aria-label="${item}"></button>`).join('')}</div>
       </div>
