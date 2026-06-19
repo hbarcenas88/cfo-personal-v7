@@ -7,7 +7,7 @@ const listeners = new Set();
 export const DEFAULT_ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'];
 
 export const initialState = {
-  version: '7.0.3',
+  version: '7.0.4',
   onboarded: false,
   activeView: 'balances',
   settingsPage: '',
@@ -48,6 +48,11 @@ export const initialState = {
     undo: null,
     iconPicker: null,
     importDraft: null,
+    optionPicker: null,
+    accountDraft: null,
+    recurringDraft: null,
+    accountAction: '',
+    selectedAccountId: '',
     selectedTransactionId: '',
     selectedHealthIssue: '',
     auditFilter: '',
@@ -326,6 +331,33 @@ export async function createOpeningAdjustment(accountName, openingBalance, sourc
       recordKind: 'Ajuste inicial'
     }, s));
   }, { undo: 'Ajuste inicial creado' });
+  return true;
+}
+
+export async function createBalanceAdjustment(accountName, amountValue, note = '') {
+  const amount = parseAmount(amountValue);
+  if (!Number.isFinite(amount) || amount === 0) {
+    showToast('Monto de ajuste requerido');
+    return false;
+  }
+  await mutate(s => {
+    s.transactions.push(normalizeTransaction({
+      account: accountName,
+      movement: amount >= 0 ? 'Ingreso' : 'Gasto',
+      amount: Math.abs(amount),
+      date: new Date().toISOString().slice(0, 10),
+      category: '',
+      subcategory: '',
+      description: note || 'Ajuste manual de saldo',
+      source: 'Manual',
+      affectsIncome: false,
+      affectsExpense: false,
+      affectsBudget: false,
+      affectsBalance: true,
+      recordKind: 'Ajuste manual'
+    }, s));
+  }, { undo: 'Ajuste de saldo creado' });
+  showToast('Ajuste de saldo creado');
   return true;
 }
 

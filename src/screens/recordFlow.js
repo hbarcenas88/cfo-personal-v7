@@ -76,8 +76,8 @@ function renderForm(state, flow) {
 function renderStandardFields(state, flow, type) {
   return `
     <div class="flow-pair" style="margin-top:10px;">
-      <label class="flow-box"><small>${type === 'income' ? 'A cuenta' : type === 'budget' ? 'Cuenta presupuesto' : 'De cuenta'}</small><select class="select-like" data-record-field="account">${optionList(state.accounts.map(a => a.name), flow.account)}</select></label>
-      <label class="flow-box"><small>${type === 'income' ? 'Origen' : 'Categoría'}</small><select class="select-like" data-record-field="category">${optionList(state.categories.map(c => c.name), flow.category, type === 'income' ? 'Sin categoría' : 'Seleccionar')}</select></label>
+      ${fieldButton(type === 'income' ? 'A cuenta' : type === 'budget' ? 'Cuenta presupuesto' : 'De cuenta', flow.account, 'Seleccionar', 'account')}
+      ${fieldButton(type === 'income' ? 'Origen' : 'Categoría', flow.category, type === 'income' ? 'Sin categoría' : 'Seleccionar', 'category')}
     </div>
     <div class="chip-row" style="margin-top:10px;">
       ${subcategories(state, flow.category).map(sub => `<button class="chip ${flow.subcategory === sub ? 'active' : ''}" data-record-sub="${sub}">${sub}</button>`).join('')}
@@ -88,14 +88,20 @@ function renderStandardFields(state, flow, type) {
 function renderTransferFields(state, flow) {
   return `
     <div class="flow-pair" style="margin-top:10px;">
-      <label class="flow-box"><small>Desde</small><select class="select-like" data-record-field="account">${optionList(state.accounts.map(a => a.name), flow.account)}</select></label>
-      <label class="flow-box"><small>Hacia</small><select class="select-like" data-record-field="accountTo">${optionList(state.accounts.map(a => a.name), flow.accountTo)}</select></label>
+      ${fieldButton('Desde', flow.account, 'Seleccionar', 'account')}
+      ${fieldButton('Hacia', flow.accountTo, 'Seleccionar', 'accountTo')}
     </div>
   `;
 }
 
-function optionList(values, selected, empty = 'Seleccionar') {
-  return `<option value="">${empty}</option>${values.map(value => `<option value="${value}" ${value === selected ? 'selected' : ''}>${value}</option>`).join('')}`;
+function fieldButton(label, value, placeholder, key) {
+  return `
+    <button class="flow-box select-flow" data-record-pick="${key}" type="button">
+      <small>${label}</small>
+      <strong>${value || placeholder}</strong>
+      ${icon('chevronDown')}
+    </button>
+  `;
 }
 
 function subcategories(state, categoryName) {

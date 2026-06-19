@@ -4,10 +4,10 @@ import { canon, formatDate, parseAmount, parseDate, todayISO } from '../utils/fo
 import { inferIcon } from '../icons.js';
 
 export const templateHeaders = {
-  accounts: ['nombre', 'tipo', 'saldo_inicial', 'icono', 'color', 'visible', 'impacta_ingresos', 'impacta_gastos', 'impacta_balance', 'impacta_disponible'],
-  categories: ['categoria', 'icono_categoria', 'color_categoria', 'subcategoria'],
-  provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual', 'icono', 'color'],
-  recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria', 'icono', 'color'],
+  accounts: ['nombre', 'tipo', 'saldo_inicial'],
+  categories: ['categoria', 'subcategoria'],
+  provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual'],
+  recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria'],
   transactions: ['fecha', 'cuenta', 'cuenta_destino', 'movimiento', 'monto', 'categoria', 'subcategoria', 'descripcion', 'origen'],
   budgets: ['mes', 'cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'origen']
 };
@@ -123,14 +123,7 @@ export function exportCSVs(state) {
       rows: state.accounts.map(account => ({
         nombre: account.name,
         tipo: account.type || '',
-        saldo_inicial: '',
-        icono: account.icon || '',
-        color: account.color || '',
-        visible: account.kpi?.visible !== false ? 'si' : 'no',
-        impacta_ingresos: account.kpi?.income !== false ? 'si' : 'no',
-        impacta_gastos: account.kpi?.expense !== false ? 'si' : 'no',
-        impacta_balance: account.kpi?.balance !== false ? 'si' : 'no',
-        impacta_disponible: account.kpi?.available !== false ? 'si' : 'no'
+        saldo_inicial: ''
       }))
     },
     {
@@ -138,8 +131,6 @@ export function exportCSVs(state) {
       headers: templateHeaders.categories,
       rows: state.categories.flatMap(cat => (cat.subcategories?.length ? cat.subcategories : [{ name: '' }]).map(sub => ({
         categoria: cat.name,
-        icono_categoria: cat.icon || '',
-        color_categoria: cat.color || '',
         subcategoria: sub.name || sub
       })))
     },
@@ -149,9 +140,7 @@ export function exportCSVs(state) {
       rows: state.provisions.map(p => ({
         nombre: p.name,
         saldo_conceptual: p.balance || 0,
-        planeacion_mensual: p.monthlyAmount || 0,
-        icono: p.icon || '',
-        color: p.color || ''
+        planeacion_mensual: p.monthlyAmount || 0
       }))
     },
     {
@@ -163,9 +152,7 @@ export function exportCSVs(state) {
         dia_mensual: r.day,
         monto_esperado: r.amount || '',
         cuenta: r.account || '',
-        categoria: r.category || '',
-        icono: r.icon || '',
-        color: r.color || ''
+        categoria: r.category || ''
       }))
     }
   ];
@@ -187,15 +174,15 @@ export async function importCatalog(kind, objects) {
       const name = row.nombre || row.cuenta || row.name;
       const saved = await addAccount({
         name,
-        type: row.tipo || row.type || 'Cuenta',
-        icon: row.icono || inferIcon(row.nombre || row.cuenta, 'account'),
-        color: row.color || '#0A8FE8',
+        type: row.tipo || row.type || 'Cuenta Corriente',
+        icon: inferIcon(row.nombre || row.cuenta, 'account'),
+        color: inferColor(name),
         kpi: {
-          visible: csvBool(row.visible, true),
-          income: csvBool(row.impacta_ingresos, true),
-          expense: csvBool(row.impacta_gastos, true),
-          balance: csvBool(row.impacta_balance, true),
-          available: csvBool(row.impacta_disponible, true)
+          visible: true,
+          income: true,
+          expense: true,
+          balance: true,
+          available: true
         }
       });
       if (saved && name) created.push(row);
@@ -212,7 +199,7 @@ export async function importCatalog(kind, objects) {
     objects.forEach(row => {
       const name = row.categoria || row.category;
       if (!name) return;
-      if (!grouped.has(name)) grouped.set(name, { name, icon: row.icono_categoria || inferIcon(name), color: row.color_categoria || '#0A8FE8', subcategories: [] });
+      if (!grouped.has(name)) grouped.set(name, { name, icon: inferIcon(name), color: inferColor(name), subcategories: [] });
       if (row.subcategoria || row.subcategory) grouped.get(name).subcategories.push(row.subcategoria || row.subcategory);
     });
     for (const item of grouped.values()) await addCategory(item);
@@ -224,8 +211,8 @@ export async function importCatalog(kind, objects) {
       name: row.nombre || row.name,
       balance: parseAmount(row.saldo_conceptual || row.balance || 0) || 0,
       monthlyAmount: parseAmount(row.planeacion_mensual || row.monthly || 0) || 0,
-      icon: row.icono || inferIcon(row.nombre, 'provision'),
-      color: row.color || '#C68000'
+      icon: inferIcon(row.nombre, 'provision'),
+      color: inferColor(row.nombre || row.name || 'provision')
     });
     showToast(`${objects.length} provisiones importadas`);
     return;
@@ -243,8 +230,8 @@ export async function importCatalog(kind, objects) {
           amount: parseAmount(row.monto_esperado || row.amount || 0) || 0,
           account: row.cuenta || row.account || '',
           category: row.categoria || row.category || '',
-          icon: row.icono || inferIcon(name, 'recurring'),
-          color: row.color || '#0A8FE8'
+          icon: inferIcon(name, 'recurring'),
+          color: inferColor(name)
         });
       });
       s.onboarded = true;
@@ -340,9 +327,17 @@ function csvBool(value, fallback = true) {
   return fallback;
 }
 
+function inferColor(value = '') {
+  const palette = ['#0A8FE8', '#07966F', '#DC3F61', '#7C5CFF', '#C68000', '#00A6C8', '#2563EB', '#0F766E', '#16A34A', '#EA580C', '#BE123C', '#4F46E5'];
+  const text = String(value || 'cfo');
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+  return palette[Math.abs(hash) % palette.length];
+}
+
 export function explainTemplate(kind) {
   const descriptions = {
-    accounts: 'Cuentas admite tipo, saldo inicial opcional, icono, color y reglas KPI.',
+    accounts: 'Cuentas admite nombre, tipo y saldo inicial opcional. Icono, color y KPIs se asignan en la app.',
     categories: 'Categorias agrupa categoria y subcategoria. Repite categoria para varias subcategorias.',
     provisions: 'Provisiones admite nombre, saldo conceptual y planeacion mensual.',
     recurring: 'Recurrentes admite pagos e ingresos mensuales; monto puede quedar vacio.',

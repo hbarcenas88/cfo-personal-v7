@@ -67,6 +67,7 @@ function renderAccountsAdmin(state) {
   const accounts = [...state.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   return `
     ${card(`<button class="account-create-button" data-tool="new-account"><span class="create-icon">${icon('plus')}</span><span><strong>Nueva cuenta</strong><small>Define nombre, tipo, icono, color y KPIs.</small></span>${icon('chevronRight')}</button>`, 'account-create-card')}
+    ${accounts.length ? `<div class="drag-hint">${icon('listChecks')} Arrastra las cuentas para cambiar el orden de visualización.</div>` : ''}
     ${accounts.length ? accounts.map((account, index) => accountAdminCard(account, index, accounts.length)).join('') : card(emptyState('landmark', 'Sin cuentas', 'Crea una cuenta o importa catálogos para empezar'))}
   `;
 }
@@ -74,24 +75,13 @@ function renderAccountsAdmin(state) {
 function accountAdminCard(account, index, total) {
   const color = account.color || '#0A8FE8';
   return card(`
-    <div class="account-admin-head">
+    <div class="account-admin-head" draggable="true" data-account-drag="${account.id}">
       <span class="row-icon solid-icon" style="background:${color};color:#fff;">${icon(account.icon || 'landmark')}</span>
       <span class="row-main">
         <span class="row-title">${html(account.name)}</span>
         <span class="row-subtitle">${html(account.type || 'Cuenta Corriente')}</span>
       </span>
-      <button class="ghost-icon" data-account-edit="${account.id}" aria-label="Editar cuenta">${icon('edit')}</button>
-    </div>
-    <div class="account-order-row">
-      <button class="chip" data-account-move="${account.id}" data-direction="-1" ${index === 0 ? 'disabled' : ''}>${icon('chevronLeft')} Subir</button>
-      <button class="chip" data-account-move="${account.id}" data-direction="1" ${index === total - 1 ? 'disabled' : ''}>Bajar ${icon('chevronRight')}</button>
-    </div>
-    <div class="switch-grid">
-      ${kpiSwitch(account, 'income', 'Ingresos')}
-      ${kpiSwitch(account, 'expense', 'Gastos')}
-      ${kpiSwitch(account, 'balance', 'Balance')}
-      ${kpiSwitch(account, 'available', 'Disponible')}
-      ${kpiSwitch(account, 'visible', 'Visible')}
+      <button class="ghost-icon compact-edit" data-account-actions="${account.id}" aria-label="Editar cuenta">${icon('edit')}</button>
     </div>
   `, 'account-admin-card');
 }

@@ -9,7 +9,7 @@ import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderSettings, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
-import { addAccount, addCategory, addProvision, closeSheet, convertToTransfer, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subscribe, updateAccount } from './state.js';
+import { addAccount, addCategory, addProvision, closeSheet, convertToTransfer, createBalanceAdjustment, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subscribe, updateAccount } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
@@ -18,7 +18,9 @@ import { COLOR_CATALOG, ICON_CATALOG, icon, inferIcon, renderIcons } from './ico
 
 let keypad;
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
-const APP_VERSION = '7.0.3';
+let draggedAccountId = '';
+let pointerDragAccount = null;
+const APP_VERSION = '7.0.4';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 
 function debugLog(action, detail = {}) {
@@ -142,9 +144,16 @@ function renderActiveSheet() {
   if (sheet === 'calendar') return renderCalendarSheet(calendarDraft);
   if (sheet === 'templates') return renderTemplateSheet();
   if (sheet === 'icon') return renderIconPickerSheet(state);
+  if (sheet === 'option-picker') return optionPickerSheet();
+  if (sheet === 'account-actions') return accountActionsSheet();
+  if (sheet === 'account-kpis') return accountKpiSheet();
+  if (sheet === 'account-icon') return accountIconSheet();
+  if (sheet === 'account-color') return accountColorSheet();
+  if (sheet === 'account-name-type') return accountNameTypeSheet();
+  if (sheet === 'account-adjust') return accountAdjustSheet();
   if (sheet === 'import-transactions') return importSheetV702('transactions');
   if (sheet === 'import-catalogs') return importSheetV702('accounts');
-  if (sheet === 'new-account') return accountSheetV702();
+  if (sheet === 'new-account') return accountSheetV704();
   if (sheet === 'new-category') return categorySheet();
   if (sheet === 'new-provision') return provisionSheet();
   if (sheet === 'recurring') return recurringSheet();
@@ -187,7 +196,15 @@ function bindDynamicEvents() {
     handleTool(button.dataset.tool).catch(error => captureError(`tool:${button.dataset.tool}`, error));
   }));
   document.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
-    if (event.currentTarget === event.target || el.tagName === 'BUTTON') closeSheet();
+    if (event.currentTarget === event.target || el.tagName === 'BUTTON') {
+      if (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.returnSheet) {
+        state.ui.activeSheet = state.ui.optionPicker.returnSheet;
+        state.ui.optionPicker = null;
+        render();
+      } else {
+        closeSheet();
+      }
+    }
   }));
   bindSheetDragClose();
 
@@ -461,12 +478,22 @@ function bindTools() {
   }));
   document.querySelectorAll('[data-account-edit]').forEach(button => button.addEventListener('click', () => {
     state.ui.editAccountId = button.dataset.accountEdit;
+    state.ui.accountDraft = null;
     openSheet('new-account');
+  }));
+  document.querySelectorAll('[data-account-actions]').forEach(button => button.addEventListener('click', event => {
+    event.stopPropagation();
+    state.ui.selectedAccountId = button.dataset.accountActions;
+    state.ui.editAccountId = button.dataset.accountActions;
+    state.ui.accountDraft = null;
+    ensureAccountDraft();
+    openSheet('account-actions');
   }));
   document.querySelectorAll('[data-account-move]').forEach(button => button.addEventListener('click', async () => {
     await moveAccount(button.dataset.accountMove, Number(button.dataset.direction));
     render();
   }));
+  bindAccountDrag();
   document.querySelectorAll('[data-account-kpi]').forEach(input => input.addEventListener('change', async () => {
     const [id, key] = input.dataset.accountKpi.split(':');
     await mutate(s => {
@@ -528,11 +555,63 @@ function bindTools() {
 }
 
 function bindSheetActions() {
+  document.querySelectorAll('[data-open-option]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    const target = button.dataset.openOption;
+    const options = JSON.parse(button.dataset.options || '[]');
+    openOptionPicker({
+      title: optionTitle(target),
+      target,
+      options,
+      value: optionCurrentValue(target),
+      returnSheet: button.dataset.returnSheet || state.ui.activeSheet || ''
+    });
+  }));
+  document.querySelectorAll('[data-option-value]').forEach(button => button.addEventListener('click', () => applyOptionSelection(button.dataset.optionValue || '')));
+  document.querySelector('[data-option-search]')?.addEventListener('input', event => {
+    if (!state.ui.optionPicker) return;
+    state.ui.optionPicker.search = event.target.value;
+    render();
+  });
+  document.querySelectorAll('[data-record-pick]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    const key = button.dataset.recordPick;
+    const flow = state.ui.recordFlow || {};
+    const options = key === 'category'
+      ? optionObjects(state.categories.map(category => category.name), flow.type === 'income' ? 'Sin categoría' : 'Seleccionar')
+      : optionObjects(state.accounts.map(account => account.name), 'Seleccionar');
+    openOptionPicker({
+      title: key === 'accountTo' ? 'Cuenta destino' : key === 'account' ? 'Cuenta' : 'Categoría',
+      target: `record.${key}`,
+      options,
+      value: flow[key] || '',
+      returnSheet: ''
+    });
+  }));
+  document.querySelectorAll('[data-account-action]').forEach(button => button.addEventListener('click', () => {
+    ensureAccountDraft();
+    state.ui.activeSheet = button.dataset.accountAction;
+    render();
+  }));
+  document.querySelectorAll('[data-account-draft-field]').forEach(input => input.addEventListener('input', () => {
+    ensureAccountDraft()[input.dataset.accountDraftField] = input.value;
+  }));
+  document.querySelectorAll('[data-account-form-kpi]').forEach(input => input.addEventListener('change', () => {
+    const draft = ensureAccountDraft();
+    draft.kpi = { ...(draft.kpi || {}) };
+    draft.kpi[input.dataset.accountFormKpi] = input.checked;
+  }));
+  document.querySelectorAll('[data-save-account-section]').forEach(button => button.addEventListener('click', async event => {
+    event.preventDefault();
+    await saveAccountSection(button.dataset.saveAccountSection);
+  }));
   document.querySelectorAll('[data-form-icon]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const value = button.dataset.formIcon;
     const sheet = button.closest('.sheet');
-    const color = sheet?.querySelector('[data-create-field="color"]')?.value || '#0A8FE8';
+    const draft = ensureAccountDraft();
+    draft.icon = value;
+    const color = draft.color || sheet?.querySelector('[data-create-field="color"]')?.value || '#0A8FE8';
     const iconInput = sheet?.querySelector('[data-create-field="icon"]');
     if (iconInput) iconInput.value = value;
     sheet?.querySelectorAll('[data-form-icon]').forEach(item => {
@@ -546,6 +625,8 @@ function bindSheetActions() {
   document.querySelectorAll('[data-form-color]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const value = button.dataset.formColor;
+    const draft = ensureAccountDraft();
+    draft.color = value;
     const sheet = button.closest('.sheet');
     const colorInput = sheet?.querySelector('[data-create-field="color"]');
     if (colorInput) colorInput.value = value;
@@ -556,9 +637,8 @@ function bindSheetActions() {
     if (activeIcon) activeIcon.style.background = value;
   }));
   document.querySelectorAll('[data-create-action]').forEach(button => button.addEventListener('click', async () => {
-    const data = Object.fromEntries([...document.querySelectorAll('[data-create-field]')].map(input => [input.dataset.createField, input.value]));
-    if (data.type === 'Otro' && data.customType?.trim()) data.type = data.customType.trim();
-    data.kpi = Object.fromEntries([...document.querySelectorAll('[data-account-form-kpi]')].map(input => [input.dataset.accountFormKpi, input.checked]));
+    const isAccount = ['create-account', 'update-account'].includes(button.dataset.createAction);
+    const data = isAccount ? normalizedAccountDraft() : Object.fromEntries([...document.querySelectorAll('[data-create-field]')].map(input => [input.dataset.createField, input.value]));
     let saved = false;
     debugLog('create action validation', { action: button.dataset.createAction, data });
     if (button.dataset.createAction === 'create-account') saved = await addAccount(data);
@@ -583,15 +663,24 @@ function bindSheetActions() {
       }
     }
     debugLog('create action result', { action: button.dataset.createAction, saved });
-    if (saved) closeSheet();
+    if (saved) {
+      state.ui.accountDraft = null;
+      closeSheet();
+    }
     render();
   }));
+  document.querySelectorAll('[data-rec-draft-field]').forEach(input => input.addEventListener('input', () => {
+    ensureRecurringDraft()[input.dataset.recDraftField] = input.value;
+  }));
   document.querySelectorAll('[data-save-recurring]').forEach(button => button.addEventListener('click', async () => {
-    const data = Object.fromEntries([...document.querySelectorAll('[data-rec-field]')].map(input => [input.dataset.recField, input.value]));
+    const data = ensureRecurringDraft();
     debugLog('recurring save validation', data);
     const saved = await saveRecurring({ ...data, amount: parseAmount(data.amount) || 0 });
     debugLog('recurring save result', { saved, recurring: state.recurring.length });
-    if (saved) closeSheet();
+    if (saved) {
+      state.ui.recurringDraft = null;
+      closeSheet();
+    }
     render();
   }));
   document.querySelectorAll('[data-import-confirm]').forEach(button => button.addEventListener('click', () => {
@@ -619,6 +708,114 @@ function bindSheetActions() {
   }));
 }
 
+function optionTitle(target) {
+  return {
+    'import.kind': 'Tipo de importación',
+    'account.type': 'Tipo de cuenta',
+    'recurring.type': 'Tipo',
+    'recurring.account': 'Cuenta',
+    'recurring.category': 'Categoría',
+    'record.account': 'Cuenta',
+    'record.accountTo': 'Cuenta destino',
+    'record.category': 'Categoría'
+  }[target] || 'Seleccionar';
+}
+
+function optionCurrentValue(target) {
+  if (target === 'import.kind') return state.ui.importDraft?.kind || '';
+  if (target === 'account.type') return ensureAccountDraft().type || '';
+  if (target.startsWith('recurring.')) return ensureRecurringDraft()[target.split('.')[1]] || '';
+  if (target.startsWith('record.')) return state.ui.recordFlow?.[target.split('.')[1]] || '';
+  return '';
+}
+
+function normalizedAccountDraft() {
+  const draft = ensureAccountDraft();
+  const type = draft.type === 'Otro' && draft.customType?.trim() ? draft.customType.trim() : draft.type;
+  return {
+    name: draft.name || '',
+    type,
+    icon: draft.icon || inferIcon(draft.name || '', 'account'),
+    color: draft.color || '#0A8FE8',
+    kpi: {
+      income: draft.kpi?.income !== false,
+      expense: draft.kpi?.expense !== false,
+      balance: draft.kpi?.balance !== false,
+      available: draft.kpi?.available !== false,
+      visible: draft.kpi?.visible !== false
+    }
+  };
+}
+
+async function saveAccountSection(section) {
+  const account = selectedAccount();
+  if (!account) return;
+  const draft = ensureAccountDraft();
+  if (section === 'adjust') {
+    const saved = await createBalanceAdjustment(account.name, draft.adjustAmount, draft.adjustNote);
+    if (saved) {
+      closeSheet();
+      render();
+    }
+    return;
+  }
+  const saved = await updateAccount(account.id, normalizedAccountDraft());
+  debugLog('account section saved', { section, saved });
+  if (saved) {
+    state.ui.accountDraft = null;
+    closeSheet();
+    render();
+  }
+}
+
+function bindAccountDrag() {
+  document.querySelectorAll('[data-account-drag]').forEach(handle => {
+    handle.addEventListener('dragstart', event => {
+      draggedAccountId = handle.dataset.accountDrag;
+      handle.closest('.account-admin-card')?.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+    });
+    handle.addEventListener('dragend', () => {
+      draggedAccountId = '';
+      document.querySelectorAll('.account-admin-card.dragging').forEach(card => card.classList.remove('dragging'));
+    });
+    handle.addEventListener('dragover', event => event.preventDefault());
+    handle.addEventListener('drop', event => {
+      event.preventDefault();
+      reorderAccountTo(draggedAccountId, handle.dataset.accountDrag).catch(error => captureError('account drag drop', error));
+    });
+    handle.addEventListener('pointerdown', event => {
+      if (event.target.closest('button')) return;
+      pointerDragAccount = { id: handle.dataset.accountDrag, x: event.clientX, y: event.clientY };
+      handle.setPointerCapture?.(event.pointerId);
+    });
+    handle.addEventListener('pointerup', event => {
+      if (!pointerDragAccount) return;
+      const delta = Math.abs(event.clientY - pointerDragAccount.y);
+      const sourceId = pointerDragAccount.id;
+      pointerDragAccount = null;
+      if (delta < 12) return;
+      const targetHandle = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-account-drag]');
+      if (targetHandle) reorderAccountTo(sourceId, targetHandle.dataset.accountDrag).catch(error => captureError('account pointer reorder', error));
+    });
+  });
+}
+
+async function reorderAccountTo(sourceId, targetId) {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  await mutate(s => {
+    const accounts = [...s.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const sourceIndex = accounts.findIndex(account => account.id === sourceId);
+    const targetIndex = accounts.findIndex(account => account.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const [item] = accounts.splice(sourceIndex, 1);
+    accounts.splice(targetIndex, 0, item);
+    accounts.forEach((account, order) => { account.order = order; });
+    s.accounts = accounts;
+  }, { undo: 'Orden de cuentas actualizado' });
+  render();
+}
+
 async function handleTool(action) {
   state.ui.importDraft = null;
   debugLog('tool action', { action });
@@ -628,8 +825,14 @@ async function handleTool(action) {
   if (action === 'debug') return openSheet('debug');
   if (action === 'reset-data') return openSheet('confirm-reset');
   if (action === 'templates') return openSheet('templates');
-  if (action === 'import-transactions') return openSheet('import-transactions');
-  if (action === 'import-catalogs') return openSheet('import-catalogs');
+  if (action === 'import-transactions') {
+    state.ui.importDraft = { kind: 'transactions', objects: [], issues: [] };
+    return openSheet('import-transactions');
+  }
+  if (action === 'import-catalogs') {
+    state.ui.importDraft = { kind: 'accounts', objects: [], issues: [] };
+    return openSheet('import-catalogs');
+  }
   if (action === 'new-account') {
     state.ui.editAccountId = '';
     return openSheet(action);
@@ -640,19 +843,129 @@ async function handleTool(action) {
   showToast('Función en preparación');
 }
 
+function openOptionPicker(config) {
+  state.ui.optionPicker = {
+    title: config.title || 'Seleccionar',
+    options: config.options || [],
+    value: config.value || '',
+    target: config.target,
+    returnSheet: config.returnSheet || state.ui.activeSheet,
+    search: ''
+  };
+  state.ui.activeSheet = 'option-picker';
+  render();
+}
+
+function optionPickerSheet() {
+  const picker = state.ui.optionPicker || {};
+  const search = picker.search || '';
+  const options = (picker.options || []).filter(option => !search || canon(option.label || option.value).includes(canon(search)));
+  return `
+    <div class="sheet-backdrop open" data-sheet-close>
+      <section class="sheet picker-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <h2 class="sheet-title">${html(picker.title || 'Seleccionar')}</h2>
+        <input class="input" data-option-search placeholder="Buscar..." value="${html(search)}" autofocus>
+        <div class="option-list">
+          ${options.map(option => `
+            <button class="option-row ${option.value === picker.value ? 'selected' : ''}" data-option-value="${html(option.value)}">
+              <span>${html(option.label || option.value)}</span>
+              ${option.value === picker.value ? icon('check') : ''}
+            </button>
+          `).join('') || '<div class="empty-state">Sin opciones</div>'}
+        </div>
+        <button class="secondary-button" data-sheet-close style="margin-top:10px;">Cerrar</button>
+      </section>
+    </div>
+  `;
+}
+
+function applyOptionSelection(value) {
+  const picker = state.ui.optionPicker;
+  if (!picker?.target) return;
+  if (picker.target === 'import.kind') {
+    state.ui.importDraft = { kind: value, objects: [], issues: [] };
+  } else if (picker.target === 'account.type') {
+    ensureAccountDraft().type = value;
+  } else if (picker.target.startsWith('recurring.')) {
+    const key = picker.target.split('.')[1];
+    ensureRecurringDraft()[key] = value;
+  } else if (picker.target.startsWith('record.')) {
+    const key = picker.target.split('.')[1];
+    if (state.ui.recordFlow) {
+      state.ui.recordFlow[key] = value;
+      if (key === 'category') state.ui.recordFlow.subcategory = '';
+    }
+  }
+  state.ui.activeSheet = picker.returnSheet || '';
+  state.ui.optionPicker = null;
+  render();
+}
+
+function pickerButton(value, placeholder, target, options, returnSheet, extraClass = '') {
+  return `
+    <button class="select-button ${extraClass}" data-open-option="${target}" data-return-sheet="${returnSheet}" data-options="${html(JSON.stringify(options))}">
+      <span>${value ? html(value) : html(placeholder)}</span>
+      ${icon('chevronDown')}
+    </button>
+  `;
+}
+
+function optionObjects(values, emptyLabel = '') {
+  const list = values.map(value => ({ value, label: value }));
+  return emptyLabel ? [{ value: '', label: emptyLabel }, ...list] : list;
+}
+
+function ensureAccountDraft() {
+  const editId = state.ui.editAccountId || '';
+  const existing = state.accounts.find(item => item.id === editId);
+  if (!state.ui.accountDraft || state.ui.accountDraft.id !== editId) {
+    state.ui.accountDraft = {
+      id: editId,
+      name: existing?.name || '',
+      type: existing?.type || 'Cuenta Corriente',
+      customType: '',
+      icon: existing?.icon || inferIcon(existing?.name || '', 'account'),
+      color: existing?.color || '#0A8FE8',
+      kpi: {
+        income: existing?.kpi?.income !== false,
+        expense: existing?.kpi?.expense !== false,
+        balance: existing?.kpi?.balance !== false,
+        available: existing?.kpi?.available !== false,
+        visible: existing?.kpi?.visible !== false
+      },
+      adjustAmount: '',
+      adjustNote: ''
+    };
+  }
+  return state.ui.accountDraft;
+}
+
+function ensureRecurringDraft() {
+  if (!state.ui.recurringDraft) {
+    state.ui.recurringDraft = { type: 'Pago', day: '1', name: '', amount: '', account: '', category: '' };
+  }
+  return state.ui.recurringDraft;
+}
+
+function selectedAccount() {
+  return state.accounts.find(account => account.id === state.ui.selectedAccountId || account.id === state.ui.editAccountId);
+}
+
 function importSheetV702(defaultKind) {
   const catalog = state.ui.activeSheet === 'import-catalogs';
   const kinds = catalog
     ? [['accounts', 'Cuentas'], ['categories', 'Categorías y subcategorías'], ['provisions', 'Provisiones'], ['recurring', 'Pagos e ingresos recurrentes']]
     : [['transactions', 'Movimientos'], ['budgets', 'Presupuesto']];
   const draft = state.ui.importDraft || { kind: defaultKind, objects: [], issues: [] };
+  const kindOptions = kinds.map(([value, label]) => ({ value, label }));
   const headers = templateHeaders[draft.kind] || [];
   return `
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet wide" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">${catalog ? 'Importar catálogos' : 'Importar datos'}</h2>
-        <div class="field"><label>Tipo</label><select data-import-kind class="select-like">${kinds.map(([k, label]) => `<option value="${k}" ${draft.kind === k ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
+        <div class="field"><label>Tipo</label>${pickerButton(kinds.find(([k]) => k === draft.kind)?.[1] || draft.kind, 'Seleccionar', 'import.kind', kindOptions, state.ui.activeSheet)}</div>
         <label class="import-dropzone">
           <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('fileUp')}</span>
           <span><strong>Seleccionar CSV</strong><small>Se validará antes de guardar</small></span>
@@ -689,38 +1002,136 @@ function importRowCard(row, index, headers, issues = []) {
   `;
 }
 
-function importSheet(defaultKind) {
-  const catalog = state.ui.activeSheet === 'import-catalogs';
-  const kinds = catalog
-    ? [['accounts', 'Cuentas'], ['categories', 'Categorías y subcategorías'], ['provisions', 'Provisiones'], ['recurring', 'Pagos e ingresos recurrentes']]
-    : [['transactions', 'Movimientos'], ['budgets', 'Presupuesto']];
-  const draft = state.ui.importDraft || { kind: defaultKind, objects: [], issues: [] };
+function accountActionsSheet() {
+  const account = selectedAccount();
+  if (!account) return '';
   return `
     <div class="sheet-backdrop open" data-sheet-close>
-      <section class="sheet wide" onclick="event.stopPropagation()">
+      <section class="sheet" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
-        <h2 class="sheet-title">${catalog ? 'Importar catálogos' : 'Importar datos'}</h2>
-        <div class="field"><label>Tipo</label><select data-import-kind>${kinds.map(([k, label]) => `<option value="${k}" ${draft.kind === k ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
-        <label class="card" style="display:grid;place-items:center;gap:8px;text-align:center;">
-          ${icon('fileUp')}<strong>Seleccionar CSV</strong><small class="muted">Se validará antes de guardar</small>
-          <input type="file" accept=".csv,text/csv" data-import-file class="file-input-native">
-        </label>
-        ${draft.objects?.length ? `<div class="card"><strong>${draft.objects.length} filas leídas</strong><p class="muted">${draft.issues.length ? `${draft.issues.length} filas requieren revisión.` : 'Sin errores detectados.'}</p></div>` : ''}
-        ${draft.issues?.length ? draft.issues.map(issue => `<div class="import-preview-row issue"><strong>Fila ${issue.row.__row}</strong><small>${issue.fields.join(' · ')}</small><pre style="white-space:pre-wrap;margin:0;">${JSON.stringify(issue.row, null, 2)}</pre></div>`).join('') : ''}
-        ${draft.objects?.length ? '<button class="primary-button" data-import-confirm>Confirmar importación</button>' : ''}
+        <div class="account-form-preview">
+          <span class="icon-preview-medium" style="background:${account.color || '#0A8FE8'};color:#fff;">${icon(account.icon || 'landmark')}</span>
+          <div><strong>${html(account.name)}</strong><small>${html(account.type || 'Cuenta Corriente')}</small></div>
+        </div>
+        ${accountActionRow('account-kpis', 'settings', 'KPIs', 'Define qué métricas impacta esta cuenta')}
+        ${accountActionRow('account-icon', 'sparkles', 'Cambiar icono', 'Biblioteca para cuentas y categorías')}
+        ${accountActionRow('account-color', 'pie', 'Cambiar color', 'Color de fondo del icono')}
+        ${accountActionRow('account-name-type', 'edit', 'Nombre y tipo', 'Edita nombre y clasificación')}
+        ${accountActionRow('account-adjust', 'badgeDollar', 'Ajustar saldo', 'Crea movimiento auditable')}
         <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
       </section>
     </div>
   `;
 }
 
-function accountSheetV702() {
-  const editId = state.ui.editAccountId || '';
-  const account = state.accounts.find(item => item.id === editId);
-  const type = account?.type || 'Cuenta Corriente';
+function accountActionRow(sheet, iconName, title, subtitle) {
+  return `<button class="settings-row" data-account-action="${sheet}"><span class="row-icon solid-icon" style="background:var(--blue);color:#fff;">${icon(iconName)}</span><span><strong>${title}</strong><small>${subtitle}</small></span>${icon('chevronRight')}</button>`;
+}
+
+function accountKpiSheet() {
+  const draft = ensureAccountDraft();
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">KPIs de cuenta</h2>
+      <div class="switch-grid single">
+        ${formKpiSwitch('income', 'Ingresos', draft.kpi?.income !== false)}
+        ${formKpiSwitch('expense', 'Gastos', draft.kpi?.expense !== false)}
+        ${formKpiSwitch('balance', 'Balance total', draft.kpi?.balance !== false)}
+        ${formKpiSwitch('available', 'Disponible', draft.kpi?.available !== false)}
+        ${formKpiSwitch('visible', 'Visible en Balances', draft.kpi?.visible !== false)}
+      </div>
+      <button class="primary-button" data-save-account-section="kpis">Guardar KPIs</button>
+      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+    </section></div>
+  `;
+}
+
+function accountIconSheet() {
+  const draft = ensureAccountDraft();
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide icon-picker-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-head-row">
+        <button class="ghost-icon" data-sheet-close aria-label="Cerrar">${icon('x')}</button>
+        <h2 class="sheet-title">Cambiar icono</h2>
+        <button class="done-button" data-save-account-section="icon">Hecho</button>
+      </div>
+      <div class="icon-preview-large" style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'landmark')}</div>
+      ${groupedAccountIcons(draft)}
+    </section></div>
+  `;
+}
+
+function accountColorSheet() {
+  const draft = ensureAccountDraft();
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide icon-picker-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-head-row">
+        <button class="ghost-icon" data-sheet-close aria-label="Cerrar">${icon('x')}</button>
+        <h2 class="sheet-title">Cambiar color</h2>
+        <button class="done-button" data-save-account-section="color">Hecho</button>
+      </div>
+      <div class="icon-preview-large" style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'landmark')}</div>
+      <div class="color-circle-grid color-sheet-grid">
+        ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${draft.color === color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}
+      </div>
+    </section></div>
+  `;
+}
+
+function groupedAccountIcons(draft) {
+  const accountIcons = ICON_CATALOG.slice(0, 24);
+  const categoryIcons = ICON_CATALOG.slice(24);
+  return `
+    <h3 class="picker-group-title">Cuentas</h3>
+    <div class="icon-circle-grid">${accountIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
+    <h3 class="picker-group-title">Categorías</h3>
+    <div class="icon-circle-grid">${categoryIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
+  `;
+}
+
+function accountNameTypeSheet() {
+  const draft = ensureAccountDraft();
   const knownTypes = [...new Set([...(state.accountTypes || []), 'Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'])];
-  const iconName = account?.icon || inferIcon(account?.name || '', 'account');
-  const color = account?.color || '#0A8FE8';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Nombre y tipo</h2>
+      <div class="field"><label>Nombre</label><input class="input" data-account-draft-field="name" value="${html(draft.name || '')}" placeholder="Nombre de cuenta"></div>
+      <div class="field"><label>Tipo de cuenta</label>${pickerButton(draft.type, 'Seleccionar tipo', 'account.type', optionObjects(knownTypes), 'account-name-type')}</div>
+      <div class="field"><label>Otro tipo</label><input class="input" data-account-draft-field="customType" value="${html(draft.customType || '')}" placeholder="Personalizado" ${draft.type === 'Otro' ? '' : 'disabled'}></div>
+      <button class="primary-button" data-save-account-section="name-type">Guardar cambios</button>
+      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+    </section></div>
+  `;
+}
+
+function accountAdjustSheet() {
+  const account = selectedAccount();
+  const draft = ensureAccountDraft();
+  if (!account) return '';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Ajustar saldo</h2>
+      <p class="muted">Se creará un movimiento auditable que afecta saldo, pero no ingresos, gastos ni presupuesto.</p>
+      <div class="field"><label>Cuenta</label><div class="readonly-field">${html(account.name)}</div></div>
+      <div class="field"><label>Monto del ajuste</label><input class="input" data-account-draft-field="adjustAmount" inputmode="decimal" value="${html(draft.adjustAmount || '')}" placeholder="Ej. 25.00 o -10.00"></div>
+      <div class="field"><label>Nota</label><input class="input" data-account-draft-field="adjustNote" value="${html(draft.adjustNote || '')}" placeholder="Motivo del ajuste"></div>
+      <button class="primary-button" data-save-account-section="adjust">Crear ajuste</button>
+      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+    </section></div>
+  `;
+}
+
+function accountSheetV704() {
+  const draft = ensureAccountDraft();
+  const account = state.accounts.find(item => item.id === draft.id);
+  const type = draft.type || 'Cuenta Corriente';
+  const knownTypes = [...new Set([...(state.accountTypes || []), 'Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'])];
+  const typeOptions = optionObjects(knownTypes);
+  const iconName = draft.icon || inferIcon(draft.name || '', 'account');
+  const color = draft.color || '#0A8FE8';
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
@@ -728,16 +1139,14 @@ function accountSheetV702() {
       <div class="account-form-preview">
         <span class="icon-preview-medium" data-form-icon-preview style="background:${color};color:#fff;">${icon(iconName)}</span>
         <div>
-          <strong>${account ? html(account.name) : 'Cuenta nueva'}</strong>
+          <strong>${draft.name ? html(draft.name) : 'Cuenta nueva'}</strong>
           <small>Define icono, color, tipo y KPIs antes de guardar.</small>
         </div>
       </div>
-      <input type="hidden" data-create-field="icon" value="${iconName}">
-      <input type="hidden" data-create-field="color" value="${color}">
-      <div class="field"><label>Nombre</label><input class="input" data-create-field="name" value="${html(account?.name || '')}" placeholder="Nombre de cuenta"></div>
+      <div class="field"><label>Nombre</label><input class="input" data-account-draft-field="name" value="${html(draft.name || '')}" placeholder="Nombre de cuenta"></div>
       <div class="two-col">
-        <div class="field"><label>Tipo de cuenta</label><select data-create-field="type" class="select-like">${knownTypes.map(item => `<option value="${html(item)}" ${item === type ? 'selected' : ''}>${html(item)}</option>`).join('')}</select></div>
-        <div class="field"><label>Otro tipo</label><input class="input" data-create-field="customType" placeholder="Personalizado"></div>
+        <div class="field"><label>Tipo de cuenta</label>${pickerButton(type, 'Seleccionar tipo', 'account.type', typeOptions, 'new-account')}</div>
+        <div class="field"><label>Otro tipo</label><input class="input" data-account-draft-field="customType" value="${html(draft.customType || '')}" placeholder="Personalizado" ${type === 'Otro' ? '' : 'disabled'}></div>
       </div>
       <div class="inline-picker-card">
         <div class="inline-picker-head"><strong>Icono y color</strong><small>Selecciona un icono; el color se aplica al fondo.</small></div>
@@ -745,11 +1154,11 @@ function accountSheetV702() {
         <div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(item => `<button class="color-circle-choice ${item === color ? 'active' : ''}" style="background:${item}" data-form-color="${item}" aria-label="${item}"></button>`).join('')}</div>
       </div>
       <div class="switch-grid">
-        ${formKpiSwitch('income', 'Ingresos', account?.kpi?.income !== false)}
-        ${formKpiSwitch('expense', 'Gastos', account?.kpi?.expense !== false)}
-        ${formKpiSwitch('balance', 'Balance', account?.kpi?.balance !== false)}
-        ${formKpiSwitch('available', 'Disponible', account?.kpi?.available !== false)}
-        ${formKpiSwitch('visible', 'Visible', account?.kpi?.visible !== false)}
+        ${formKpiSwitch('income', 'Ingresos', draft.kpi?.income !== false)}
+        ${formKpiSwitch('expense', 'Gastos', draft.kpi?.expense !== false)}
+        ${formKpiSwitch('balance', 'Balance', draft.kpi?.balance !== false)}
+        ${formKpiSwitch('available', 'Disponible', draft.kpi?.available !== false)}
+        ${formKpiSwitch('visible', 'Visible', draft.kpi?.visible !== false)}
       </div>
       <button class="primary-button" data-create-action="${account ? 'update-account' : 'create-account'}">${account ? 'Guardar cuenta' : 'Crear cuenta'}</button>
       <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
@@ -780,13 +1189,14 @@ function provisionSheet() {
 }
 
 function recurringSheet() {
+  const draft = ensureRecurringDraft();
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Pagos e ingresos recurrentes</h2>
-      <div class="two-col"><div class="field"><label>Tipo</label><select data-rec-field="type"><option>Pago</option><option>Ingreso</option></select></div><div class="field"><label>Día mensual</label><input class="input" data-rec-field="day" inputmode="numeric" value="1"></div></div>
-      <div class="field"><label>Nombre</label><input class="input" data-rec-field="name" placeholder="Internet, tarjeta, salario..."></div>
-      <div class="two-col"><div class="field"><label>Monto esperado</label><input class="input" data-rec-field="amount" inputmode="decimal" placeholder="Opcional"></div><div class="field"><label>Cuenta</label><select data-rec-field="account"><option value="">Sin cuenta</option>${state.accounts.map(a => `<option>${a.name}</option>`).join('')}</select></div></div>
-      <div class="field"><label>Categoría</label><select data-rec-field="category"><option value="">Sin categoría</option>${state.categories.map(c => `<option>${c.name}</option>`).join('')}</select></div>
+      <div class="two-col"><div class="field"><label>Tipo</label>${pickerButton(draft.type, 'Tipo', 'recurring.type', optionObjects(['Pago', 'Ingreso']), 'recurring')}</div><div class="field"><label>Día mensual</label><input class="input" data-rec-draft-field="day" inputmode="numeric" value="${html(draft.day || '1')}"></div></div>
+      <div class="field"><label>Nombre</label><input class="input" data-rec-draft-field="name" value="${html(draft.name || '')}" placeholder="Internet, tarjeta, salario..."></div>
+      <div class="two-col"><div class="field"><label>Monto esperado</label><input class="input" data-rec-draft-field="amount" inputmode="decimal" value="${html(draft.amount || '')}" placeholder="Opcional"></div><div class="field"><label>Cuenta</label>${pickerButton(draft.account, 'Sin cuenta', 'recurring.account', optionObjects(state.accounts.map(a => a.name), 'Sin cuenta'), 'recurring')}</div></div>
+      <div class="field"><label>Categoría</label>${pickerButton(draft.category, 'Sin categoría', 'recurring.category', optionObjects(state.categories.map(c => c.name), 'Sin categoría'), 'recurring')}</div>
       <button class="primary-button" data-save-recurring>Guardar recurrencia</button><button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
     </section></div>
   `;
@@ -1032,11 +1442,6 @@ document.addEventListener('input', event => {
 });
 
 document.addEventListener('change', event => {
-  if (event.target.matches('[data-import-kind]')) {
-    debugLog('import kind changed', { kind: event.target.value });
-    state.ui.importDraft = { kind: event.target.value, objects: [], issues: [] };
-    render();
-  }
   if (event.target.matches('[data-import-file]')) {
     readImportFile(event.target.files[0]).catch(error => captureError('import csv', error));
   }
@@ -1063,7 +1468,7 @@ async function readImportFile(file) {
   const text = await file.text();
   const parsed = parseCSV(text);
   const objects = rowsToObjects(parsed.rows);
-  const kind = state.ui.importDraft?.kind || 'transactions';
+  const kind = state.ui.importDraft?.kind || (state.ui.activeSheet === 'import-catalogs' ? 'accounts' : 'transactions');
   state.ui.importDraft = {
     kind,
     objects,

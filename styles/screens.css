@@ -71,9 +71,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   list-style: none;
   color: var(--text-muted);
   font-weight: 760;
+}
+
+.hidden-details summary svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
 }
 
 .hidden-details summary::-webkit-details-marker {
@@ -592,9 +599,40 @@
   stroke: currentColor;
 }
 
+.row-subtitle.stacked {
+  display: grid;
+  gap: 2px;
+}
+
+.row-subtitle.stacked em {
+  font-style: italic;
+  font-size: 12px;
+  color: var(--blue);
+}
+
+.drag-hint {
+  margin: 6px 4px 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drag-hint svg {
+  width: 17px;
+  height: 17px;
+}
+
 .account-admin-card {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+  padding: 14px;
+}
+
+.account-admin-card.dragging {
+  opacity: .68;
+  transform: scale(.99);
 }
 
 .account-admin-head,
@@ -607,10 +645,23 @@
   gap: 12px;
 }
 
+.account-admin-head {
+  cursor: grab;
+  touch-action: none;
+}
+
 .account-admin-head .row-main,
 .account-form-preview div,
 .sheet-head-row h2 {
   flex: 1;
+}
+
+.compact-edit {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
 }
 
 .account-order-row {
@@ -628,6 +679,11 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.switch-grid.single {
+  grid-template-columns: 1fr;
+  margin-bottom: 14px;
 }
 
 .switch-row {
@@ -703,6 +759,60 @@
   display: grid;
   gap: 11px;
   overflow: hidden;
+}
+
+.readonly-field,
+.select-button {
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--text);
+  padding: 11px 14px;
+}
+
+.select-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+}
+
+.select-button svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+
+.picker-sheet {
+  min-height: min(54vh, 460px);
+}
+
+.option-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.option-row {
+  min-height: 54px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  color: var(--text);
+  font-weight: 760;
+}
+
+.option-row.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 
 .inline-picker-head {
@@ -791,6 +901,36 @@
 .icon-circle-grid,
 .color-circle-grid {
   grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+}
+
+.color-sheet-grid {
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+}
+
+.color-sheet-grid .color-circle-choice {
+  width: 54px;
+  height: 54px;
+}
+
+.select-flow {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.select-flow small,
+.select-flow strong {
+  grid-column: 1;
+}
+
+.select-flow svg {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
 }
 
 .picker-group-title {

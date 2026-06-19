@@ -44,10 +44,10 @@ function accountRow(account, balance) {
   const color = account.color || '#0A8FE8';
   return `
     <button class="row-card" data-audit-account="${account.name}">
-      <span class="row-icon" style="background:${softColor(color)};color:${color}">${icon(account.icon || 'landmark')}</span>
+      <span class="row-icon solid-icon" style="background:${color};color:#fff;">${icon(account.icon || 'landmark')}</span>
       <span class="row-main">
         <span class="row-title">${account.name}</span>
-        <span class="row-subtitle">${account.type || 'Cuenta'} · doble toque audita</span>
+        <span class="row-subtitle stacked"><span>${account.type || 'Cuenta'}</span><em>doble toque audita</em></span>
       </span>
       <span class="row-amount ${balance < 0 ? 'neg' : ''}">${balance < 0 ? '-' : ''}${formatMoney(balance)}</span>
       <span class="chevron">${icon('chevronRight')}</span>
@@ -75,7 +75,7 @@ function renderProvisionCard(state) {
     </div>
     <div class="progress" style="margin:14px 0 10px;"><span style="width:${reserve ? Math.min(100, assigned / reserve * 100) : 0}%;background:${available < 0 ? 'var(--red)' : 'var(--amber)'}"></span></div>
     <div class="row-card" style="grid-template-columns:1fr auto;"><strong>Disponible sin asignar</strong><strong class="${available < 0 ? 'danger' : 'blue'}">${formatMoney(available)}</strong></div>
-    <details class="hidden-details"><summary>Provisiones individuales (${provisions.length}) ${icon('chevronDown')}</summary>${provisions.length ? provisions.map(p => `<div class="row-card"><span class="row-icon" style="background:${softColor(p.color || '#C68000')};color:${p.color || '#C68000'}">${icon(p.icon || 'shield')}</span><span class="row-title">${p.name}</span><strong>${formatMoney(p.balance || 0)}</strong></div>`).join('') : emptyState('shield', 'Sin provisiones', 'Crea una provisión desde Planeación')}</details>
+    <details class="hidden-details"><summary>Provisiones individuales (${provisions.length}) ${icon('chevronDown')}</summary>${provisions.length ? provisions.map(p => `<div class="row-card"><span class="row-icon solid-icon" style="background:${p.color || '#C68000'};color:#fff;">${icon(p.icon || 'shield')}</span><span class="row-title">${p.name}</span><strong>${formatMoney(p.balance || 0)}</strong></div>`).join('') : emptyState('shield', 'Sin provisiones', 'Crea una provisión desde Planeación')}</details>
   `);
 }
 
