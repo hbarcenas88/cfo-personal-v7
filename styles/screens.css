@@ -365,7 +365,9 @@
 
 .record-body {
   overflow: auto;
-  padding: 10px 16px calc(24px + var(--safe-bottom));
+  padding: 10px 16px calc(14px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
 }
 
 .amount-hero {
@@ -414,7 +416,8 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 12px;
+  margin-bottom: 0;
 }
 
 .keypad button {
@@ -435,6 +438,7 @@
   background: var(--blue);
   color: #fff;
   border-color: var(--blue);
+  font-size: 30px;
 }
 
 .keypad.income .confirm {
@@ -646,8 +650,8 @@
 }
 
 .account-admin-head {
-  cursor: grab;
-  touch-action: none;
+  cursor: default;
+  touch-action: auto;
 }
 
 .account-admin-head .row-main,
@@ -665,14 +669,23 @@
 }
 
 .account-order-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .account-order-row .chip {
-  min-height: 40px;
+  min-height: 36px;
+  min-width: 36px;
   justify-content: center;
+}
+
+.account-order-row .chip:disabled {
+  opacity: .35;
+}
+
+.catalog-row {
+  grid-template-columns: auto 1fr auto;
 }
 
 .switch-grid {
@@ -761,6 +774,43 @@
   overflow: hidden;
 }
 
+.compact-tabs,
+.picker-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 4px;
+  background: #fff;
+}
+
+.compact-tabs button,
+.picker-tabs button {
+  border: 0;
+  border-radius: 12px;
+  min-height: 42px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.compact-tabs button.active,
+.picker-tabs button.active {
+  background: var(--blue);
+  color: #fff;
+}
+
+.compact-tabs svg,
+.picker-tabs svg {
+  width: 18px;
+  height: 18px;
+}
+
 .readonly-field,
 .select-button {
   min-height: 52px;
@@ -787,7 +837,12 @@
 }
 
 .picker-sheet {
-  min-height: min(54vh, 460px);
+  min-height: auto;
+  max-height: min(72vh, 560px);
+}
+
+.picker-sheet.has-search {
+  min-height: min(42vh, 360px);
 }
 
 .option-list {
@@ -807,6 +862,12 @@
   padding: 10px 12px;
   color: var(--text);
   font-weight: 760;
+}
+
+.option-row svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
 }
 
 .option-row.selected {
@@ -973,44 +1034,58 @@
   overflow: hidden;
 }
 
-.account-create-button {
+.account-create-button,
+.catalog-create-button {
   width: 100%;
-  min-height: 92px;
+  min-height: 76px;
   border: 0;
   background: linear-gradient(135deg, var(--blue) 0%, #36b7ff 100%);
   color: #fff;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 14px;
   text-align: left;
 }
 
-.account-create-button .create-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 18px;
+.account-create-button .create-icon,
+.catalog-create-button .create-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
   background: rgba(255, 255, 255, .18);
   display: grid;
   place-items: center;
 }
 
-.account-create-button .create-icon svg {
-  width: 28px;
-  height: 28px;
+.account-create-button .create-icon svg,
+.catalog-create-button .create-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
-.account-create-button strong {
+.account-create-button strong,
+.catalog-create-button strong {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.1;
 }
 
-.account-create-button small {
+.account-create-button small,
+.catalog-create-button small {
   display: block;
   margin-top: 4px;
   color: rgba(255, 255, 255, .78);
+}
+
+.danger-action-row {
+  color: var(--red);
+}
+
+.danger-action-row .row-icon {
+  background: var(--red-soft) !important;
+  color: var(--red) !important;
 }
 
 .account-form-preview {
@@ -1100,6 +1175,18 @@
   .inline-picker-head small {
     max-width: none;
     text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .flow-pair,
+  .balance-combo-card {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-combo-item + .balance-combo-item {
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 }
 

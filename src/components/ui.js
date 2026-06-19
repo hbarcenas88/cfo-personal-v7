@@ -154,7 +154,7 @@ export function card(children, classes = '') {
   return `<div class="card ${classes}">${children}</div>`;
 }
 
-export function metricCard({ title, value, note, iconName, color = 'var(--blue)', wide = false, delta = null }) {
+export function metricCard({ title, value, note, iconName, color = 'var(--blue)', wide = false, compact = false, delta = null }) {
   const deltaText = delta === null ? '' : `<div class="metric-note ${delta >= 0 ? 'success' : 'danger'}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(1)}%</div>`;
   return card(`
     <div class="metric-top">
@@ -165,7 +165,7 @@ export function metricCard({ title, value, note, iconName, color = 'var(--blue)'
     <div class="metric-value money" style="color:${color}">${value}</div>
     <div class="metric-note">${note || ''}</div>
     ${sparkline(color)}
-  `, `metric-card ${wide ? 'wide' : ''}`);
+  `, `metric-card ${wide ? 'wide' : ''} ${compact ? 'compact' : ''}`);
 }
 
 export function softColor(color) {

@@ -48,6 +48,16 @@ function renderTools() {
   `, 'tool-card');
 }
 
+function createCatalogCard(label, action, iconName = 'plus') {
+  return card(`
+    <button class="catalog-create-button" data-tool="${action}">
+      <span class="create-icon">${icon(iconName)}</span>
+      <span><strong>${label}</strong><small>Crear desde un formulario guiado.</small></span>
+      ${icon('chevronRight')}
+    </button>
+  `, 'account-create-card');
+}
+
 function renderPlanning(state) {
   return `
     ${card(`${tool('budget-planner', 'calendar', 'Planeación presupuestaria', 'Crea o ajusta presupuesto mensual')}${tool('provision-planner', 'shield', 'Planeación de provisiones', 'Reserva mensual y distribución conceptual')}${tool('recurring', 'calendarClock', 'Pagos e ingresos recurrentes', 'Recordatorios mensuales')}`, 'tool-card')}
@@ -67,7 +77,7 @@ function renderAccountsAdmin(state) {
   const accounts = [...state.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   return `
     ${card(`<button class="account-create-button" data-tool="new-account"><span class="create-icon">${icon('plus')}</span><span><strong>Nueva cuenta</strong><small>Define nombre, tipo, icono, color y KPIs.</small></span>${icon('chevronRight')}</button>`, 'account-create-card')}
-    ${accounts.length ? `<div class="drag-hint">${icon('listChecks')} Arrastra las cuentas para cambiar el orden de visualización.</div>` : ''}
+    ${accounts.length ? `<div class="drag-hint">${icon('listChecks')} Usa las flechas para ajustar el orden de visualización.</div>` : ''}
     ${accounts.length ? accounts.map((account, index) => accountAdminCard(account, index, accounts.length)).join('') : card(emptyState('landmark', 'Sin cuentas', 'Crea una cuenta o importa catálogos para empezar'))}
   `;
 }
@@ -75,11 +85,15 @@ function renderAccountsAdmin(state) {
 function accountAdminCard(account, index, total) {
   const color = account.color || '#0A8FE8';
   return card(`
-    <div class="account-admin-head" draggable="true" data-account-drag="${account.id}">
+    <div class="account-admin-head">
       <span class="row-icon solid-icon" style="background:${color};color:#fff;">${icon(account.icon || 'landmark')}</span>
       <span class="row-main">
         <span class="row-title">${html(account.name)}</span>
         <span class="row-subtitle">${html(account.type || 'Cuenta Corriente')}</span>
+      </span>
+      <span class="account-order-row">
+        <button class="chip" data-account-move="${account.id}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Subir cuenta">${icon('chevronUp')}</button>
+        <button class="chip" data-account-move="${account.id}" data-direction="1" ${index === total - 1 ? 'disabled' : ''} aria-label="Bajar cuenta">${icon('chevronDown')}</button>
       </span>
       <button class="ghost-icon compact-edit" data-account-actions="${account.id}" aria-label="Editar cuenta">${icon('edit')}</button>
     </div>
@@ -99,14 +113,14 @@ function kpiSwitch(account, key, label) {
 
 function renderCategoriesAdmin(state) {
   return `
-    ${card(`<button class="primary-button" data-tool="new-category">${icon('plus')} Nueva categoría</button>`, 'tool-card')}
+    ${createCatalogCard('Nueva categoría', 'new-category', 'plus')}
     ${card(`<h3 style="margin-top:0;">Categorías (${state.categories.length})</h3>${state.categories.length ? state.categories.map(c => catalogRow(c, 'category')).join('') : emptyState('tags', 'Sin categorías')}`)}
   `;
 }
 
 function renderProvisionsAdmin(state) {
   return `
-    ${card(`<button class="primary-button" data-tool="new-provision">${icon('plus')} Nueva provisión</button>`, 'tool-card')}
+    ${createCatalogCard('Nueva provisión', 'new-provision', 'plus')}
     ${card(`<h3 style="margin-top:0;">Provisiones (${state.provisions.length})</h3>${state.provisions.length ? state.provisions.map(p => catalogRow(p, 'provision')).join('') : emptyState('shield', 'Sin provisiones')}`)}
   `;
 }
@@ -179,7 +193,8 @@ function settingsLink(page, iconName, title, subtitle) {
 }
 
 function catalogRow(item, type) {
-  return `<div class="row-card"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${type === 'category' ? `${item.subcategories?.length || 0} subcategorías` : item.type || 'Cuenta'}</span></span><button class="chip" data-open-icon="${type}:${item.id}">Icono</button></div>`;
+  const subtitle = type === 'category' ? `${item.subcategories?.length || 0} subcategorías` : item.type || 'Cuenta';
+  return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(subtitle)}</span></span><button class="chip" data-open-icon="${type}:${item.id}">Icono</button></div>`;
 }
 
 function yes(value) {

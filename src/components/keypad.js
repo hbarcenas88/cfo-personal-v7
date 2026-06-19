@@ -8,7 +8,7 @@ export function renderKeypad({ value = '', variant = 'expense', currency = 'USD'
       ${key('7')}
       ${key('8')}
       ${key('9')}
-      ${key('back', 'op', icon('chevronLeft'))}
+      ${key('back', 'op', icon('backspace'))}
       ${key('×', 'op')}
       ${key('4')}
       ${key('5')}
@@ -18,7 +18,7 @@ export function renderKeypad({ value = '', variant = 'expense', currency = 'USD'
       ${key('1')}
       ${key('2')}
       ${key('3')}
-      ${key('confirm', 'confirm', icon('check'))}
+      ${key('confirm', 'confirm', '=')}
       ${key('+', 'op')}
       ${key('currency', 'op', currency)}
       ${key('0')}

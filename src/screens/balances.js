@@ -10,11 +10,10 @@ export function renderBalances(state) {
   const visible = ordered.filter(account => account.kpi?.visible !== false);
   const hidden = ordered.filter(account => account.kpi?.visible === false);
   return `
-    <div class="metric-grid">
-      ${metricCard({ title: 'Balance total', value: formatSignedMoney(data.balanceTotal), note: `${data.includedAccounts} de ${data.totalAccounts} cuentas · hasta ${formatDate(monthEnd(state.period.month || new Date().toISOString().slice(0, 7)))}`, iconName: 'walletCards', color: data.balanceTotal < 0 ? 'var(--red)' : 'var(--blue)', wide: true })}
-      ${metricCard({ title: 'Disponible', value: formatSignedMoney(data.available), note: `${data.availableAccounts} de ${data.totalAccounts} cuentas · menos reserva`, iconName: 'badgeDollar', color: data.available < 0 ? 'var(--red)' : 'var(--green)' })}
-      ${metricCard({ title: 'Ingresos período', value: formatMoney(data.income), note: 'Según selector de período', iconName: 'arrowUpRight', color: 'var(--green)', delta: data.incomeDelta })}
-      ${metricCard({ title: 'Gastos período', value: formatMoney(data.expense), note: 'Sin transferencias', iconName: 'arrowDownRight', color: 'var(--red)', delta: data.expenseDelta })}
+    <div class="metric-grid balances-metrics">
+      ${balanceComboCard(data, state)}
+      ${metricCard({ title: 'Ingresos período', value: formatMoney(data.income), note: 'Según selector de período', iconName: 'arrowUpRight', color: 'var(--green)', compact: true, delta: data.incomeDelta })}
+      ${metricCard({ title: 'Gastos período', value: formatMoney(data.expense), note: 'Sin transferencias', iconName: 'arrowDownRight', color: 'var(--red)', compact: true, delta: data.expenseDelta })}
     </div>
     <div class="section-title"><h2>Saldos por cuenta</h2></div>
     ${card(renderAccountList(visible, balances, 'Sin cuentas visibles', 'Crea una cuenta o importa catálogos para empezar') + renderHiddenAccounts(hidden, balances) + renderAccountTotal(data.balanceTotal), 'account-total-card')}
@@ -22,6 +21,37 @@ export function renderBalances(state) {
     ${renderProvisionCard(state)}
     <div class="section-title"><h2>Próximos pagos e ingresos</h2><button class="chip" data-settings="planning">${icon('calendarClock')} Administrar</button></div>
     ${card(renderUpcoming(state))}
+  `;
+}
+
+function balanceComboCard(data, state) {
+  const cutoff = formatDate(monthEnd(state.period.month || new Date().toISOString().slice(0, 7)));
+  return card(`
+    ${balanceMetricItem({
+      title: 'Balance total',
+      value: formatSignedMoney(data.balanceTotal),
+      noteLines: [`${data.includedAccounts} de ${data.totalAccounts} cuentas`, `hasta ${cutoff}`],
+      iconName: 'walletCards',
+      color: data.balanceTotal < 0 ? 'var(--red)' : 'var(--blue)'
+    })}
+    ${balanceMetricItem({
+      title: 'Disponible',
+      value: formatSignedMoney(data.available),
+      noteLines: [`${data.availableAccounts} de ${data.totalAccounts} cuentas`, 'menos reserva'],
+      iconName: 'badgeDollar',
+      color: data.available < 0 ? 'var(--red)' : 'var(--green)'
+    })}
+  `, 'balance-combo-card');
+}
+
+function balanceMetricItem({ title, value, noteLines, iconName, color }) {
+  return `
+    <div class="balance-combo-item">
+      <span class="metric-icon" style="background:${softColor(color)};color:${color}">${icon(iconName)}</span>
+      <div class="metric-title">${title}</div>
+      <div class="metric-value money" style="color:${color}">${value}</div>
+      <div class="metric-note">${noteLines.map(line => `<span>${line}</span>`).join('')}</div>
+    </div>
   `;
 }
 

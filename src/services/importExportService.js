@@ -13,6 +13,7 @@ export const templateHeaders = {
 };
 
 export function parseCSV(text) {
+  text = String(text || '').replace(/^\uFEFF/, '');
   const delimiter = detectDelimiter(text);
   const rows = [];
   let row = [];
@@ -70,7 +71,8 @@ export function toCSV(headers, rows) {
 }
 
 export function downloadText(filename, text, type = 'text/csv;charset=utf-8') {
-  const blob = new Blob([text], { type });
+  const payload = type.includes('text/csv') && !String(text).startsWith('\uFEFF') ? `\uFEFF${text}` : text;
+  const blob = new Blob([payload], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

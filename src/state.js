@@ -298,6 +298,54 @@ export async function updateAccount(id, payload) {
   return true;
 }
 
+export function accountDeleteImpact(id) {
+  const account = state.accounts.find(item => item.id === id);
+  if (!account) return { account: null, transactions: 0, transfers: 0, budgets: 0, recurring: 0 };
+  const key = canon(account.name);
+  const direct = state.transactions.filter(tx => canon(tx.account) === key || canon(tx.accountTo) === key);
+  const transferIds = new Set(direct.map(tx => tx.transferId).filter(Boolean));
+  const transactionIds = new Set(
+    state.transactions
+      .filter(tx => canon(tx.account) === key || canon(tx.accountTo) === key || (tx.transferId && transferIds.has(tx.transferId)))
+      .map(tx => tx.id)
+  );
+  return {
+    account,
+    transactions: transactionIds.size,
+    transfers: transferIds.size,
+    budgets: state.budgets.filter(row => canon(row.account) === key).length,
+    recurring: state.recurring.filter(row => canon(row.account) === key).length
+  };
+}
+
+export async function deleteAccount(id) {
+  const impact = accountDeleteImpact(id);
+  if (!impact.account) {
+    showToast('Cuenta no encontrada');
+    return false;
+  }
+  const key = canon(impact.account.name);
+  await mutate(s => {
+    const direct = s.transactions.filter(tx => canon(tx.account) === key || canon(tx.accountTo) === key);
+    const transferIds = new Set(direct.map(tx => tx.transferId).filter(Boolean));
+    s.transactions = s.transactions.filter(tx =>
+      canon(tx.account) !== key &&
+      canon(tx.accountTo) !== key &&
+      !(tx.transferId && transferIds.has(tx.transferId))
+    );
+    s.budgets = s.budgets.filter(row => canon(row.account) !== key);
+    s.recurring.forEach(row => {
+      if (canon(row.account) === key) row.account = '';
+    });
+    s.accounts = s.accounts
+      .filter(account => account.id !== id)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((account, order) => ({ ...account, order }));
+  }, { undo: 'Cuenta eliminada' });
+  showToast('Cuenta eliminada');
+  return true;
+}
+
 export async function moveAccount(id, direction) {
   await mutate(s => {
     const accounts = s.accounts.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));

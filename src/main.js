@@ -9,7 +9,7 @@ import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderSettings, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
-import { addAccount, addCategory, addProvision, closeSheet, convertToTransfer, createBalanceAdjustment, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subscribe, updateAccount } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subscribe, updateAccount } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
@@ -151,6 +151,7 @@ function renderActiveSheet() {
   if (sheet === 'account-color') return accountColorSheet();
   if (sheet === 'account-name-type') return accountNameTypeSheet();
   if (sheet === 'account-adjust') return accountAdjustSheet();
+  if (sheet === 'confirm-delete-account') return confirmDeleteAccountSheet();
   if (sheet === 'import-transactions') return importSheetV702('transactions');
   if (sheet === 'import-catalogs') return importSheetV702('accounts');
   if (sheet === 'new-account') return accountSheetV704();
@@ -601,9 +602,23 @@ function bindSheetActions() {
     draft.kpi = { ...(draft.kpi || {}) };
     draft.kpi[input.dataset.accountFormKpi] = input.checked;
   }));
+  document.querySelectorAll('[data-account-picker-tab]').forEach(button => button.addEventListener('click', () => {
+    ensureAccountDraft().pickerTab = button.dataset.accountPickerTab;
+    render();
+  }));
   document.querySelectorAll('[data-save-account-section]').forEach(button => button.addEventListener('click', async event => {
     event.preventDefault();
     await saveAccountSection(button.dataset.saveAccountSection);
+  }));
+  document.querySelectorAll('[data-confirm-delete-account]').forEach(button => button.addEventListener('click', async event => {
+    event.preventDefault();
+    const deleted = await deleteAccount(button.dataset.confirmDeleteAccount);
+    if (deleted) {
+      state.ui.selectedAccountId = '';
+      state.ui.accountDraft = null;
+      closeSheet();
+      render();
+    }
   }));
   document.querySelectorAll('[data-form-icon]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
@@ -858,14 +873,15 @@ function openOptionPicker(config) {
 
 function optionPickerSheet() {
   const picker = state.ui.optionPicker || {};
+  const searchable = (picker.options || []).length > 8;
   const search = picker.search || '';
   const options = (picker.options || []).filter(option => !search || canon(option.label || option.value).includes(canon(search)));
   return `
     <div class="sheet-backdrop open" data-sheet-close>
-      <section class="sheet picker-sheet" onclick="event.stopPropagation()">
+      <section class="sheet picker-sheet ${searchable ? 'has-search' : ''}" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">${html(picker.title || 'Seleccionar')}</h2>
-        <input class="input" data-option-search placeholder="Buscar..." value="${html(search)}" autofocus>
+        ${searchable ? `<input class="input" data-option-search placeholder="Buscar..." value="${html(search)}" autofocus>` : ''}
         <div class="option-list">
           ${options.map(option => `
             <button class="option-row ${option.value === picker.value ? 'selected' : ''}" data-option-value="${html(option.value)}">
@@ -935,7 +951,8 @@ function ensureAccountDraft() {
         visible: existing?.kpi?.visible !== false
       },
       adjustAmount: '',
-      adjustNote: ''
+      adjustNote: '',
+      pickerTab: 'icon'
     };
   }
   return state.ui.accountDraft;
@@ -1018,14 +1035,15 @@ function accountActionsSheet() {
         ${accountActionRow('account-color', 'pie', 'Cambiar color', 'Color de fondo del icono')}
         ${accountActionRow('account-name-type', 'edit', 'Nombre y tipo', 'Edita nombre y clasificación')}
         ${accountActionRow('account-adjust', 'badgeDollar', 'Ajustar saldo', 'Crea movimiento auditable')}
+        ${accountActionRow('confirm-delete-account', 'trash', 'Eliminar cuenta', 'Borra la cuenta y sus registros asociados', 'danger-action-row')}
         <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
       </section>
     </div>
   `;
 }
 
-function accountActionRow(sheet, iconName, title, subtitle) {
-  return `<button class="settings-row" data-account-action="${sheet}"><span class="row-icon solid-icon" style="background:var(--blue);color:#fff;">${icon(iconName)}</span><span><strong>${title}</strong><small>${subtitle}</small></span>${icon('chevronRight')}</button>`;
+function accountActionRow(sheet, iconName, title, subtitle, extraClass = '') {
+  return `<button class="settings-row ${extraClass}" data-account-action="${sheet}"><span class="row-icon solid-icon" style="background:var(--blue);color:#fff;">${icon(iconName)}</span><span><strong>${title}</strong><small>${subtitle}</small></span>${icon('chevronRight')}</button>`;
 }
 
 function accountKpiSheet() {
@@ -1124,6 +1142,30 @@ function accountAdjustSheet() {
   `;
 }
 
+function confirmDeleteAccountSheet() {
+  const account = selectedAccount();
+  if (!account) return '';
+  const impact = accountDeleteImpact(account.id);
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Eliminar cuenta</h2>
+      <div class="account-form-preview">
+        <span class="icon-preview-medium" style="background:${account.color || '#0A8FE8'};color:#fff;">${icon(account.icon || 'landmark')}</span>
+        <div><strong>${html(account.name)}</strong><small>${html(account.type || 'Cuenta Corriente')}</small></div>
+      </div>
+      <p class="muted">Eliminar esta cuenta borrará sus movimientos asociados y puede cambiar balances, ingresos, gastos y presupuesto histórico. Las transferencias vinculadas se eliminarán completas para evitar registros huérfanos. Las recurrencias quedarán sin cuenta.</p>
+      <p class="muted">Si solo quieres que no aparezca en Balances, apaga "Visible en Balances" en KPIs.</p>
+      <div class="import-summary card">
+        <strong>Impacto estimado</strong>
+        <small>${impact.transactions} movimientos · ${impact.transfers} transferencias · ${impact.budgets} presupuestos · ${impact.recurring} recurrencias</small>
+      </div>
+      <button class="danger-button" data-confirm-delete-account="${account.id}">Eliminar cuenta definitivamente</button>
+      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cancelar</button>
+    </section></div>
+  `;
+}
+
 function accountSheetV704() {
   const draft = ensureAccountDraft();
   const account = state.accounts.find(item => item.id === draft.id);
@@ -1149,9 +1191,15 @@ function accountSheetV704() {
         <div class="field"><label>Otro tipo</label><input class="input" data-account-draft-field="customType" value="${html(draft.customType || '')}" placeholder="Personalizado" ${type === 'Otro' ? '' : 'disabled'}></div>
       </div>
       <div class="inline-picker-card">
-        <div class="inline-picker-head"><strong>Icono y color</strong><small>Selecciona un icono; el color se aplica al fondo.</small></div>
-        <div class="mini-icon-grid">${ICON_CATALOG.slice(0, 30).map(name => `<button class="icon-circle-choice ${name === iconName ? 'active' : ''}" data-form-icon="${name}" style="${name === iconName ? `background:${color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
-        <div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(item => `<button class="color-circle-choice ${item === color ? 'active' : ''}" style="background:${item}" data-form-color="${item}" aria-label="${item}"></button>`).join('')}</div>
+        <div class="inline-picker-head"><strong>Icono y color</strong><small>El preview se actualiza al seleccionar.</small></div>
+        <div class="picker-tabs compact-tabs">
+          <button class="${(draft.pickerTab || 'icon') === 'icon' ? 'active' : ''}" data-account-picker-tab="icon">${icon('sparkles')} Icono</button>
+          <button class="${draft.pickerTab === 'color' ? 'active' : ''}" data-account-picker-tab="color">${icon('pie')} Color</button>
+        </div>
+        ${(draft.pickerTab || 'icon') === 'icon'
+          ? `<div class="mini-icon-grid">${ICON_CATALOG.slice(0, 30).map(name => `<button class="icon-circle-choice ${name === iconName ? 'active' : ''}" data-form-icon="${name}" style="${name === iconName ? `background:${color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>`
+          : `<div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(item => `<button class="color-circle-choice ${item === color ? 'active' : ''}" style="background:${item}" data-form-color="${item}" aria-label="${item}"></button>`).join('')}</div>`
+        }
       </div>
       <div class="switch-grid">
         ${formKpiSwitch('income', 'Ingresos', draft.kpi?.income !== false)}
@@ -1465,7 +1513,7 @@ document.addEventListener('change', event => {
 async function readImportFile(file) {
   if (!file) return;
   debugLog('import file read start', { name: file.name, size: file.size });
-  const text = await file.text();
+  const text = await readCsvText(file);
   const parsed = parseCSV(text);
   const objects = rowsToObjects(parsed.rows);
   const kind = state.ui.importDraft?.kind || (state.ui.activeSheet === 'import-catalogs' ? 'accounts' : 'transactions');
@@ -1477,6 +1525,13 @@ async function readImportFile(file) {
   };
   debugLog('import file parsed', { kind, rows: objects.length, issues: state.ui.importDraft.issues.length, delimiter: parsed.delimiter });
   render();
+}
+
+async function readCsvText(file) {
+  const buffer = await file.arrayBuffer();
+  const utf8 = new TextDecoder('utf-8').decode(buffer);
+  const text = utf8.includes('�') ? new TextDecoder('windows-1252').decode(buffer) : utf8;
+  return text.replace(/^\uFEFF/, '');
 }
 
 async function confirmImportDraft() {
