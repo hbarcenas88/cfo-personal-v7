@@ -246,6 +246,21 @@
   line-height: 1.35;
 }
 
+.card-heading {
+  margin: 0;
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.15;
+  font-weight: var(--font-bold);
+  letter-spacing: -.02em;
+}
+
+.card-heading-block {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
 .section-title {
   display: flex;
   align-items: center;
@@ -426,6 +441,11 @@ svg.icon-xl {
   font-size: 30px;
 }
 
+.metric-title.strong {
+  color: var(--text);
+  font-weight: var(--font-black);
+}
+
 .metric-note {
   color: var(--text-muted);
   font-size: 13px;
@@ -447,6 +467,10 @@ svg.icon-xl {
 
 .budget-progress {
   margin: var(--space-md) 0;
+}
+
+.progress.tight {
+  margin: 10px 0 14px;
 }
 
 .chart-chip-row {
@@ -490,6 +514,15 @@ svg.icon-xl {
   grid-template-columns: 1fr auto;
 }
 
+.row-card.compact {
+  grid-template-columns: 1fr auto;
+  min-height: 54px;
+}
+
+.row-card.interactive {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
 .row-main {
   min-width: 0;
 }
@@ -514,6 +547,14 @@ svg.icon-xl {
   font-size: 16px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.row-amount-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--amount-note-color, var(--text-muted));
+  font-size: var(--text-sm);
+  font-weight: 800;
 }
 
 .chevron {
@@ -554,6 +595,16 @@ svg.icon-xl {
   border-color: var(--blue);
   color: #fff;
   font-weight: 760;
+}
+
+.chip.dense {
+  min-height: 32px;
+  padding-block: 6px;
+}
+
+.chip .chip-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .segmented {
@@ -764,10 +815,25 @@ textarea[aria-invalid="true"] {
 }
 
 .sheet-title {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 850;
   letter-spacing: -.03em;
   margin: 0 0 16px;
+}
+
+.sheet .settings-row {
+  min-height: 64px;
+  padding: 10px 0;
+}
+
+.sheet .settings-row .row-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.sheet .settings-row .row-icon svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .drawer {
@@ -878,6 +944,30 @@ textarea[aria-invalid="true"] {
   background: transparent;
   color: #7dd3ff;
   font-weight: 820;
+}
+
+.center-picker-pill {
+  width: 100%;
+  margin: 0 0 var(--space-md);
+}
+
+.calendar-selected-card {
+  margin-top: 14px;
+}
+
+.upload-label-card {
+  display: grid;
+  place-items: center;
+  gap: var(--space-sm);
+  text-align: center;
+}
+
+.search-results-list {
+  margin-top: var(--space-md);
+}
+
+.muted.tight {
+  margin-top: calc(var(--space-xs) * -1);
 }
 
 .progress {

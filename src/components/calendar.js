@@ -15,7 +15,7 @@ export function renderCalendarSheet({ selectedDate = todayISO(), visibleMonth = 
           ${quick('monthStart', 'Inicio de mes')}
           ${quick('custom', 'Personalizado')}
         </div>
-        <div class="period-pill" style="width:100%;margin:0 0 12px;">
+        <div class="period-pill center-picker-pill">
           <button data-cal-nav="-1">${icon('chevronLeft')}</button>
           <button class="period-value" disabled>${MONTHS[month - 1]} ${year}</button>
           <button data-cal-nav="1">${icon('chevronRight')}</button>
@@ -24,9 +24,9 @@ export function renderCalendarSheet({ selectedDate = todayISO(), visibleMonth = 
           ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<span class="dow">${d}</span>`).join('')}
           ${days.map(day => dayButton(day, selectedDate, month)).join('')}
         </div>
-        <div class="card" style="margin-top:14px;">
+        <div class="card calendar-selected-card">
           <div class="metric-title">Fecha seleccionada</div>
-          <div class="metric-value" style="font-size:24px;">${formatDate(selectedDate, true)}</div>
+          <div class="metric-value metric-value-sm">${formatDate(selectedDate, true)}</div>
         </div>
         <button class="primary-button" data-cal-confirm>Listo</button>
       </section>

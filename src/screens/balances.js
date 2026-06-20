@@ -19,7 +19,7 @@ export function renderBalances(state) {
     ${card(renderAccountList(visible, balances, 'Sin cuentas visibles', 'Crea una cuenta o importa catálogos para empezar') + renderHiddenAccounts(hidden, balances) + renderAccountTotal(data.balanceTotal), 'account-total-card')}
     <div class="section-title"><h2>Provisiones</h2></div>
     ${renderProvisionCard(state)}
-    <div class="section-title"><h2>Próximos pagos e ingresos</h2><button class="chip" data-settings="planning">${icon('calendarClock')} Administrar</button></div>
+    <div class="section-title"><h2>Próximos pagos e ingresos</h2><button class="chip dense" data-settings="planning">${icon('calendarClock')} Administrar</button></div>
     ${card(renderUpcoming(state))}
   `;
 }
@@ -73,7 +73,7 @@ function renderHiddenAccounts(accounts, balances) {
 function accountRow(account, balance) {
   const color = account.color || '#0A8FE8';
   return `
-    <button class="row-card" data-audit-account="${account.name}">
+    <button class="row-card account-balance-row" data-audit-account="${account.name}">
       ${iconBubble(account.icon || 'landmark', color, true, 'row-icon solid-icon')}
       <span class="row-main">
         <span class="row-title">${account.name}</span>
@@ -86,7 +86,7 @@ function accountRow(account, balance) {
 }
 
 function renderAccountTotal(total) {
-  return `<div class="row-card row-card-summary"><strong>Total de cuentas</strong><strong class="row-amount ${total < 0 ? 'danger' : 'blue'}">${formatSignedMoney(total)}</strong></div>`;
+  return `<div class="row-card row-card-summary account-total-row"><strong>Total de cuentas</strong><strong class="row-amount ${total < 0 ? 'danger' : 'blue'}">${formatSignedMoney(total)}</strong></div>`;
 }
 
 function renderProvisionCard(state) {
@@ -104,8 +104,8 @@ function renderProvisionCard(state) {
       </div>
     </div>
     <div class="progress provision-progress"><span style="width:${reserve ? Math.min(100, assigned / reserve * 100) : 0}%;background:${available < 0 ? 'var(--red)' : 'var(--amber)'}"></span></div>
-    <div class="row-card row-card-summary"><strong>Disponible sin asignar</strong><strong class="${available < 0 ? 'danger' : 'blue'}">${formatMoney(available)}</strong></div>
-    <details class="hidden-details"><summary>Provisiones individuales (${provisions.length}) ${icon('chevronDown')}</summary>${provisions.length ? provisions.map(p => `<div class="row-card">${iconBubble(p.icon || 'shield', p.color || '#C68000', true, 'row-icon solid-icon')}<span class="row-title">${p.name}</span><strong>${formatMoney(p.balance || 0)}</strong></div>`).join('') : emptyState('shield', 'Sin provisiones', 'Crea una provisión desde Planeación')}</details>
+    <div class="row-card row-card-summary account-total-row"><strong>Disponible sin asignar</strong><strong class="row-amount ${available < 0 ? 'danger' : 'blue'}">${formatMoney(available)}</strong></div>
+    <details class="hidden-details"><summary>Provisiones individuales (${provisions.length}) ${icon('chevronDown')}</summary>${provisions.length ? provisions.map(p => `<div class="row-card account-balance-row">${iconBubble(p.icon || 'shield', p.color || '#C68000', true, 'row-icon solid-icon')}<span class="row-main"><span class="row-title">${p.name}</span><span class="row-subtitle">Reserva conceptual</span></span><strong class="row-amount">${formatMoney(p.balance || 0)}</strong></div>`).join('') : emptyState('shield', 'Sin provisiones', 'Crea una provisión desde Planeación')}</details>
   `);
 }
 

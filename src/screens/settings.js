@@ -9,7 +9,7 @@ export function renderSettings(state) {
   return `
     <div class="section-title">
       <h2>${pageTitle(page)}</h2>
-      <button class="chip" data-settings-back>${icon('chevronLeft')} Menú</button>
+      <button class="chip dense" data-settings-back>${icon('chevronLeft')} Menú</button>
     </div>
     ${page === 'tools' ? renderTools() : ''}
     ${page === 'planning' ? renderPlanning(state) : ''}
@@ -61,7 +61,7 @@ function createCatalogCard(label, action, iconName = 'plus') {
 function renderPlanning(state) {
   return `
     ${card(`${tool('budget-planner', 'calendar', 'Planeación presupuestaria', 'Crea o ajusta presupuesto mensual')}${tool('provision-planner', 'shield', 'Planeación de provisiones', 'Reserva mensual y distribución conceptual')}${tool('recurring', 'calendarClock', 'Pagos e ingresos recurrentes', 'Recordatorios mensuales')}`, 'tool-card')}
-    ${card(`<h3 style="margin-top:0;">Recurrentes actuales</h3>${state.recurring.length ? state.recurring.map(r => `<div class="row-card"><span class="row-icon solid-icon" style="background:${r.color || '#0A8FE8'};color:#fff;">${icon(r.icon || 'calendarClock')}</span><span class="row-main"><span class="row-title">${html(r.name)}</span><span class="row-subtitle">${r.type} · día ${r.day}${r.amount ? ` · ${formatMoney(r.amount)}` : ''}</span></span></div>`).join('') : emptyState('calendarClock', 'Sin recurrentes')}`)}
+    ${card(`<h3 class="card-heading">Recurrentes actuales</h3>${state.recurring.length ? state.recurring.map(r => `<div class="row-card"><span class="row-icon solid-icon" style="background:${r.color || '#0A8FE8'};color:#fff;">${icon(r.icon || 'calendarClock')}</span><span class="row-main"><span class="row-title">${html(r.name)}</span><span class="row-subtitle">${r.type} · día ${r.day}${r.amount ? ` · ${formatMoney(r.amount)}` : ''}</span></span></div>`).join('') : emptyState('calendarClock', 'Sin recurrentes')}`)}
   `;
 }
 
@@ -92,8 +92,8 @@ function accountAdminCard(account, index, total) {
         <span class="row-subtitle">${html(account.type || 'Cuenta Corriente')}</span>
       </span>
       <span class="account-order-row">
-        <button class="chip" data-account-move="${account.id}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Subir cuenta">${icon('chevronUp')}</button>
-        <button class="chip" data-account-move="${account.id}" data-direction="1" ${index === total - 1 ? 'disabled' : ''} aria-label="Bajar cuenta">${icon('chevronDown')}</button>
+        <button class="chip dense" data-account-move="${account.id}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Subir cuenta">${icon('chevronUp')}</button>
+        <button class="chip dense" data-account-move="${account.id}" data-direction="1" ${index === total - 1 ? 'disabled' : ''} aria-label="Bajar cuenta">${icon('chevronDown')}</button>
       </span>
       <button class="ghost-icon compact-edit" data-account-actions="${account.id}" aria-label="Editar cuenta">${icon('edit')}</button>
     </div>
@@ -114,14 +114,14 @@ function kpiSwitch(account, key, label) {
 function renderCategoriesAdmin(state) {
   return `
     ${createCatalogCard('Nueva categoría', 'new-category', 'plus')}
-    ${card(`<h3 style="margin-top:0;">Categorías (${state.categories.length})</h3>${state.categories.length ? state.categories.map(c => catalogRow(c, 'category')).join('') : emptyState('tags', 'Sin categorías')}`)}
+    ${card(`<h3 class="card-heading">Categorías (${state.categories.length})</h3>${state.categories.length ? state.categories.map(c => catalogRow(c, 'category')).join('') : emptyState('tags', 'Sin categorías')}`)}
   `;
 }
 
 function renderProvisionsAdmin(state) {
   return `
     ${createCatalogCard('Nueva provisión', 'new-provision', 'plus')}
-    ${card(`<h3 style="margin-top:0;">Provisiones (${state.provisions.length})</h3>${state.provisions.length ? state.provisions.map(p => catalogRow(p, 'provision')).join('') : emptyState('shield', 'Sin provisiones')}`)}
+    ${card(`<h3 class="card-heading">Provisiones (${state.provisions.length})</h3>${state.provisions.length ? state.provisions.map(p => catalogRow(p, 'provision')).join('') : emptyState('shield', 'Sin provisiones')}`)}
   `;
 }
 
@@ -129,7 +129,7 @@ function renderHealth(state) {
   const health = dataHealth(state);
   const status = health.severity === 'good' ? ['good', 'Bueno', 'check'] : health.severity === 'warn' ? ['warn', 'Atención', 'alert'] : ['bad', 'Crítico', 'alert'];
   return `
-    ${card(`<span class="health-pill ${status[0]}">${icon(status[2])} Estado general: ${status[1]}</span><div class="metric-note" style="margin-top:12px;">${health.activeCount} posibles puntos activos por revisar.</div>`)}
+    ${card(`<span class="health-pill ${status[0]}">${icon(status[2])} Estado general: ${status[1]}</span><div class="metric-note mt-md">${health.activeCount} posibles puntos activos por revisar.</div>`)}
     ${card(health.issues.map(issue => `
       <button class="settings-row" data-health="${issue.id}">
         <span class="row-icon" style="background:${issue.severity === 'bad' ? 'var(--red-soft)' : issue.severity === 'warn' ? 'var(--amber-soft)' : 'var(--green-soft)'};color:${issue.severity === 'bad' ? 'var(--red)' : issue.severity === 'warn' ? 'var(--amber)' : 'var(--green)'}">${icon(issue.icon)}</span>
@@ -143,7 +143,7 @@ function renderHealth(state) {
 function renderPreferences(state) {
   return `
     ${card(`${tool('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card')}
-    ${card(`<h3 style="margin-top:0;">Reglas KPI</h3><p class="muted" style="margin-top:-6px;">Resumen visual de cómo cada tipo de movimiento impacta las métricas. Es lectura, no edición.</p><div class="rules-card">${Object.entries(state.rules).map(([key, rule]) => ruleRow(key, rule)).join('')}</div>`)}
+    ${card(`<h3 class="card-heading">Reglas KPI</h3><p class="muted tight">Resumen visual de cómo cada tipo de movimiento impacta las métricas. Es lectura, no edición.</p><div class="rules-card">${Object.entries(state.rules).map(([key, rule]) => ruleRow(key, rule)).join('')}</div>`)}
   `;
 }
 
@@ -197,7 +197,7 @@ function catalogRow(item, type) {
     return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">Editar nombre, icono, color y subcategorias</span></span><button class="ghost-icon compact-edit" data-category-actions="${item.id}" aria-label="Editar categoria">${icon('edit')}</button></div>`;
   }
   const subtitle = item.type || 'Cuenta';
-  return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(subtitle)}</span></span><button class="chip" data-open-icon="${type}:${item.id}">Icono</button></div>`;
+  return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(subtitle)}</span></span><button class="chip dense" data-open-icon="${type}:${item.id}">Icono</button></div>`;
 }
 
 function yes(value) {
@@ -211,13 +211,13 @@ export function renderTemplateSheet() {
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">Templates CSV</h2>
         ${Object.entries(templateHeaders).map(([kind, headers]) => `
-          <button class="settings-row" data-template="${kind}">
+          <button class="settings-row template-row" data-template="${kind}">
             <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('fileDown')}</span>
-            <span><strong>${kind}</strong><small>${explainTemplate(kind)} · ${headers.join(', ')}</small></span>
+            <span><strong>${kind}</strong><small><span>${explainTemplate(kind)}</span><span class="template-fields">${headers.join(', ')}</span></small></span>
             ${icon('download')}
           </button>
         `).join('')}
-        <button class="secondary-button" data-sheet-close>Cerrar</button>
+        <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
     </div>
   `;

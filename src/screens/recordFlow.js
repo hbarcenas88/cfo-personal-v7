@@ -63,7 +63,7 @@ function renderForm(state, flow) {
         ${type === 'transfer' ? renderTransferFields(state, flow) : renderStandardFields(state, flow, type)}
         <div class="amount-hero">
           <small>${labels[1]}</small>
-          <strong class="money" style="color:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
+          <strong class="money record-amount-value" style="--record-accent:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
           ${flow.keypadError ? `<div class="danger mt-xs">${flow.keypadError}</div>` : ''}
         </div>
         <div class="field"><label>Descripción</label><input class="input" data-record-field="description" placeholder="Notas (opcional)..." value="${flow.description || ''}"></div>
@@ -81,7 +81,7 @@ function renderStandardFields(state, flow, type) {
       ${fieldButton(type === 'income' ? 'Origen' : 'Categoría', flow.category, type === 'income' ? 'Sin categoría' : 'Seleccionar', 'category')}
     </div>
     <div class="chip-row record-chip-row">
-      ${subcategories(state, flow.category).map(sub => `<button class="chip ${flow.subcategory === sub ? 'active' : ''}" data-record-sub="${sub}">${sub}</button>`).join('')}
+      ${subcategories(state, flow.category).map(sub => `<button class="chip dense ${flow.subcategory === sub ? 'active' : ''}" data-record-sub="${sub}"><span class="chip-label">${sub}</span></button>`).join('')}
     </div>
   `;
 }

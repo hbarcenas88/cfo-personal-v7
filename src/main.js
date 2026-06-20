@@ -975,7 +975,7 @@ function optionPickerSheet() {
             </button>
           `).join('') || '<div class="empty-state">Sin opciones</div>'}
         </div>
-        <button class="secondary-button" data-sheet-close style="margin-top:10px;">Cerrar</button>
+        <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
     </div>
   `;
@@ -1117,7 +1117,7 @@ function importSheetV702(defaultKind) {
         ${reviewRows.length > 40 ? `<div class="card"><small class="muted">Mostrando 40 de ${reviewRows.length} filas por revisar.</small></div>` : ''}
         ${draft.objects?.length && !reviewRows.length ? '<div class="card"><strong>Sin filas con errores</strong><small class="muted">Se importaran solo las filas validas.</small></div>' : ''}
         ${draft.objects?.length ? `<button class="primary-button" data-import-confirm ${importableRows.length ? '' : 'disabled'}>Confirmar importacion (${importableRows.length})</button>` : ''}
-        <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+        <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
     </div>
   `;
@@ -1167,7 +1167,7 @@ function categoryActionsSheet() {
         ${categoryActionRow('category-name', 'edit', 'Cambiar nombre', 'Renombra categoria y registros asociados')}
         ${categoryActionRow('category-subcategories', 'listChecks', 'Editar subcategorias', 'Agregar, renombrar o eliminar subcategorias')}
         ${categoryActionRow('confirm-delete-category', 'trash', 'Borrar categoria', 'Elimina sus movimientos y presupuestos', 'danger-action-row')}
-        <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+        <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
     </div>
   `;
@@ -1210,7 +1210,7 @@ function categoryNameSheet() {
       <h2 class="sheet-title">Cambiar nombre</h2>
       <div class="field"><label>Nombre</label><input class="input" data-category-draft-field="name" value="${html(draft.name || '')}" placeholder="Nombre de categoria"></div>
       <button class="primary-button" data-save-category-section="name">Guardar nombre</button>
-      <button class="secondary-button" data-category-action="category-actions" style="margin-top:8px;">Volver</button>
+      <button class="secondary-button mt-sm" data-category-action="category-actions">Volver</button>
     </section></div>
   `;
 }
@@ -1232,8 +1232,8 @@ function categorySubcategoriesSheet() {
         `).join('') || '<div class="empty-state">Sin subcategorias</div>'}
       </div>
       <button class="secondary-button" data-category-sub-add>${icon('plus')} Agregar subcategoria</button>
-      <button class="primary-button" data-save-category-section="subcategories" style="margin-top:8px;">Guardar subcategorias</button>
-      <button class="secondary-button" data-category-action="category-actions" style="margin-top:8px;">Volver</button>
+      <button class="primary-button mt-sm" data-save-category-section="subcategories">Guardar subcategorias</button>
+      <button class="secondary-button mt-sm" data-category-action="category-actions">Volver</button>
     </section></div>
   `;
 }
@@ -1250,7 +1250,7 @@ function confirmDeleteSubcategorySheet() {
       <p class="muted">Los registros asociados seguiran vivos dentro de "${html(category.name)}", pero quedaran sin subcategoria.</p>
       <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos</small></div>
       <button class="danger-button" data-confirm-delete-subcategory>Eliminar subcategoria</button>
-      <button class="secondary-button" data-category-action="category-subcategories" style="margin-top:8px;">Cancelar</button>
+      <button class="secondary-button mt-sm" data-category-action="category-subcategories">Cancelar</button>
     </section></div>
   `;
 }
@@ -1267,7 +1267,7 @@ function confirmDeleteCategorySheet() {
       <p class="muted">Si quieres conservar historial, cambia el nombre de la categoria o corrige registros desde Auditoria.</p>
       <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos · ${impact.recurring} recurrencias quedaran sin categoria</small></div>
       <button class="danger-button" data-confirm-delete-category>Eliminar categoria definitivamente</button>
-      <button class="secondary-button" data-category-action="category-actions" style="margin-top:8px;">Cancelar</button>
+      <button class="secondary-button mt-sm" data-category-action="category-actions">Cancelar</button>
     </section></div>
   `;
 }
@@ -1289,7 +1289,7 @@ function accountActionsSheet() {
         ${accountActionRow('account-name-type', 'edit', 'Nombre y tipo', 'Edita nombre y clasificación')}
         ${accountActionRow('account-adjust', 'badgeDollar', 'Ajustar saldo', 'Crea movimiento auditable')}
         ${accountActionRow('confirm-delete-account', 'trash', 'Eliminar cuenta', 'Borra la cuenta y sus registros asociados', 'danger-action-row')}
-        <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+        <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
     </div>
   `;
@@ -1313,7 +1313,7 @@ function accountKpiSheet() {
         ${formKpiSwitch('visible', 'Visible en Balances', draft.kpi?.visible !== false)}
       </div>
       <button class="primary-button" data-save-account-section="kpis">Guardar KPIs</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1372,7 +1372,7 @@ function accountNameTypeSheet() {
       <div class="field"><label>Tipo de cuenta</label>${pickerButton(draft.type, 'Seleccionar tipo', 'account.type', optionObjects(knownTypes), 'account-name-type')}</div>
       <div class="field"><label>Otro tipo</label><input class="input" data-account-draft-field="customType" value="${html(draft.customType || '')}" placeholder="Personalizado" ${draft.type === 'Otro' ? '' : 'disabled'}></div>
       <button class="primary-button" data-save-account-section="name-type">Guardar cambios</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1390,7 +1390,7 @@ function accountAdjustSheet() {
       <div class="field"><label>Monto del ajuste</label><input class="input" data-account-draft-field="adjustAmount" inputmode="decimal" value="${html(draft.adjustAmount || '')}" placeholder="Ej. 25.00 o -10.00"></div>
       <div class="field"><label>Nota</label><input class="input" data-account-draft-field="adjustNote" value="${html(draft.adjustNote || '')}" placeholder="Motivo del ajuste"></div>
       <button class="primary-button" data-save-account-section="adjust">Crear ajuste</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1414,7 +1414,7 @@ function confirmDeleteAccountSheet() {
         <small>${impact.transactions} movimientos · ${impact.transfers} transferencias · ${impact.budgets} presupuestos · ${impact.recurring} recurrencias</small>
       </div>
       <button class="danger-button" data-confirm-delete-account="${account.id}">Eliminar cuenta definitivamente</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cancelar</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cancelar</button>
     </section></div>
   `;
 }
@@ -1462,7 +1462,7 @@ function accountSheetV704() {
         ${formKpiSwitch('visible', 'Visible', draft.kpi?.visible !== false)}
       </div>
       <button class="primary-button" data-create-action="${account ? 'update-account' : 'create-account'}">${account ? 'Guardar cuenta' : 'Crear cuenta'}</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1498,7 +1498,7 @@ function recurringSheet() {
       <div class="field"><label>Nombre</label><input class="input" data-rec-draft-field="name" value="${html(draft.name || '')}" placeholder="Internet, tarjeta, salario..."></div>
       <div class="two-col"><div class="field"><label>Monto esperado</label><input class="input" data-rec-draft-field="amount" inputmode="decimal" value="${html(draft.amount || '')}" placeholder="Opcional"></div><div class="field"><label>Cuenta</label>${pickerButton(draft.account, 'Sin cuenta', 'recurring.account', optionObjects(state.accounts.map(a => a.name), 'Sin cuenta'), 'recurring')}</div></div>
       <div class="field"><label>Categoría</label>${pickerButton(draft.category, 'Sin categoría', 'recurring.category', optionObjects(state.categories.map(c => c.name), 'Sin categoría'), 'recurring')}</div>
-      <button class="primary-button" data-save-recurring>Guardar recurrencia</button><button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="primary-button" data-save-recurring>Guardar recurrencia</button><button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1509,7 +1509,7 @@ function simpleCreateSheet(title, fields, button, action) {
       <div class="sheet-handle"></div><h2 class="sheet-title">${title}</h2>
       ${fields.map(([key, label]) => `<div class="field"><label>${label}</label><input class="input" data-create-field="${key}" ${key.toLowerCase().includes('amount') || key === 'balance' || key === 'monthlyAmount' ? 'inputmode="decimal"' : ''}></div>`).join('')}
       <button class="primary-button" data-create-action="${action}">${button}</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1521,7 +1521,7 @@ function searchSheet() {
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Búsqueda global</h2>
       <input class="input" data-global-search-input placeholder="Cuenta, categoría, descripción..." value="${q}">
-      <div style="margin-top:12px;">${q ? rows.map(tx => `<button class="settings-row" data-open-tx="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('receipt')}</span><span><strong>${tx.description || tx.movement}</strong><small>${tx.account} · ${tx.category || tx.movement} · ${formatMoney(tx.amount)}</small></span>${icon('chevronRight')}</button>`).join('') || '<div class="empty-state">Sin resultados</div>' : '<div class="empty-state">Escribe para buscar</div>'}</div>
+      <div class="search-results-list">${q ? rows.map(tx => `<button class="settings-row" data-open-tx="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('receipt')}</span><span><strong>${tx.description || tx.movement}</strong><small>${tx.account} · ${tx.category || tx.movement} · ${formatMoney(tx.amount)}</small></span>${icon('chevronRight')}</button>`).join('') || '<div class="empty-state">Sin resultados</div>' : '<div class="empty-state">Escribe para buscar</div>'}</div>
       <button class="secondary-button" data-sheet-close>Cerrar</button>
     </section></div>
   `;
@@ -1536,7 +1536,7 @@ function healthDetailSheet() {
       <div class="sheet-handle"></div><h2 class="sheet-title">${issue.title}</h2>
       <p class="muted">${issue.count} registros afectados. Si revisaste y no es error, puedes descartarlo para bajar el indicador.</p>
       ${issue.rows.slice(0, 20).map(row => `<div class="import-preview-row"><strong>${row.description || row.name || row.id}</strong><small>${row.account || ''} ${row.amount ? `· ${formatMoney(row.amount)}` : ''}</small></div>`).join('') || '<div class="empty-state">Sin registros activos</div>'}
-      <button class="primary-button" data-dismiss-health>Descartar alerta</button><button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="primary-button" data-dismiss-health>Descartar alerta</button><button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1571,10 +1571,10 @@ function auditFilterSheet() {
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">${title}</h2>
       <input class="input" data-filter-search placeholder="Buscar..." value="${html(search)}" autofocus>
-      <div class="chip-row" style="margin-top:14px;">
-        ${options.map(value => `<button class="chip" data-filter-add="${type}:${html(value)}">${html(value)}</button>`).join('') || '<div class="empty-state">Sin opciones</div>'}
+      <div class="chip-row chart-chip-row">
+        ${options.map(value => `<button class="chip dense" data-filter-add="${type}:${html(value)}"><span class="chip-label">${html(value)}</span></button>`).join('') || '<div class="empty-state">Sin opciones</div>'}
       </div>
-      <button class="secondary-button" data-sheet-close style="margin-top:12px;">Cerrar</button>
+      <button class="secondary-button mt-md" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1623,9 +1623,9 @@ function debugSheet() {
         <pre class="debug-log">${html(JSON.stringify(logs.slice(-12), null, 2))}</pre>
       </div>
       <button class="primary-button" data-debug-action="storage-test">Probar escritura/lectura storage</button>
-      <button class="secondary-button" data-debug-action="refresh" style="margin-top:8px;">Refrescar inspector</button>
-      <button class="danger-button" data-debug-action="clear-cache" style="margin-top:8px;">Limpiar service worker/cache de esta app</button>
-      <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      <button class="secondary-button mt-sm" data-debug-action="refresh">Refrescar inspector</button>
+      <button class="danger-button mt-sm" data-debug-action="clear-cache">Limpiar service worker/cache de esta app</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
 }
@@ -1634,7 +1634,7 @@ function restoreSheet() {
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Restaurar respaldo</h2>
-      <label class="card" style="display:grid;place-items:center;gap:8px;text-align:center;">
+      <label class="card upload-label-card">
         ${icon('upload')}<strong>Seleccionar JSON</strong><small class="muted">Reemplaza los datos locales de V7</small>
         <input type="file" accept=".json,application/json" data-restore-file class="file-input-native">
       </label>
@@ -1648,7 +1648,7 @@ function confirmResetSheet() {
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Borrar toda la data</h2>
       <p class="muted">Esto elimina datos locales de V7 en este navegador. No afecta V6.</p>
-      <button class="danger-button" data-confirm-reset>Borrar data</button><button class="secondary-button" data-sheet-close style="margin-top:8px;">Cancelar</button>
+      <button class="danger-button" data-confirm-reset>Borrar data</button><button class="secondary-button mt-sm" data-sheet-close>Cancelar</button>
     </section></div>
   `;
 }

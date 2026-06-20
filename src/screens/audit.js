@@ -37,8 +37,8 @@ function renderFilters(state, filters) {
 
 function selectorChip(label, type, options) {
   return `
-    <button class="chip" data-open-filter="${type}">${label} ${icon('chevronDown')}</button>
-    <template data-filter-options="${type}">${options.map(option => `<button class="chip" data-filter-add="${type}:${option}">${option}</button>`).join('')}</template>
+    <button class="chip dense" data-open-filter="${type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
+    <template data-filter-options="${type}">${options.map(option => `<button class="chip dense" data-filter-add="${type}:${option}"><span class="chip-label">${option}</span></button>`).join('')}</template>
   `;
 }
 
@@ -48,7 +48,7 @@ function filterChips(filters) {
   filters.types.forEach(value => chips.push(['types', value]));
   filters.categories.forEach(value => chips.push(['categories', value]));
   filters.subcategories.forEach(value => chips.push(['subcategories', value]));
-  return chips.map(([type, value]) => `<button class="chip active" data-filter-remove="${type}:${value}">${value} ${icon('x')}</button>`).join('') || '<span class="row-subtitle">Sin filtros activos</span>';
+  return chips.map(([type, value]) => `<button class="chip dense active" data-filter-remove="${type}:${value}"><span class="chip-label">${value}</span> ${icon('x')}</button>`).join('') || '<span class="row-subtitle">Sin filtros activos</span>';
 }
 
 function transactionCard(tx, state) {

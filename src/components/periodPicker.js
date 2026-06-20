@@ -18,7 +18,7 @@ export function renderPeriodSheet(period) {
           ${draft.tab === 'year' ? renderYear(draft) : renderRange(draft)}
         </div>
         <button class="primary-button" data-period-apply>Aplicar período</button>
-        <button class="secondary-button" style="margin-top:8px;" data-period-close>Cancelar</button>
+        <button class="secondary-button mt-sm" data-period-close>Cancelar</button>
       </section>
     </div>
   `;
@@ -33,7 +33,7 @@ function renderRange(draft) {
     ['custom', 'Personalizado', draft.from && draft.to ? `${formatDate(draft.from)} - ${formatDate(draft.to)}` : 'Rango libre']
   ];
   return `
-    <div class="tour-list" style="margin:12px 0;">
+    <div class="tour-list period-preset-list">
       ${presets.map(([key, title, subtitle]) => `
         <button class="record-choice" data-period-preset="${key}">
           <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('calendar')}</span>
@@ -54,7 +54,7 @@ function renderYear(draft) {
   const current = Number(draft.year || new Date().getFullYear());
   const years = Array.from({ length: 8 }, (_, i) => current - 4 + i);
   return `
-    <div class="icon-grid" style="margin:12px 0;">
+    <div class="icon-grid period-mode-grid">
       ${years.map(year => `<button class="icon-choice ${year === Number(draft.year) ? 'active' : ''}" data-period-year="${year}">${year}</button>`).join('')}
     </div>
   `;
