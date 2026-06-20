@@ -63,20 +63,22 @@ function barRow(row, total, color) {
 
 function renderTrendChart(state) {
   const rows = monthlySeries(state);
+  const hasData = rows.some(row => row.expense || row.budget);
   const max = Math.max(1, ...rows.map(row => Math.max(row.expense, row.budget)));
   return card(`
-    <div class="metric-top"><div><h2 style="margin:0;font-size:19px;">Real vs presupuesto</h2><div class="metric-note">Comparación mensual del año visible</div></div>${icon('barChart')}</div>
-    <div class="mini-chart">${rows.map(row => `<div class="mini-col"><span style="height:${row.expense / max * 118}px;background:var(--red)"></span><span style="height:${row.budget / max * 118}px;background:var(--blue)"></span></div>`).join('')}</div>
-    <div class="chip-row"><span class="chip"><span style="width:10px;height:10px;background:var(--red);border-radius:50%"></span>Real</span><span class="chip"><span style="width:10px;height:10px;background:var(--blue);border-radius:50%"></span>Presupuesto</span></div>
+    <div class="metric-top"><div><h2 style="margin:0;font-size:19px;">Real vs presupuesto</h2><div class="metric-note">Comparacion mensual del ano visible</div></div><span class="chart-mini-icon">${icon('barChart')}</span></div>
+    ${hasData ? `<div class="mini-chart">${rows.map(row => `<div class="mini-col"><span style="height:${row.expense / max * 118}px;background:var(--red)"></span><span style="height:${row.budget / max * 118}px;background:var(--blue)"></span></div>`).join('')}</div>
+    <div class="chip-row"><span class="chip"><span style="width:10px;height:10px;background:var(--red);border-radius:50%"></span>Real</span><span class="chip"><span style="width:10px;height:10px;background:var(--blue);border-radius:50%"></span>Presupuesto</span></div>` : emptyState('barChart', 'Sin comparacion mensual')}
   `);
 }
 
 function renderFlowChart(state) {
   const rows = monthlySeries(state);
+  const hasData = rows.some(row => row.income || row.expense);
   const max = Math.max(1, ...rows.map(row => Math.max(row.income, row.expense)));
   return card(`
-    <div class="metric-top"><div><h2 style="margin:0;font-size:19px;">Ingresos vs gastos</h2><div class="metric-note">Evolución mensual</div></div>${icon('chart')}</div>
-    <div class="mini-chart">${rows.map(row => `<div class="mini-col"><span style="height:${row.income / max * 118}px;background:var(--green)"></span><span style="height:${row.expense / max * 118}px;background:var(--red)"></span></div>`).join('')}</div>
+    <div class="metric-top"><div><h2 style="margin:0;font-size:19px;">Ingresos vs gastos</h2><div class="metric-note">Evolucion mensual</div></div><span class="chart-mini-icon">${icon('chart')}</span></div>
+    ${hasData ? `<div class="mini-chart">${rows.map(row => `<div class="mini-col"><span style="height:${row.income / max * 118}px;background:var(--green)"></span><span style="height:${row.expense / max * 118}px;background:var(--red)"></span></div>`).join('')}</div>` : emptyState('chart', 'Sin evolucion mensual')}
   `);
 }
 

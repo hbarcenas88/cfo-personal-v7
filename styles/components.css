@@ -402,6 +402,15 @@
   background: #fff;
   color: var(--text-muted);
   font-size: 13px;
+  line-height: 1.15;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.chip svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .chip.active {

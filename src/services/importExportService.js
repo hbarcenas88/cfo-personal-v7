@@ -1,6 +1,6 @@
 import { addAccount, addCategory, addProvision, createOpeningAdjustment, mutate, showToast } from '../state.js';
 import { normalizeBudget, normalizeTransaction } from './financeService.js';
-import { canon, formatDate, parseAmount, parseDate, todayISO } from '../utils/format.js';
+import { canon, formatDate, parseAmount, parseDate, parseMonth, todayISO } from '../utils/format.js';
 import { inferIcon } from '../icons.js';
 
 export const templateHeaders = {
@@ -8,8 +8,8 @@ export const templateHeaders = {
   categories: ['categoria', 'subcategoria'],
   provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual'],
   recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria'],
-  transactions: ['fecha', 'cuenta', 'cuenta_destino', 'movimiento', 'monto', 'categoria', 'subcategoria', 'descripcion', 'origen'],
-  budgets: ['mes', 'cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'origen']
+  transactions: ['cuenta', 'movimiento', 'monto', 'categoria', 'subcategoria', 'descripcion', 'fecha'],
+  budgets: ['cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'mes']
 };
 
 export function parseCSV(text) {
@@ -95,28 +95,25 @@ export function exportCSVs(state) {
       name: datedName('movimientos'),
       headers: templateHeaders.transactions,
       rows: state.transactions.map(tx => ({
-        fecha: tx.date,
         cuenta: tx.account,
-        cuenta_destino: tx.accountTo || '',
         movimiento: tx.movement,
         monto: tx.amount,
         categoria: tx.category,
         subcategoria: tx.subcategory,
         descripcion: tx.description,
-        origen: tx.source || 'Manual'
+        fecha: tx.date
       }))
     },
     {
       name: datedName('presupuestos'),
       headers: templateHeaders.budgets,
       rows: state.budgets.map(row => ({
-        mes: row.month,
         cuenta: row.account,
         monto: row.amount,
         categoria: row.category,
         subcategoria: row.subcategory,
         descripcion: row.description,
-        origen: row.source || 'Manual'
+        mes: parseMonth(row.month) || row.month
       }))
     },
     {
@@ -248,8 +245,10 @@ export async function importTransactions(kind, objects, state) {
       objects.forEach(row => {
         const amount = parseAmount(row.monto || row.amount || row.presupuesto || 0);
         if (!amount) return;
+        const month = parseMonth(row.mes || row.month || row.fecha || row.date);
+        if (!month) return;
         s.budgets.push(normalizeBudget({
-          month: row.mes || parseDate(row.fecha)?.slice(0, 7) || s.period.month,
+          month,
           account: row.cuenta || 'Budget',
           amount,
           category: row.categoria,
@@ -262,8 +261,10 @@ export async function importTransactions(kind, objects, state) {
       objects.forEach(row => {
         const amount = parseAmount(row.monto || row.amount || 0);
         if (!amount) return;
+        const date = parseDate(row.fecha || row.date);
+        if (!date) return;
         s.transactions.push(normalizeTransaction({
-          date: row.fecha,
+          date,
           account: row.cuenta,
           accountTo: row.cuenta_destino,
           movement: row.movimiento || row.tipo,
@@ -285,7 +286,8 @@ export function importIssues(kind, objects, state) {
   objects.forEach(row => {
     const fields = [];
     if ((kind === 'transactions' || kind === 'budgets') && !parseAmount(row.monto || row.amount || 0)) fields.push('Monto inválido');
-    if (kind === 'transactions' && !parseDate(row.fecha)) fields.push('Fecha inválida');
+    if (kind === 'transactions' && !parseDate(row.fecha || row.date)) fields.push('Fecha inválida');
+    if (kind === 'budgets' && !parseMonth(row.mes || row.month || row.fecha || row.date)) fields.push('Mes invalido');
     if (kind === 'transactions' && row.cuenta && !state.accounts.some(a => canon(a.name) === canon(row.cuenta))) fields.push('Cuenta nueva');
     if ((kind === 'transactions' || kind === 'budgets') && row.categoria && !state.categories.some(c => canon(c.name) === canon(row.categoria))) fields.push('Categoría nueva');
     if (fields.length) issues.push({ row, fields });
@@ -313,7 +315,8 @@ export function importIssuesV702(kind, objects, state) {
       if (row.monto_esperado && Number.isNaN(parseAmount(row.monto_esperado))) fields.push('Monto inválido');
     }
     if ((kind === 'transactions' || kind === 'budgets') && !parseAmount(row.monto || row.amount || 0)) fields.push('Monto inválido');
-    if (kind === 'transactions' && !parseDate(row.fecha)) fields.push('Fecha inválida');
+    if (kind === 'transactions' && !parseDate(row.fecha || row.date)) fields.push('Fecha inválida');
+    if (kind === 'budgets' && !parseMonth(row.mes || row.month || row.fecha || row.date)) fields.push('Mes invalido');
     if (kind === 'transactions' && row.cuenta && !state.accounts.some(a => canon(a.name) === canon(row.cuenta))) fields.push('Cuenta nueva');
     if ((kind === 'transactions' || kind === 'budgets') && row.categoria && !state.categories.some(c => canon(c.name) === canon(row.categoria))) fields.push('Categoría nueva');
     if (fields.length) issues.push({ row, fields });
@@ -343,8 +346,8 @@ export function explainTemplate(kind) {
     categories: 'Categorias agrupa categoria y subcategoria. Repite categoria para varias subcategorias.',
     provisions: 'Provisiones admite nombre, saldo conceptual y planeacion mensual.',
     recurring: 'Recurrentes admite pagos e ingresos mensuales; monto puede quedar vacio.',
-    transactions: 'Movimientos admite ingresos, gastos, transferencias y origen CSV.',
-    budgets: 'Presupuestos se cargan por mes, categoria y subcategoria.'
+    transactions: 'Movimientos admite ingresos y gastos; la fecha va al final.',
+    budgets: 'Presupuestos se cargan por cuenta, monto, categoria, subcategoria y mes al final.'
   };
   return descriptions[kind] || '';
 }

@@ -210,6 +210,22 @@
   padding-top: 18px;
 }
 
+.chart-mini-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--blue-soft);
+  color: var(--blue);
+  flex: 0 0 auto;
+}
+
+.chart-mini-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
 .mini-col {
   min-height: 118px;
   display: flex;
@@ -286,18 +302,46 @@
 
 .audit-card {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: center;
-  padding: 14px;
-  margin-bottom: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
 }
 
 .audit-card .menu-button {
   border: 0;
   background: transparent;
   color: var(--text-muted);
-  padding: 8px;
+  padding: 3px;
+  width: 32px;
+  height: 28px;
+}
+
+.audit-card-wrap {
+  padding: 10px;
+}
+
+.audit-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.audit-meta {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.audit-filter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.audit-filter-head small {
+  color: var(--text-muted);
 }
 
 .transfer-link {
@@ -560,6 +604,11 @@
   background: #fff9eb;
 }
 
+.compact-danger {
+  min-height: 40px;
+  color: var(--red);
+}
+
 .icon-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -771,7 +820,7 @@
   padding: 12px;
   display: grid;
   gap: 11px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .compact-tabs,
@@ -901,6 +950,7 @@
   grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
   max-height: 150px;
   overflow: auto;
+  padding: 7px 5px 10px;
 }
 
 .mini-color-grid {
@@ -928,6 +978,19 @@
 .icon-circle-choice.active,
 .color-circle-choice.active {
   box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--blue);
+}
+
+.subcat-edit-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.subcat-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .icon-picker-sheet {

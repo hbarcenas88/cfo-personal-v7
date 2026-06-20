@@ -18,6 +18,7 @@ export function renderAudit(state) {
 
 function renderFilters(state, filters) {
   return card(`
+    <div class="audit-filter-head"><strong>Registros</strong><small>Busca y combina filtros</small></div>
     <div class="search-panel">
       <input class="input" data-audit-search placeholder="Buscar movimientos..." value="${filters.text || ''}">
       <button class="filter-button" data-audit-clear>${icon('x')}</button>
@@ -59,11 +60,11 @@ function transactionCard(tx, state) {
       <span class="row-icon" style="background:${softColor(color)};color:${color}">${icon(category?.icon || txIcon(tx))}</span>
       <span class="row-main">
         <span class="row-title">${tx.description || tx.movement}</span>
-        <span class="row-subtitle">${tx.category || tx.movement}${tx.subcategory ? ` · ${tx.subcategory}` : ''} · ${formatDate(tx.date)} · ${tx.account}</span>
+        <span class="row-subtitle">${tx.category || tx.movement}${tx.subcategory ? ` · ${tx.subcategory}` : ''}</span>
+        <span class="row-subtitle audit-meta">${formatDate(tx.date)} · ${tx.account}</span>
         ${tx.transferId ? `<span class="transfer-link">${tx.account} ${icon('link')} ${tx.accountTo || 'Cuenta vinculada'}</span>` : ''}
       </span>
-      <span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span>
-      <button class="menu-button" data-tx-menu="${tx.id}">${icon('more')}</button>
+      <span class="audit-side"><span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span><button class="menu-button" data-tx-menu="${tx.id}">${icon('more')}</button></span>
     </div>
   `, 'audit-card-wrap');
 }

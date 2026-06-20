@@ -9,7 +9,7 @@ import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderSettings, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subscribe, updateAccount } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
@@ -51,6 +51,7 @@ render();
 registerServiceWorker();
 
 window.addEventListener('cfo:render', render);
+window.addEventListener('cfo:toast', toastRoot);
 window.addEventListener('cfo:persist-render', async () => {
   await persist();
   render();
@@ -104,6 +105,13 @@ function render() {
   renderIcons(document);
 }
 
+function rerenderSheetPreserveScroll() {
+  const top = document.querySelector('.sheet')?.scrollTop || 0;
+  render();
+  const sheet = document.querySelector('.sheet');
+  if (sheet) sheet.scrollTop = top;
+}
+
 function emptyData() {
   return !state.accounts.length && !state.categories.length && !state.transactions.length && !state.budgets.length && !state.provisions.length;
 }
@@ -152,6 +160,12 @@ function renderActiveSheet() {
   if (sheet === 'account-name-type') return accountNameTypeSheet();
   if (sheet === 'account-adjust') return accountAdjustSheet();
   if (sheet === 'confirm-delete-account') return confirmDeleteAccountSheet();
+  if (sheet === 'category-actions') return categoryActionsSheet();
+  if (sheet === 'category-visual') return categoryVisualSheet();
+  if (sheet === 'category-name') return categoryNameSheet();
+  if (sheet === 'category-subcategories') return categorySubcategoriesSheet();
+  if (sheet === 'confirm-delete-subcategory') return confirmDeleteSubcategorySheet();
+  if (sheet === 'confirm-delete-category') return confirmDeleteCategorySheet();
   if (sheet === 'import-transactions') return importSheetV702('transactions');
   if (sheet === 'import-catalogs') return importSheetV702('accounts');
   if (sheet === 'new-account') return accountSheetV704();
@@ -594,6 +608,71 @@ function bindSheetActions() {
     state.ui.activeSheet = button.dataset.accountAction;
     render();
   }));
+  document.querySelectorAll('[data-category-actions]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedCategoryId = button.dataset.categoryActions;
+    state.ui.categoryDraft = null;
+    state.ui.activeSheet = 'category-actions';
+    render();
+  }));
+  document.querySelectorAll('[data-category-action]').forEach(button => button.addEventListener('click', () => {
+    ensureCategoryDraft();
+    state.ui.activeSheet = button.dataset.categoryAction;
+    render();
+  }));
+  document.querySelectorAll('[data-category-draft-field]').forEach(input => input.addEventListener('input', () => {
+    ensureCategoryDraft()[input.dataset.categoryDraftField] = input.value;
+  }));
+  document.querySelectorAll('[data-category-picker-tab]').forEach(button => button.addEventListener('click', () => {
+    ensureCategoryDraft().pickerTab = button.dataset.categoryPickerTab;
+    rerenderSheetPreserveScroll();
+  }));
+  document.querySelectorAll('[data-category-sub-input]').forEach(input => input.addEventListener('input', () => {
+    const draft = ensureCategoryDraft();
+    const index = Number(input.dataset.categorySubInput);
+    draft.subcategories[index] = { ...(draft.subcategories[index] || { id: uid('sub') }), name: input.value };
+  }));
+  document.querySelector('[data-category-sub-add]')?.addEventListener('click', () => {
+    ensureCategoryDraft().subcategories.push({ id: uid('sub'), name: '' });
+    rerenderSheetPreserveScroll();
+  });
+  document.querySelectorAll('[data-category-sub-delete]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedSubcategory = button.dataset.categorySubDelete;
+    state.ui.activeSheet = 'confirm-delete-subcategory';
+    render();
+  }));
+  document.querySelectorAll('[data-save-category-section]').forEach(button => button.addEventListener('click', async event => {
+    event.preventDefault();
+    const category = selectedCategory();
+    if (!category) return;
+    const saved = await updateCategory(category.id, normalizedCategoryDraft());
+    if (saved) {
+      state.ui.categoryDraft = null;
+      state.ui.activeSheet = 'category-actions';
+      render();
+    }
+  }));
+  document.querySelector('[data-confirm-delete-subcategory]')?.addEventListener('click', async () => {
+    const category = selectedCategory();
+    if (!category) return;
+    const deleted = await deleteSubcategory(category.id, state.ui.selectedSubcategory);
+    if (deleted) {
+      state.ui.selectedSubcategory = '';
+      state.ui.categoryDraft = null;
+      state.ui.activeSheet = 'category-actions';
+      render();
+    }
+  });
+  document.querySelector('[data-confirm-delete-category]')?.addEventListener('click', async () => {
+    const category = selectedCategory();
+    if (!category) return;
+    const deleted = await deleteCategory(category.id);
+    if (deleted) {
+      state.ui.selectedCategoryId = '';
+      state.ui.categoryDraft = null;
+      closeSheet();
+      render();
+    }
+  });
   document.querySelectorAll('[data-account-draft-field]').forEach(input => input.addEventListener('input', () => {
     ensureAccountDraft()[input.dataset.accountDraftField] = input.value;
   }));
@@ -604,7 +683,7 @@ function bindSheetActions() {
   }));
   document.querySelectorAll('[data-account-picker-tab]').forEach(button => button.addEventListener('click', () => {
     ensureAccountDraft().pickerTab = button.dataset.accountPickerTab;
-    render();
+    rerenderSheetPreserveScroll();
   }));
   document.querySelectorAll('[data-save-account-section]').forEach(button => button.addEventListener('click', async event => {
     event.preventDefault();
@@ -624,7 +703,7 @@ function bindSheetActions() {
     event.preventDefault();
     const value = button.dataset.formIcon;
     const sheet = button.closest('.sheet');
-    const draft = ensureAccountDraft();
+    const draft = state.ui.activeSheet === 'category-visual' ? ensureCategoryDraft() : ensureAccountDraft();
     draft.icon = value;
     const color = draft.color || sheet?.querySelector('[data-create-field="color"]')?.value || '#0A8FE8';
     const iconInput = sheet?.querySelector('[data-create-field="icon"]');
@@ -640,7 +719,7 @@ function bindSheetActions() {
   document.querySelectorAll('[data-form-color]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const value = button.dataset.formColor;
-    const draft = ensureAccountDraft();
+    const draft = state.ui.activeSheet === 'category-visual' ? ensureCategoryDraft() : ensureAccountDraft();
     draft.color = value;
     const sheet = button.closest('.sheet');
     const colorInput = sheet?.querySelector('[data-create-field="color"]');
@@ -700,6 +779,12 @@ function bindSheetActions() {
   }));
   document.querySelectorAll('[data-import-confirm]').forEach(button => button.addEventListener('click', () => {
     confirmImportDraft().catch(error => captureError('confirm import', error));
+  }));
+  document.querySelectorAll('[data-import-discard]').forEach(button => button.addEventListener('click', () => {
+    const draft = state.ui.importDraft;
+    if (!draft) return;
+    draft.discardedRows = [...new Set([...(draft.discardedRows || []), button.dataset.importDiscard])];
+    render();
   }));
   document.querySelectorAll('[data-tx-duplicate]').forEach(button => button.addEventListener('click', async () => {
     await duplicateTransaction(button.dataset.txDuplicate);
@@ -900,7 +985,7 @@ function applyOptionSelection(value) {
   const picker = state.ui.optionPicker;
   if (!picker?.target) return;
   if (picker.target === 'import.kind') {
-    state.ui.importDraft = { kind: value, objects: [], issues: [] };
+    state.ui.importDraft = { kind: value, objects: [], issues: [], discardedRows: [] };
   } else if (picker.target === 'account.type') {
     ensureAccountDraft().type = value;
   } else if (picker.target.startsWith('recurring.')) {
@@ -969,6 +1054,38 @@ function selectedAccount() {
   return state.accounts.find(account => account.id === state.ui.selectedAccountId || account.id === state.ui.editAccountId);
 }
 
+function selectedCategory() {
+  return state.categories.find(category => category.id === state.ui.selectedCategoryId);
+}
+
+function ensureCategoryDraft() {
+  const category = selectedCategory();
+  if (!state.ui.categoryDraft || state.ui.categoryDraft.id !== state.ui.selectedCategoryId) {
+    state.ui.categoryDraft = {
+      id: state.ui.selectedCategoryId || '',
+      name: category?.name || '',
+      icon: category?.icon || inferIcon(category?.name || '', 'category'),
+      color: category?.color || '#0A8FE8',
+      subcategories: (category?.subcategories || []).map(sub => ({ id: sub.id || uid('sub'), name: sub.name || sub })),
+      pickerTab: 'icon'
+    };
+  }
+  return state.ui.categoryDraft;
+}
+
+function normalizedCategoryDraft() {
+  const draft = ensureCategoryDraft();
+  return {
+    name: draft.name || '',
+    icon: draft.icon || inferIcon(draft.name || '', 'category'),
+    color: draft.color || '#0A8FE8',
+    subcategories: (draft.subcategories || []).map(sub => ({
+      id: sub.id || uid('sub'),
+      name: (sub.name || '').trim()
+    })).filter(sub => sub.name)
+  };
+}
+
 function importSheetV702(defaultKind) {
   const catalog = state.ui.activeSheet === 'import-catalogs';
   const kinds = catalog
@@ -977,6 +1094,13 @@ function importSheetV702(defaultKind) {
   const draft = state.ui.importDraft || { kind: defaultKind, objects: [], issues: [] };
   const kindOptions = kinds.map(([value, label]) => ({ value, label }));
   const headers = templateHeaders[draft.kind] || [];
+  const issues = draft.issues || [];
+  const discarded = new Set(draft.discardedRows || []);
+  const reviewRows = (draft.objects || [])
+    .map((row, index) => ({ row, index, issue: issues.find(item => item.row === row) }))
+    .filter(item => item.issue && !discarded.has(rowKey(item.row, item.index)));
+  const importableRows = (draft.objects || [])
+    .filter((row, index) => !discarded.has(rowKey(row, index)) && !isBlockingImportIssue(issues.find(item => item.row === row)));
   return `
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet wide" onclick="event.stopPropagation()">
@@ -988,18 +1112,18 @@ function importSheetV702(defaultKind) {
           <span><strong>Seleccionar CSV</strong><small>Se validará antes de guardar</small></span>
           <input type="file" accept=".csv,text/csv" data-import-file class="file-input-native">
         </label>
-        ${draft.objects?.length ? `<div class="card import-summary"><strong>${draft.objects.length} filas leídas</strong><small>${draft.issues.length ? `${draft.issues.length} filas requieren revisión.` : 'Sin errores detectados.'}</small></div>` : ''}
-        ${draft.objects?.length ? `<div class="import-card-list">${draft.objects.slice(0, 40).map((row, index) => importRowCard(row, index, headers, draft.issues)).join('')}</div>` : ''}
-        ${draft.objects?.length > 40 ? `<div class="card"><small class="muted">Mostrando 40 de ${draft.objects.length} filas. Se importarán todas las filas editadas.</small></div>` : ''}
-        ${draft.objects?.length ? '<button class="primary-button" data-import-confirm>Confirmar importación</button>' : ''}
+        ${draft.objects?.length ? `<div class="card import-summary"><strong>${draft.objects.length} filas leidas</strong><small>${importableRows.length} listas para importar · ${reviewRows.length} por revisar · ${discarded.size} descartadas.</small></div>` : ''}
+        ${reviewRows.length ? `<div class="import-card-list">${reviewRows.slice(0, 40).map(item => importRowCard(item.row, item.index, headers, item.issue)).join('')}</div>` : ''}
+        ${reviewRows.length > 40 ? `<div class="card"><small class="muted">Mostrando 40 de ${reviewRows.length} filas por revisar.</small></div>` : ''}
+        ${draft.objects?.length && !reviewRows.length ? '<div class="card"><strong>Sin filas con errores</strong><small class="muted">Se importaran solo las filas validas.</small></div>' : ''}
+        ${draft.objects?.length ? `<button class="primary-button" data-import-confirm ${importableRows.length ? '' : 'disabled'}>Confirmar importacion (${importableRows.length})</button>` : ''}
         <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
       </section>
     </div>
   `;
 }
 
-function importRowCard(row, index, headers, issues = []) {
-  const issue = issues.find(item => item.row === row);
+function importRowCard(row, index, headers, issue = null) {
   const showHeaders = headers.length ? headers : Object.keys(row).filter(key => key !== '__row');
   return `
     <div class="import-preview-row ${issue ? 'issue' : ''}">
@@ -1015,7 +1139,136 @@ function importRowCard(row, index, headers, issues = []) {
           </label>
         `).join('')}
       </div>
+      <button class="secondary-button compact-danger" data-import-discard="${rowKey(row, index)}">Descartar fila</button>
     </div>
+  `;
+}
+
+function rowKey(row, index) {
+  return String(row.__row || index + 2);
+}
+
+function isBlockingImportIssue(issue) {
+  return !!issue?.fields?.some(field => /inval|inv.|requer/i.test(String(field)));
+}
+
+function categoryActionsSheet() {
+  const category = selectedCategory();
+  if (!category) return '';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close>
+      <section class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <div class="account-form-preview">
+          <span class="icon-preview-medium" style="background:${category.color || '#0A8FE8'};color:#fff;">${icon(category.icon || 'folder')}</span>
+          <div><strong>${html(category.name)}</strong><small>${(category.subcategories || []).length} subcategorias</small></div>
+        </div>
+        ${categoryActionRow('category-visual', 'sparkles', 'Cambiar icono y color', 'Preview antes de guardar')}
+        ${categoryActionRow('category-name', 'edit', 'Cambiar nombre', 'Renombra categoria y registros asociados')}
+        ${categoryActionRow('category-subcategories', 'listChecks', 'Editar subcategorias', 'Agregar, renombrar o eliminar subcategorias')}
+        ${categoryActionRow('confirm-delete-category', 'trash', 'Borrar categoria', 'Elimina sus movimientos y presupuestos', 'danger-action-row')}
+        <button class="secondary-button" data-sheet-close style="margin-top:8px;">Cerrar</button>
+      </section>
+    </div>
+  `;
+}
+
+function categoryActionRow(sheet, iconName, title, subtitle, extraClass = '') {
+  return `<button class="settings-row ${extraClass}" data-category-action="${sheet}"><span class="row-icon solid-icon" style="background:var(--blue);color:#fff;">${icon(iconName)}</span><span><strong>${title}</strong><small>${subtitle}</small></span>${icon('chevronRight')}</button>`;
+}
+
+function categoryVisualSheet() {
+  const draft = ensureCategoryDraft();
+  const tab = draft.pickerTab || 'icon';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close>
+      <section class="sheet wide icon-picker-sheet" onclick="event.stopPropagation()">
+        <div class="sheet-head-row">
+          <button class="ghost-icon" data-category-action="category-actions" aria-label="Volver">${icon('chevronLeft')}</button>
+          <h2 class="sheet-title">Icono y color</h2>
+          <button class="done-button" data-save-category-section="visual">Hecho</button>
+        </div>
+        <div class="icon-preview-large" data-form-icon-preview style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'folder')}</div>
+        <div class="picker-tabs compact-tabs">
+          <button class="${tab === 'icon' ? 'active' : ''}" data-category-picker-tab="icon">${icon('sparkles')} Icono</button>
+          <button class="${tab === 'color' ? 'active' : ''}" data-category-picker-tab="color">${icon('pie')} Color</button>
+        </div>
+        ${tab === 'icon'
+          ? `<div class="mini-icon-grid category-mini-grid">${ICON_CATALOG.slice(24).map(name => `<button class="icon-circle-choice ${name === draft.icon ? 'active' : ''}" data-form-icon="${name}" style="${name === draft.icon ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>`
+          : `<div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(color => `<button class="color-circle-choice ${color === draft.color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}</div>`
+        }
+      </section>
+    </div>
+  `;
+}
+
+function categoryNameSheet() {
+  const draft = ensureCategoryDraft();
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Cambiar nombre</h2>
+      <div class="field"><label>Nombre</label><input class="input" data-category-draft-field="name" value="${html(draft.name || '')}" placeholder="Nombre de categoria"></div>
+      <button class="primary-button" data-save-category-section="name">Guardar nombre</button>
+      <button class="secondary-button" data-category-action="category-actions" style="margin-top:8px;">Volver</button>
+    </section></div>
+  `;
+}
+
+function categorySubcategoriesSheet() {
+  const draft = ensureCategoryDraft();
+  const rows = draft.subcategories || [];
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Subcategorias</h2>
+      <div class="card import-summary"><strong>${rows.length}</strong><small>subcategorias en esta categoria</small></div>
+      <div class="subcat-edit-list">
+        ${rows.map((sub, index) => `
+          <div class="subcat-edit-row">
+            <input class="input" data-category-sub-input="${index}" value="${html(sub.name || '')}" placeholder="Subcategoria">
+            <button class="ghost-icon compact-edit" data-category-sub-delete="${html(sub.name || '')}" aria-label="Eliminar subcategoria">${icon('trash')}</button>
+          </div>
+        `).join('') || '<div class="empty-state">Sin subcategorias</div>'}
+      </div>
+      <button class="secondary-button" data-category-sub-add>${icon('plus')} Agregar subcategoria</button>
+      <button class="primary-button" data-save-category-section="subcategories" style="margin-top:8px;">Guardar subcategorias</button>
+      <button class="secondary-button" data-category-action="category-actions" style="margin-top:8px;">Volver</button>
+    </section></div>
+  `;
+}
+
+function confirmDeleteSubcategorySheet() {
+  const category = selectedCategory();
+  const subcategory = state.ui.selectedSubcategory || '';
+  if (!category || !subcategory) return '';
+  const impact = subcategoryDeleteImpact(category.id, subcategory);
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Eliminar subcategoria</h2>
+      <p class="muted">Los registros asociados seguiran vivos dentro de "${html(category.name)}", pero quedaran sin subcategoria.</p>
+      <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos</small></div>
+      <button class="danger-button" data-confirm-delete-subcategory>Eliminar subcategoria</button>
+      <button class="secondary-button" data-category-action="category-subcategories" style="margin-top:8px;">Cancelar</button>
+    </section></div>
+  `;
+}
+
+function confirmDeleteCategorySheet() {
+  const category = selectedCategory();
+  if (!category) return '';
+  const impact = categoryDeleteImpact(category.id);
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Borrar categoria</h2>
+      <p class="muted">Borrar esta categoria eliminara sus movimientos y presupuestos asociados. Esto puede cambiar balances, ingresos, gastos y presupuesto historico.</p>
+      <p class="muted">Si quieres conservar historial, cambia el nombre de la categoria o corrige registros desde Auditoria.</p>
+      <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos · ${impact.recurring} recurrencias quedaran sin categoria</small></div>
+      <button class="danger-button" data-confirm-delete-category>Eliminar categoria definitivamente</button>
+      <button class="secondary-button" data-category-action="category-actions" style="margin-top:8px;">Cancelar</button>
+    </section></div>
   `;
 }
 
@@ -1521,7 +1774,8 @@ async function readImportFile(file) {
     kind,
     objects,
     issues: importIssuesV702(kind, objects, state),
-    delimiter: parsed.delimiter
+    delimiter: parsed.delimiter,
+    discardedRows: []
   };
   debugLog('import file parsed', { kind, rows: objects.length, issues: state.ui.importDraft.issues.length, delimiter: parsed.delimiter });
   render();
@@ -1537,9 +1791,16 @@ async function readCsvText(file) {
 async function confirmImportDraft() {
   const draft = state.ui.importDraft;
   if (!draft?.objects?.length) return;
-  debugLog('import confirm start', { kind: draft.kind, rows: draft.objects.length });
-  if (['accounts', 'categories', 'provisions', 'recurring'].includes(draft.kind)) await importCatalog(draft.kind, draft.objects);
-  else await importTransactions(draft.kind, draft.objects, state);
+  const discarded = new Set(draft.discardedRows || []);
+  const rows = draft.objects.filter((row, index) => !discarded.has(rowKey(row, index)) && !isBlockingImportIssue((draft.issues || []).find(item => item.row === row)));
+  if (!rows.length) {
+    showToast('No hay filas validas para importar');
+    render();
+    return;
+  }
+  debugLog('import confirm start', { kind: draft.kind, rows: rows.length, skipped: draft.objects.length - rows.length });
+  if (['accounts', 'categories', 'provisions', 'recurring'].includes(draft.kind)) await importCatalog(draft.kind, rows);
+  else await importTransactions(draft.kind, rows, state);
   debugLog('import confirm complete', {
     kind: draft.kind,
     accounts: state.accounts.length,

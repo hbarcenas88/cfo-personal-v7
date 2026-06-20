@@ -36,18 +36,26 @@ export function todayISO() {
 export function parseDate(value) {
   if (!value) return '';
   const text = String(value).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return validISODate(text.slice(0, 10));
   const serial = Number(text);
   if (!Number.isNaN(serial) && serial > 40000 && serial < 70000) {
-    return new Date(Math.round((serial - 25569) * 86400 * 1000)).toISOString().slice(0, 10);
+    return validISODate(new Date(Math.round((serial - 25569) * 86400 * 1000)).toISOString().slice(0, 10));
   }
   const match = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (match) {
     let year = Number(match[3]);
     if (year < 100) year += 2000;
-    return `${year}-${String(Number(match[2])).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`;
+    return validISODate(`${year}-${String(Number(match[2])).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`);
   }
   return '';
+}
+
+function validISODate(iso) {
+  const match = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  const date = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10) === iso ? iso : '';
 }
 
 export function formatDate(value, long = false) {
@@ -63,17 +71,29 @@ export function currentMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+export function parseMonth(value) {
+  if (!value) return '';
+  const text = String(value).trim();
+  const monthMatch = text.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/);
+  if (monthMatch) {
+    const month = `${monthMatch[1]}-${monthMatch[2]}`;
+    const number = Number(monthMatch[2]);
+    return number >= 1 && number <= 12 ? month : '';
+  }
+  return parseDate(text).slice(0, 7);
+}
+
 export function monthLabel(month) {
-  const [year, m] = String(month || currentMonth()).split('-').map(Number);
+  const [year, m] = parseMonth(month || currentMonth()).split('-').map(Number);
   return `${MONTHS_SHORT[m - 1]} ${year}`;
 }
 
 export function monthStart(month) {
-  return `${month}-01`;
+  return `${parseMonth(month) || currentMonth()}-01`;
 }
 
 export function monthEnd(month) {
-  const [year, m] = month.split('-').map(Number);
+  const [year, m] = (parseMonth(month) || currentMonth()).split('-').map(Number);
   return new Date(year, m, 0).toISOString().slice(0, 10);
 }
 

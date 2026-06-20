@@ -193,7 +193,10 @@ function settingsLink(page, iconName, title, subtitle) {
 }
 
 function catalogRow(item, type) {
-  const subtitle = type === 'category' ? `${item.subcategories?.length || 0} subcategorías` : item.type || 'Cuenta';
+  if (type === 'category') {
+    return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">Editar nombre, icono, color y subcategorias</span></span><button class="ghost-icon compact-edit" data-category-actions="${item.id}" aria-label="Editar categoria">${icon('edit')}</button></div>`;
+  }
+  const subtitle = item.type || 'Cuenta';
   return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(subtitle)}</span></span><button class="chip" data-open-icon="${type}:${item.id}">Icono</button></div>`;
 }
 

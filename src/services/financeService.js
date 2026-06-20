@@ -1,4 +1,4 @@
-import { canon, clamp, currentMonth, monthEnd, parseAmount, parseDate, periodBounds, previousEquivalentPeriod, uid } from '../utils/format.js';
+import { canon, clamp, currentMonth, monthEnd, parseAmount, parseDate, parseMonth, periodBounds, previousEquivalentPeriod, uid } from '../utils/format.js';
 
 export function normalizeTransaction(tx = {}, state) {
   const amount = Math.abs(parseAmount(tx.amount ?? tx.monto ?? 0) || 0);
@@ -33,7 +33,7 @@ export function normalizeTransaction(tx = {}, state) {
 }
 
 export function normalizeBudget(row = {}, state) {
-  const month = row.month || row.mes || parseDate(row.date || row.fecha)?.slice(0, 7) || state.period.month || currentMonth();
+  const month = parseMonth(row.month || row.mes || row.date || row.fecha) || parseMonth(state.period?.month) || currentMonth();
   return {
     id: row.id || uid('budget'),
     month,

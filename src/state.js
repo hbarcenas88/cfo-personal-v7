@@ -1,6 +1,6 @@
 import { loadState, saveState, clearState } from './services/storageService.js';
 import { createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
-import { canon, currentMonth, parseAmount, uid } from './utils/format.js';
+import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
 const listeners = new Set();
@@ -53,10 +53,13 @@ export const initialState = {
     recurringDraft: null,
     accountAction: '',
     selectedAccountId: '',
+    selectedCategoryId: '',
+    selectedSubcategory: '',
     selectedTransactionId: '',
     selectedHealthIssue: '',
     auditFilter: '',
-    filterSearch: ''
+    filterSearch: '',
+    categoryDraft: null
   }
 };
 
@@ -86,9 +89,13 @@ function mergeState(saved) {
   merged.settingsPage = '';
   merged.accountTypes = mergeAccountTypes(saved.accountTypes, saved.accounts);
   merged.accounts = migrateAccounts(saved.accounts);
-  merged.categories = Array.isArray(saved.categories) ? saved.categories : [];
-  merged.transactions = Array.isArray(saved.transactions) ? saved.transactions : [];
-  merged.budgets = Array.isArray(saved.budgets) ? saved.budgets : [];
+  merged.categories = migrateCategories(saved.categories);
+  merged.transactions = (Array.isArray(saved.transactions) ? saved.transactions : [])
+    .filter(tx => parseDate(tx.date || tx.fecha) || !(tx.date || tx.fecha))
+    .map(tx => normalizeTransaction(tx, merged));
+  merged.budgets = (Array.isArray(saved.budgets) ? saved.budgets : [])
+    .filter(row => parseMonth(row.month || row.mes || row.date || row.fecha) || !(row.month || row.mes || row.date || row.fecha))
+    .map(row => normalizeBudget(row, merged));
   merged.provisions = Array.isArray(saved.provisions) ? saved.provisions : [];
   merged.recurring = Array.isArray(saved.recurring) ? saved.recurring : [];
   return merged;
@@ -99,6 +106,20 @@ function mergeAccountTypes(savedTypes = [], accounts = []) {
   (Array.isArray(savedTypes) ? savedTypes : []).forEach(type => pushUnique(types, type));
   (Array.isArray(accounts) ? accounts : []).forEach(account => pushUnique(types, account.type));
   return types.filter(Boolean);
+}
+
+function migrateCategories(categories = []) {
+  return (Array.isArray(categories) ? categories : []).map(category => ({
+    ...category,
+    id: category.id || uid('category'),
+    name: category.name || category.categoria || '',
+    icon: category.icon || inferIcon(category.name || category.categoria, 'category'),
+    color: category.color || '#0A8FE8',
+    subcategories: (Array.isArray(category.subcategories) ? category.subcategories : []).map(sub => ({
+      id: sub.id || uid('sub'),
+      name: sub.name || sub.subcategoria || sub
+    })).filter(sub => sub.name)
+  })).filter(category => category.name);
 }
 
 function pushUnique(list, value) {
@@ -196,24 +217,31 @@ export function closeSheet() {
   state.ui.activeSheet = '';
   state.ui.importDraft = null;
   state.ui.iconPicker = null;
+  state.ui.categoryDraft = null;
+  state.ui.selectedSubcategory = '';
   notify();
 }
 
 export function showToast(message, action = null) {
   state.ui.toast = { message, action, id: uid('toast') };
-  notify();
+  notifyToastOnly();
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => {
     if (state.ui.toast?.message === message) {
       state.ui.toast = null;
-      notify();
+      notifyToastOnly();
     }
   }, 5200);
 }
 
 export function dismissToast() {
   state.ui.toast = null;
-  notify();
+  notifyToastOnly();
+}
+
+function notifyToastOnly() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('cfo:toast'));
+  else notify();
 }
 
 export async function addAccount(payload) {
@@ -423,6 +451,121 @@ export async function addCategory(payload) {
     });
     s.onboarded = true;
   }, { undo: 'Categoría creada' });
+  showToast('Categoria creada');
+  return true;
+}
+
+export function categoryDeleteImpact(id) {
+  const category = state.categories.find(item => item.id === id);
+  if (!category) return { category: null, transactions: 0, budgets: 0, recurring: 0 };
+  const key = canon(category.name);
+  return {
+    category,
+    transactions: state.transactions.filter(tx => canon(tx.category) === key).length,
+    budgets: state.budgets.filter(row => canon(row.category) === key).length,
+    recurring: state.recurring.filter(row => canon(row.category) === key).length
+  };
+}
+
+export function subcategoryDeleteImpact(categoryId, subcategoryName) {
+  const category = state.categories.find(item => item.id === categoryId);
+  if (!category) return { category: null, subcategory: '', transactions: 0, budgets: 0 };
+  const catKey = canon(category.name);
+  const subKey = canon(subcategoryName);
+  return {
+    category,
+    subcategory: subcategoryName,
+    transactions: state.transactions.filter(tx => canon(tx.category) === catKey && canon(tx.subcategory) === subKey).length,
+    budgets: state.budgets.filter(row => canon(row.category) === catKey && canon(row.subcategory) === subKey).length
+  };
+}
+
+export async function updateCategory(id, payload) {
+  const current = state.categories.find(item => item.id === id);
+  const name = payload.name?.trim();
+  if (!current) {
+    showToast('Categoria no encontrada');
+    return false;
+  }
+  if (!name) {
+    showToast('Nombre de categoria requerido');
+    return false;
+  }
+  if (state.categories.some(item => item.id !== id && canon(item.name) === canon(name))) {
+    showToast('La categoria ya existe');
+    return false;
+  }
+  const oldName = current.name;
+  await mutate(s => {
+    const category = s.categories.find(item => item.id === id);
+    if (!category) return;
+    category.name = name;
+    category.icon = payload.icon || category.icon || inferIcon(name, 'category');
+    category.color = payload.color || category.color || '#0A8FE8';
+    if (Array.isArray(payload.subcategories)) {
+      category.subcategories = payload.subcategories.map(sub => ({
+        id: sub.id || uid('sub'),
+        name: sub.name || sub
+      })).filter(sub => sub.name);
+    }
+    s.transactions.forEach(tx => {
+      if (canon(tx.category) === canon(oldName)) tx.category = name;
+    });
+    s.budgets.forEach(row => {
+      if (canon(row.category) === canon(oldName)) row.category = name;
+    });
+    s.recurring.forEach(row => {
+      if (canon(row.category) === canon(oldName)) row.category = name;
+    });
+    s.filters.categories.categories = s.filters.categories.categories.map(value => canon(value) === canon(oldName) ? name : value);
+    s.filters.audit.categories = s.filters.audit.categories.map(value => canon(value) === canon(oldName) ? name : value);
+  }, { undo: 'Categoria actualizada' });
+  showToast('Categoria actualizada');
+  return true;
+}
+
+export async function deleteSubcategory(categoryId, subcategoryName) {
+  const impact = subcategoryDeleteImpact(categoryId, subcategoryName);
+  if (!impact.category || !subcategoryName) {
+    showToast('Subcategoria no encontrada');
+    return false;
+  }
+  const catKey = canon(impact.category.name);
+  const subKey = canon(subcategoryName);
+  await mutate(s => {
+    const category = s.categories.find(item => item.id === categoryId);
+    if (category) category.subcategories = (category.subcategories || []).filter(sub => canon(sub.name || sub) !== subKey);
+    s.transactions.forEach(tx => {
+      if (canon(tx.category) === catKey && canon(tx.subcategory) === subKey) tx.subcategory = '';
+    });
+    s.budgets.forEach(row => {
+      if (canon(row.category) === catKey && canon(row.subcategory) === subKey) row.subcategory = '';
+    });
+    s.filters.audit.subcategories = s.filters.audit.subcategories.filter(value => canon(value) !== subKey);
+  }, { undo: 'Subcategoria eliminada' });
+  showToast('Subcategoria eliminada');
+  return true;
+}
+
+export async function deleteCategory(id) {
+  const impact = categoryDeleteImpact(id);
+  if (!impact.category) {
+    showToast('Categoria no encontrada');
+    return false;
+  }
+  const key = canon(impact.category.name);
+  await mutate(s => {
+    s.transactions = s.transactions.filter(tx => canon(tx.category) !== key);
+    s.budgets = s.budgets.filter(row => canon(row.category) !== key);
+    s.recurring.forEach(row => {
+      if (canon(row.category) === key) row.category = '';
+    });
+    s.categories = s.categories.filter(category => category.id !== id);
+    s.filters.categories.categories = s.filters.categories.categories.filter(value => canon(value) !== key);
+    s.filters.audit.categories = s.filters.audit.categories.filter(value => canon(value) !== key);
+  }, { undo: 'Categoria eliminada' });
+  showToast('Categoria eliminada');
+  return true;
 }
 
 export async function addProvision(payload) {
