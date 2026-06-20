@@ -528,6 +528,7 @@ svg.icon-xl {
 }
 
 .row-title {
+  display: block;
   font-size: var(--text-base);
   font-weight: 790;
   white-space: nowrap;
@@ -536,10 +537,13 @@ svg.icon-xl {
 }
 
 .row-subtitle {
+  display: block;
   color: var(--text-muted);
   font-size: var(--text-md);
   margin-top: 3px;
   line-height: 1.25;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .row-amount {
@@ -793,7 +797,9 @@ textarea[aria-invalid="true"] {
   right: 0;
   bottom: 0;
   max-height: min(88vh, 760px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   background: var(--surface);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   border: 1px solid var(--line);
@@ -886,6 +892,12 @@ textarea[aria-invalid="true"] {
   margin-top: 3px;
   color: var(--text-muted);
   line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.drawer-row > span,
+.settings-row > span {
+  min-width: 0;
 }
 
 .empty-state {
@@ -893,8 +905,10 @@ textarea[aria-invalid="true"] {
   place-items: center;
   text-align: center;
   gap: var(--space-sm);
-  padding: 30px 18px;
+  max-width: 100%;
+  padding: 28px 16px;
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .empty-state svg {
@@ -902,6 +916,11 @@ textarea[aria-invalid="true"] {
   height: var(--icon-xl);
   color: var(--blue);
   opacity: .45;
+}
+
+.empty-state small {
+  max-width: 28ch;
+  line-height: 1.35;
 }
 
 .toast {

@@ -47,7 +47,7 @@ function renderCategoryChart(rows, allRows) {
     </div>
     ${rows.length ? `<div class="chart-bars">${rows.map((row, index) => barRow(row, total, palette(index))).join('')}</div>` : emptyState('barChart', 'Sin gastos por categoría')}
     ${allRows.length ? `<div class="chip-row chart-chip-row">${allRows.map(row => `<button class="chip dense ${rows.includes(row) ? 'active' : ''}" data-chart-toggle="${row.name}"><span class="chip-label">${row.name}</span></button>`).join('')}</div>` : ''}
-  `);
+  `, 'chart-card');
 }
 
 function barRow(row, total, color) {
@@ -69,7 +69,7 @@ function renderTrendChart(state) {
     <div class="metric-top"><div class="card-heading-block"><h2 class="card-heading">Real vs presupuesto</h2><div class="metric-note">Comparacion mensual del ano visible</div></div><span class="chart-mini-icon">${icon('barChart')}</span></div>
     ${hasData ? `<div class="mini-chart">${rows.map(row => `<div class="mini-col"><span style="height:${row.expense / max * 118}px;background:var(--red)"></span><span style="height:${row.budget / max * 118}px;background:var(--blue)"></span></div>`).join('')}</div>
     <div class="chip-row"><span class="chip"><span class="legend-dot-inline" style="background:var(--red)"></span>Real</span><span class="chip"><span class="legend-dot-inline" style="background:var(--blue)"></span>Presupuesto</span></div>` : emptyState('barChart', 'Sin comparacion mensual')}
-  `);
+  `, 'chart-card');
 }
 
 function renderFlowChart(state) {
@@ -79,7 +79,7 @@ function renderFlowChart(state) {
   return card(`
     <div class="metric-top"><div class="card-heading-block"><h2 class="card-heading">Ingresos vs gastos</h2><div class="metric-note">Evolucion mensual</div></div><span class="chart-mini-icon">${icon('chart')}</span></div>
     ${hasData ? `<div class="mini-chart">${rows.map(row => `<div class="mini-col"><span style="height:${row.income / max * 118}px;background:var(--green)"></span><span style="height:${row.expense / max * 118}px;background:var(--red)"></span></div>`).join('')}</div>` : emptyState('chart', 'Sin evolucion mensual')}
-  `);
+  `, 'chart-card');
 }
 
 function palette(index) {

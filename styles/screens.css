@@ -182,6 +182,37 @@
   margin-top: 8px;
 }
 
+.chart-card {
+  overflow: hidden;
+}
+
+.chart-card .metric-top {
+  align-items: flex-start;
+}
+
+.chart-card .empty-state {
+  min-height: 132px;
+  margin-top: 12px;
+  padding: 20px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .72), rgba(247, 250, 255, .92)),
+    repeating-linear-gradient(90deg, transparent 0 26px, rgba(191, 208, 223, .24) 26px 27px);
+}
+
+.chart-card .empty-state svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  color: var(--blue);
+  opacity: .34;
+}
+
+.chart-card .empty-state strong {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
 .bar-row {
   display: grid;
   grid-template-columns: minmax(92px, 112px) 1fr 42px;
@@ -911,6 +942,7 @@
   display: grid;
   gap: 11px;
   overflow: visible;
+  min-width: 0;
 }
 
 .compact-tabs,
@@ -969,6 +1001,13 @@
   text-align: left;
 }
 
+.select-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .select-button svg {
   width: 18px;
   height: 18px;
@@ -1005,6 +1044,11 @@
   padding: 10px 12px;
   color: var(--text);
   font-weight: 760;
+}
+
+.option-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .option-row svg {
@@ -1062,6 +1106,7 @@
   display: grid;
   place-items: center;
   box-shadow: inset 0 0 0 1px rgba(15, 35, 55, .05);
+  justify-self: center;
 }
 
 .icon-circle-choice svg {
@@ -1085,6 +1130,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
+  min-width: 0;
 }
 
 .icon-picker-sheet {
