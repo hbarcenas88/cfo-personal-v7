@@ -27,7 +27,7 @@
       console.error('[CFO V7 boot]', message, error);
       var app = document.getElementById('app');
       if (app) {
-        app.innerHTML = '<div class="boot-screen"><div class="boot-logo">CFO <span>Personal</span></div><p>No se pudo iniciar la app.</p><pre style="max-width:92vw;white-space:pre-wrap;text-align:left;color:#dc3f61;">' + message.replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]; }) + '</pre></div>';
+        app.innerHTML = '<div class="boot-screen"><div class="boot-logo">CFO <span>Personal</span></div><p>No se pudo iniciar la app.</p><pre class="boot-error">' + message.replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]; }) + '</pre></div>';
       }
     }
     window.addEventListener('error', function (event) { cfoBootError('error', event.error || event.message); });

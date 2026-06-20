@@ -1,4 +1,5 @@
 import { icon } from '../icons.js';
+import { iconBubble } from '../components/ui.js';
 import { renderKeypad } from '../components/keypad.js';
 import { formatMoney, todayISO } from '../utils/format.js';
 
@@ -25,15 +26,15 @@ function renderChoose() {
         <span></span>
       </header>
       <main class="record-body">
-        <h1 class="welcome-title" style="font-size:26px;">¿Qué deseas registrar?</h1>
+        <h1 class="welcome-title record-choice-title">¿Qué deseas registrar?</h1>
         ${choices.map(([title, iconName, text, type]) => `
           <button class="record-choice" data-record-type="${type}">
-            <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
+            ${iconBubble(iconName)}
             <span><strong>${title}</strong><small>${text}</small></span>
             ${icon('chevronRight')}
           </button>
         `).join('')}
-        <div class="card" style="margin-top:14px;"><strong>Tip rápido</strong><p class="muted">Usa transferencias para mover dinero entre cuentas sin afectar ingresos, gastos ni presupuesto.</p></div>
+        <div class="card mt-lg"><strong>Tip rápido</strong><p class="muted">Usa transferencias para mover dinero entre cuentas sin afectar ingresos, gastos ni presupuesto.</p></div>
       </main>
     </section>
   `;
@@ -56,14 +57,14 @@ function renderForm(state, flow) {
         <button class="icon-button primary" data-record-save>${icon('check')}</button>
       </header>
       <main class="record-body">
-        <button class="flow-box" data-record-calendar style="width:100%;text-align:left;">
+        <button class="flow-box flow-box-full" data-record-calendar>
           <small>Fecha</small><strong>${flow.date || todayISO()}</strong>
         </button>
         ${type === 'transfer' ? renderTransferFields(state, flow) : renderStandardFields(state, flow, type)}
         <div class="amount-hero">
           <small>${labels[1]}</small>
           <strong class="money" style="color:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
-          ${flow.keypadError ? `<div class="danger" style="margin-top:6px;">${flow.keypadError}</div>` : ''}
+          ${flow.keypadError ? `<div class="danger mt-xs">${flow.keypadError}</div>` : ''}
         </div>
         <div class="field"><label>Descripción</label><input class="input" data-record-field="description" placeholder="Notas (opcional)..." value="${flow.description || ''}"></div>
         ${type === 'transfer' ? `<div class="card"><strong>Transferencia auditable</strong><p class="muted">Genera dos movimientos vinculados y no impacta ingresos, gastos ni presupuesto.</p></div>` : ''}
@@ -75,11 +76,11 @@ function renderForm(state, flow) {
 
 function renderStandardFields(state, flow, type) {
   return `
-    <div class="flow-pair" style="margin-top:10px;">
+    <div class="flow-pair record-field-pair">
       ${fieldButton(type === 'income' ? 'A cuenta' : type === 'budget' ? 'Cuenta presupuesto' : 'De cuenta', flow.account, 'Seleccionar', 'account')}
       ${fieldButton(type === 'income' ? 'Origen' : 'Categoría', flow.category, type === 'income' ? 'Sin categoría' : 'Seleccionar', 'category')}
     </div>
-    <div class="chip-row" style="margin-top:10px;">
+    <div class="chip-row record-chip-row">
       ${subcategories(state, flow.category).map(sub => `<button class="chip ${flow.subcategory === sub ? 'active' : ''}" data-record-sub="${sub}">${sub}</button>`).join('')}
     </div>
   `;
@@ -87,7 +88,7 @@ function renderStandardFields(state, flow, type) {
 
 function renderTransferFields(state, flow) {
   return `
-    <div class="flow-pair" style="margin-top:10px;">
+    <div class="flow-pair record-field-pair">
       ${fieldButton('Desde', flow.account, 'Seleccionar', 'account')}
       ${fieldButton('Hacia', flow.accountTo, 'Seleccionar', 'accountTo')}
     </div>

@@ -73,7 +73,7 @@ export function renderDrawer() {
   return `
     <div class="drawer-backdrop ${open}" data-action="close-drawer">
       <aside class="drawer" onclick="event.stopPropagation()">
-        <div class="brand" style="text-align:left;margin-bottom:14px;">
+        <div class="brand drawer-brand">
           <div class="brand-title">CFO <span>Personal</span></div>
           <div class="brand-subtitle">Centro operativo</div>
         </div>
@@ -93,7 +93,7 @@ export function renderDrawer() {
 function settingsRow(page, iconName, title, subtitle) {
   return `
     <button class="drawer-row" data-settings="${page}">
-      <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
+      ${iconBubble(iconName)}
       <span><strong>${title}</strong><small>${subtitle}</small></span>
       ${icon('chevronRight')}
     </button>
@@ -154,11 +154,17 @@ export function card(children, classes = '') {
   return `<div class="card ${classes}">${children}</div>`;
 }
 
+export function iconBubble(iconName, color = 'var(--blue)', solid = false, classes = '') {
+  const bg = solid ? color : softColor(color);
+  const fg = solid ? '#fff' : color;
+  return `<span class="icon-bubble ${solid ? 'solid' : ''} ${classes}" style="--icon-bg:${bg};--icon-fg:${fg};">${icon(iconName)}</span>`;
+}
+
 export function metricCard({ title, value, note, iconName, color = 'var(--blue)', wide = false, compact = false, delta = null }) {
   const deltaText = delta === null ? '' : `<div class="metric-note ${delta >= 0 ? 'success' : 'danger'}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(1)}%</div>`;
   return card(`
     <div class="metric-top">
-      <span class="metric-icon" style="background:${softColor(color)};color:${color}">${icon(iconName)}</span>
+      ${iconBubble(iconName, color, false, 'metric-icon')}
       ${deltaText}
     </div>
     <div class="metric-title">${title}</div>
@@ -192,7 +198,7 @@ export function toastRoot() {
   root.innerHTML = toast ? `
     <div class="toast show">
       <span>${toast.message}</span>
-      <span>
+      <span class="toast-actions">
         ${toast.action ? `<button data-toast-action>${toast.action.label}</button>` : ''}
         <button data-toast-dismiss>${icon('x')}</button>
       </span>

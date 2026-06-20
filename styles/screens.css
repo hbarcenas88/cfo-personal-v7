@@ -6,15 +6,17 @@
 }
 
 .welcome-card {
-  padding: 24px;
-  border-radius: 30px;
+  padding: var(--space-2xl);
+  border-radius: var(--radius-xl);
   background: linear-gradient(145deg, #fff 0%, #f1f8ff 100%);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .welcome-badge {
-  width: 64px;
-  height: 64px;
-  border-radius: 22px;
+  width: var(--icon-hero);
+  height: var(--icon-hero);
+  border-radius: var(--radius-card);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -25,16 +27,18 @@
 
 .welcome-title {
   margin: 16px 0 8px;
-  font-size: 32px;
+  font-size: 30px;
   line-height: 1.05;
   font-weight: 880;
   letter-spacing: -.05em;
+  overflow-wrap: anywhere;
 }
 
 .welcome-text {
   color: var(--text-muted);
   line-height: 1.55;
   margin: 0 0 18px;
+  overflow-wrap: anywhere;
 }
 
 .tour-list {
@@ -48,9 +52,10 @@
   gap: 12px;
   align-items: center;
   padding: 12px;
-  border-radius: 18px;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, .76);
   border: 1px solid var(--line);
+  min-width: 0;
 }
 
 .tour-item strong {
@@ -60,6 +65,7 @@
 
 .tour-item small {
   color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .account-total-card {
@@ -211,8 +217,8 @@
 }
 
 .chart-mini-icon {
-  width: 36px;
-  height: 36px;
+  width: var(--control-sm);
+  height: var(--control-sm);
   border-radius: 14px;
   display: inline-grid;
   place-items: center;
@@ -303,9 +309,9 @@
 .audit-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: var(--space-md);
   align-items: start;
-  padding: 10px;
+  padding: var(--space-md);
 }
 
 .audit-card .menu-button {
@@ -318,7 +324,7 @@
 }
 
 .audit-card-wrap {
-  padding: 10px;
+  padding: var(--space-md);
 }
 
 .audit-side {
@@ -344,6 +350,14 @@
   color: var(--text-muted);
 }
 
+.audit-summary-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.audit-active-filters {
+  margin-bottom: 10px;
+}
+
 .transfer-link {
   display: inline-flex;
   align-items: center;
@@ -355,15 +369,15 @@
 
 .record-choice {
   width: 100%;
-  min-height: 82px;
+  min-height: 76px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 14px;
   align-items: center;
   border: 1px solid var(--line);
   background: #fff;
-  border-radius: 22px;
-  padding: 14px;
+  border-radius: var(--radius-card);
+  padding: var(--space-md);
   text-align: left;
   box-shadow: var(--shadow-soft);
 }
@@ -381,10 +395,14 @@
   color: var(--text-muted);
 }
 
+.record-choice-title {
+  font-size: 26px;
+}
+
 .record-screen {
   position: fixed;
   inset: 0;
-  z-index: 130;
+  z-index: var(--z-record);
   background: var(--bg);
   display: none;
   grid-template-rows: auto 1fr;
@@ -397,7 +415,7 @@
 .record-header {
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
   display: grid;
-  grid-template-columns: 52px 1fr 52px;
+  grid-template-columns: var(--control-lg) 1fr var(--control-lg);
   align-items: center;
 }
 
@@ -440,10 +458,10 @@
 
 .flow-box {
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: var(--radius);
   background: var(--surface);
-  padding: 14px;
-  min-height: 84px;
+  padding: var(--space-md);
+  min-height: 78px;
 }
 
 .flow-box small {
@@ -456,17 +474,27 @@
   font-size: 15px;
 }
 
+.flow-box-full {
+  width: 100%;
+  text-align: left;
+}
+
+.record-field-pair,
+.record-chip-row {
+  margin-top: 10px;
+}
+
 .keypad {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
   margin-bottom: 0;
 }
 
 .keypad button {
-  min-height: 54px;
-  border-radius: 16px;
+  min-height: var(--control-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
   background: #fff;
   font-size: 18px;
@@ -482,7 +510,7 @@
   background: var(--blue);
   color: #fff;
   border-color: var(--blue);
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .keypad.income .confirm {
@@ -498,8 +526,8 @@
 
 .calendar-grid button,
 .calendar-grid span {
-  min-height: 42px;
-  border-radius: 14px;
+  min-height: var(--control-md);
+  border-radius: var(--radius-sm);
   border: 0;
   background: transparent;
   display: grid;
@@ -537,7 +565,7 @@
 }
 
 .quick-grid button {
-  min-height: 46px;
+  min-height: var(--control-md);
   border: 1px solid var(--line);
   border-radius: 15px;
   background: #fff;
@@ -592,9 +620,9 @@
 .import-preview-row {
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: var(--space-md);
   border: 1px solid var(--line);
-  border-radius: 20px;
+  border-radius: var(--radius);
   background: var(--surface-soft);
   margin-bottom: 10px;
 }
@@ -617,8 +645,8 @@
 
 .icon-choice,
 .color-choice {
-  min-height: 54px;
-  border-radius: 16px;
+  min-height: var(--control-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
   background: #fff;
   display: grid;
@@ -710,9 +738,9 @@
 }
 
 .compact-edit {
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
+  width: var(--control-md);
+  height: var(--control-md);
+  border-radius: var(--radius-md);
   background: var(--surface-soft);
   border: 1px solid var(--line);
 }
@@ -749,9 +777,9 @@
 }
 
 .switch-row {
-  min-height: 42px;
+  min-height: var(--control-md);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   padding: 8px 10px;
   display: flex;
   align-items: center;
@@ -800,24 +828,24 @@
 }
 
 .icon-preview-medium {
-  width: 58px;
-  height: 58px;
-  border-radius: 20px;
+  width: var(--icon-hero);
+  height: var(--icon-hero);
+  border-radius: var(--radius);
   display: grid;
   place-items: center;
   flex: 0 0 auto;
 }
 
 .icon-preview-medium svg {
-  width: 28px;
-  height: 28px;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
 }
 
 .inline-picker-card {
   border: 1px solid var(--line);
   background: var(--surface-soft);
-  border-radius: 20px;
-  padding: 12px;
+  border-radius: var(--radius);
+  padding: var(--space-md);
   display: grid;
   gap: 11px;
   overflow: visible;
@@ -862,8 +890,8 @@
 
 .readonly-field,
 .select-button {
-  min-height: 52px;
-  border-radius: 16px;
+  min-height: var(--control-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--line-strong);
   background: var(--surface-soft);
   color: var(--text);
@@ -901,8 +929,8 @@
 }
 
 .option-row {
-  min-height: 54px;
-  border-radius: 16px;
+  min-height: var(--control-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
   background: #fff;
   display: flex;
@@ -959,8 +987,8 @@
 
 .icon-circle-choice,
 .color-circle-choice {
-  width: 44px;
-  height: 44px;
+  width: var(--control-md);
+  height: var(--control-md);
   border-radius: 50%;
   border: 0;
   background: #eef2f7;
@@ -1002,14 +1030,14 @@
   border: 0;
   background: var(--blue);
   color: #fff;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 11px 18px;
   font-weight: 800;
 }
 
 .icon-preview-large {
-  width: 84px;
-  height: 84px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -1018,8 +1046,8 @@
 }
 
 .icon-preview-large svg {
-  width: 40px;
-  height: 40px;
+  width: var(--icon-xl);
+  height: var(--icon-xl);
 }
 
 .icon-circle-grid,
@@ -1100,7 +1128,7 @@
 .account-create-button,
 .catalog-create-button {
   width: 100%;
-  min-height: 76px;
+  min-height: 72px;
   border: 0;
   background: linear-gradient(135deg, var(--blue) 0%, #36b7ff 100%);
   color: #fff;
@@ -1108,14 +1136,14 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: var(--space-md);
   text-align: left;
 }
 
 .account-create-button .create-icon,
 .catalog-create-button .create-icon {
-  width: 42px;
-  height: 42px;
+  width: var(--control-md);
+  height: var(--control-md);
   border-radius: 15px;
   background: rgba(255, 255, 255, .18);
   display: grid;
@@ -1156,7 +1184,7 @@
   padding: 12px;
   margin-bottom: 12px;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   background: var(--surface-soft);
 }
 

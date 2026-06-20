@@ -1,6 +1,6 @@
 import { icon } from '../icons.js';
 import { periodTransactions } from '../services/financeService.js';
-import { card, emptyState, softColor } from '../components/ui.js';
+import { card, emptyState, iconBubble } from '../components/ui.js';
 import { canon, formatDate, formatMoney } from '../utils/format.js';
 
 export function renderAudit(state) {
@@ -10,7 +10,7 @@ export function renderAudit(state) {
   const subtotal = rows.reduce((sum, tx) => sum + signedAmount(tx), 0);
   return `
     ${renderFilters(state, filters)}
-    ${card(`<div class="metric-grid" style="grid-template-columns:1fr 1fr;"><div><div class="metric-title">Total registros</div><div class="metric-value" style="font-size:26px;">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value ${subtotal < 0 ? 'danger' : 'success'}" style="font-size:26px;">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
+    ${card(`<div class="metric-grid audit-summary-grid"><div><div class="metric-title">Total registros</div><div class="metric-value metric-value-sm">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value metric-value-sm ${subtotal < 0 ? 'danger' : 'success'}">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
     <div class="section-title"><h2>Movimientos</h2></div>
     ${rows.length ? rows.map(tx => transactionCard(tx, state)).join('') : emptyState('listChecks', 'Sin movimientos', 'Crea un registro o ajusta los filtros')}
   `;
@@ -23,7 +23,7 @@ function renderFilters(state, filters) {
       <input class="input" data-audit-search placeholder="Buscar movimientos..." value="${filters.text || ''}">
       <button class="filter-button" data-audit-clear>${icon('x')}</button>
     </div>
-    <div class="chip-row" style="margin-bottom:10px;">
+    <div class="chip-row audit-active-filters">
       ${filterChips(filters)}
     </div>
     <div class="chip-row">
@@ -57,7 +57,7 @@ function transactionCard(tx, state) {
   const amount = signedAmount(tx);
   return card(`
     <div class="audit-card">
-      <span class="row-icon" style="background:${softColor(color)};color:${color}">${icon(category?.icon || txIcon(tx))}</span>
+      ${iconBubble(category?.icon || txIcon(tx), color, false, 'row-icon')}
       <span class="row-main">
         <span class="row-title">${tx.description || tx.movement}</span>
         <span class="row-subtitle">${tx.category || tx.movement}${tx.subcategory ? ` · ${tx.subcategory}` : ''}</span>

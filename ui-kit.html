@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f7fb">
+  <title>CFO Personal V7 - Design System Preview</title>
+  <link rel="stylesheet" href="./styles/base.css">
+  <link rel="stylesheet" href="./styles/components.css">
+  <link rel="stylesheet" href="./styles/screens.css">
+</head>
+<body>
+  <main class="ui-kit-page">
+    <div class="ui-kit-shell">
+      <header class="ui-kit-hero">
+        <div class="boot-logo">CFO <span>Personal</span></div>
+        <h1>Design System Preview</h1>
+        <p class="muted">Referencia visual estatica. No lee datos, no escribe localStorage y no ejecuta logica financiera.</p>
+      </header>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Paleta</h2></div>
+        <div class="ui-kit-grid">
+          <div class="token-swatch" style="--swatch:var(--blue);--swatch-text:#fff"><strong>Primary</strong><small>--blue</small></div>
+          <div class="token-swatch" style="--swatch:var(--green);--swatch-text:#fff"><strong>Positive</strong><small>--green</small></div>
+          <div class="token-swatch" style="--swatch:var(--red);--swatch-text:#fff"><strong>Danger</strong><small>--red</small></div>
+          <div class="token-swatch" style="--swatch:var(--amber);--swatch-text:#fff"><strong>Warning</strong><small>--amber</small></div>
+          <div class="token-swatch" style="--swatch:var(--surface)"><strong>Surface</strong><small>--surface</small></div>
+          <div class="token-swatch" style="--swatch:var(--surface-soft)"><strong>Soft</strong><small>--surface-soft</small></div>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Tipografia</h2></div>
+        <div class="card type-scale">
+          <p class="brand-title">CFO <span>Personal</span></p>
+          <h2 class="card-title">Titulo de tarjeta</h2>
+          <p class="card-subtitle">Subtitulo de soporte para explicar contexto sin competir con el dato principal.</p>
+          <p class="metric-title">Etiqueta KPI</p>
+          <p class="metric-value money blue">$1,240.00</p>
+          <p class="row-subtitle">Texto secundario de lista o detalle.</p>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Botones</h2></div>
+        <div class="card component-demo vertical">
+          <button class="btn btn-primary">Primario</button>
+          <button class="btn btn-secondary">Secundario</button>
+          <button class="btn btn-ghost">Ghost</button>
+          <button class="btn btn-danger">Peligro</button>
+          <button class="btn btn-primary" disabled>Deshabilitado</button>
+          <button class="btn btn-secondary"><span data-icon="download"></span> Con icono</button>
+          <button class="btn btn-primary btn-sm">Pequeno</button>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Formularios</h2></div>
+        <div class="card">
+          <label class="form-field">
+            <span>Input normal</span>
+            <input class="input" value="Cuenta Corriente">
+          </label>
+          <label class="form-field">
+            <span>Input con error</span>
+            <input class="input" value="Monto invalido" aria-invalid="true">
+            <small class="danger">Revisa el valor ingresado.</small>
+          </label>
+          <label class="form-field">
+            <span>Disabled</span>
+            <input class="input" value="Solo lectura" disabled>
+          </label>
+          <button class="select-button">Seleccionar categoria <span data-icon="chevronDown"></span></button>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Switches y chips</h2></div>
+        <div class="card component-demo vertical">
+          <label class="switch-row">Visible en Balances <input type="checkbox" checked><i></i></label>
+          <label class="switch-row">Disponible <input type="checkbox"><i></i></label>
+          <div class="component-demo">
+            <span class="badge positive">OK</span>
+            <span class="badge warning">Alerta</span>
+            <span class="badge danger">Error</span>
+            <button class="chip active">Alimentacion <span data-icon="x"></span></button>
+            <button class="chip">Transporte</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Cards e iconos</h2></div>
+        <div class="metric-grid">
+          <div class="card metric-card">
+            <div class="metric-top"><span class="icon-bubble"><span data-icon="walletCards"></span></span></div>
+            <div class="metric-title">Balance total</div>
+            <div class="metric-value money blue">$4,500.00</div>
+            <div class="metric-note"><span>3 de 4 cuentas</span><span>hasta 30/06/26</span></div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-top"><span class="icon-bubble" style="--icon-bg:var(--green-soft);--icon-fg:var(--green)"><span data-icon="arrowUpRight"></span></span></div>
+            <div class="metric-title">Ingresos periodo</div>
+            <div class="metric-value money success">$2,100.00</div>
+            <div class="metric-note">Segun selector de periodo</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row-card">
+            <span class="icon-bubble solid" style="--icon-bg:var(--blue)"><span data-icon="landmark"></span></span>
+            <span class="row-main"><span class="row-title">Banco principal</span><span class="row-subtitle">Cuenta Corriente</span></span>
+            <strong class="row-amount blue">$1,200.00</strong>
+          </div>
+          <div class="row-card">
+            <span class="icon-bubble" style="--icon-bg:var(--red-soft);--icon-fg:var(--red)"><span data-icon="receipt"></span></span>
+            <span class="row-main"><span class="row-title">Gasto supermercado</span><span class="row-subtitle">19/06/26 · Alimentacion</span></span>
+            <strong class="row-amount danger">-$58.00</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Estados</h2></div>
+        <div class="card">
+          <div class="empty-state"><span data-icon="tags"></span><strong>Sin categorias</strong><small>Crea o importa tu catalogo para comenzar.</small></div>
+        </div>
+        <div class="toast show">
+          <span>Cambios aplicados</span>
+          <span class="toast-actions"><button>Deshacer</button><button><span data-icon="x"></span></button></span>
+        </div>
+      </section>
+
+      <section class="ui-kit-section">
+        <div class="section-title"><h2>Navegacion y modal</h2></div>
+        <nav class="bottom-nav ui-kit-nav">
+          <button class="nav-item active"><span data-icon="walletCards"></span><span>Balances</span></button>
+          <button class="nav-item"><span data-icon="barChart"></span><span>Resumen</span></button>
+          <button class="fab-center"><span data-icon="plus"></span></button>
+          <button class="nav-item"><span data-icon="grid"></span><span>Categorias</span></button>
+          <button class="nav-item"><span data-icon="listChecks"></span><span>Auditoria</span></button>
+        </nav>
+        <div class="demo-modal">
+          <section class="sheet">
+            <div class="sheet-handle"></div>
+            <h2 class="sheet-title">Bottom sheet</h2>
+            <button class="settings-row"><span class="icon-bubble"><span data-icon="edit"></span></span><span><strong>Editar nombre</strong><small>Accion de ejemplo sin datos reales.</small></span><span data-icon="chevronRight"></span></button>
+            <div class="button-stack mt-md">
+              <button class="btn btn-primary">Hecho</button>
+              <button class="btn btn-secondary">Cerrar</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script type="module">
+    import { renderIcons } from './src/icons.js';
+    renderIcons(document);
+  </script>
+</body>
+</html>
