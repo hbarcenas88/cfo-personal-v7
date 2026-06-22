@@ -19,6 +19,7 @@ export function renderSettings(state) {
     ${page === 'provisions-admin' ? renderProvisionsAdmin(state) : ''}
     ${page === 'health' ? renderHealth(state) : ''}
     ${page === 'settings' ? renderPreferences(state) : ''}
+    ${page === 'rules' ? renderRules(state) : ''}
   `;
 }
 
@@ -30,6 +31,7 @@ function pageTitle(page) {
     accounts: 'Cuentas',
     'categories-admin': 'Categorías y subcategorías',
     'provisions-admin': 'Provisiones',
+    rules: 'Reglas y KPIs',
     health: 'Salud de datos',
     settings: 'Configuración'
   }[page] || 'Configuración';
@@ -50,12 +52,12 @@ function renderTools() {
 
 function createCatalogCard(label, action, iconName = 'plus') {
   return card(`
-    <button class="catalog-create-button" data-tool="${action}">
+    <button class="create-action-button catalog-create-button" data-tool="${action}">
       <span class="create-icon">${icon(iconName)}</span>
       <span><strong>${label}</strong><small>Crear desde un formulario guiado.</small></span>
       ${icon('chevronRight')}
     </button>
-  `, 'account-create-card');
+  `, 'create-action-card account-create-card');
 }
 
 function renderPlanning(state) {
@@ -76,7 +78,7 @@ function renderCatalogs(state) {
 function renderAccountsAdmin(state) {
   const accounts = [...state.accounts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   return `
-    ${card(`<button class="account-create-button" data-tool="new-account"><span class="create-icon">${icon('plus')}</span><span><strong>Nueva cuenta</strong><small>Define nombre, tipo, icono, color y KPIs.</small></span>${icon('chevronRight')}</button>`, 'account-create-card')}
+    ${card(`<button class="create-action-button account-create-button" data-tool="new-account"><span class="create-icon">${icon('plus')}</span><span><strong>Nueva cuenta</strong><small>Define nombre, tipo, icono, color y KPIs.</small></span>${icon('chevronRight')}</button>`, 'create-action-card account-create-card')}
     ${accounts.length ? `<div class="drag-hint">${icon('listChecks')} Usa las flechas para ajustar el orden de visualización.</div>` : ''}
     ${accounts.length ? accounts.map((account, index) => accountAdminCard(account, index, accounts.length)).join('') : card(emptyState('landmark', 'Sin cuentas', 'Crea una cuenta o importa catálogos para empezar'))}
   `;
@@ -141,10 +143,17 @@ function renderHealth(state) {
 }
 
 function renderPreferences(state) {
-  return `
-    ${card(`${tool('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card')}
-    ${card(`<h3 class="card-heading">Reglas KPI</h3><p class="muted tight">Resumen visual de cómo cada tipo de movimiento impacta las métricas. Es lectura, no edición.</p><div class="rules-card">${Object.entries(state.rules).map(([key, rule]) => ruleRow(key, rule)).join('')}</div>`)}
-  `;
+  return card(`${settingsLink('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card');
+}
+
+function renderRules(state) {
+  return card(`
+    <div class="card-heading-block section-intro">
+      <h3 class="card-heading">Reglas KPI</h3>
+      <p class="muted tight">Resumen visual de cómo cada tipo de movimiento impacta las métricas. Es lectura, no edición.</p>
+    </div>
+    <div class="rules-card">${Object.entries(state.rules).map(([key, rule]) => ruleRow(key, rule)).join('')}</div>
+  `, 'rules-panel');
 }
 
 function ruleRow(key, rule) {
@@ -249,10 +258,12 @@ function groupedIcons(picker) {
   const accountIcons = ICON_CATALOG.slice(0, 24);
   const categoryIcons = ICON_CATALOG.slice(24);
   return `
-    <h3 class="picker-group-title">Cuentas</h3>
-    <div class="icon-circle-grid">${accountIcons.map(name => iconChoice(name, picker)).join('')}</div>
-    <h3 class="picker-group-title">Categorías</h3>
-    <div class="icon-circle-grid">${categoryIcons.map(name => iconChoice(name, picker)).join('')}</div>
+    <div class="picker-scroll-area">
+      <h3 class="picker-group-title">Cuentas</h3>
+      <div class="icon-circle-grid">${accountIcons.map(name => iconChoice(name, picker)).join('')}</div>
+      <h3 class="picker-group-title">Categorías</h3>
+      <div class="icon-circle-grid">${categoryIcons.map(name => iconChoice(name, picker)).join('')}</div>
+    </div>
   `;
 }
 
@@ -263,7 +274,7 @@ function iconChoice(name, picker) {
 
 function colorGrid(picker) {
   return `
-    <div class="color-circle-grid">
+    <div class="color-circle-grid picker-scroll-area">
       ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" data-pick-color="${color}" aria-label="${color}"></button>`).join('')}
     </div>
   `;

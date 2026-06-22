@@ -939,7 +939,8 @@ async function handleTool(action) {
   }
   if (['new-category', 'new-provision', 'recurring'].includes(action)) return openSheet(action);
   if (action === 'icons') return showToast('Elige Icono dentro de una cuenta o categoría');
-  if (action === 'rules' || action === 'appearance' || action === 'security' || action === 'cloud') return showToast(action === 'rules' ? 'Reglas visibles en Configuración' : 'Próximamente');
+  if (action === 'rules') return setSettingsPage('rules');
+  if (action === 'appearance' || action === 'security' || action === 'cloud') return showToast('Próximamente');
   showToast('Función en preparación');
 }
 
@@ -1194,8 +1195,8 @@ function categoryVisualSheet() {
           <button class="${tab === 'color' ? 'active' : ''}" data-category-picker-tab="color">${icon('pie')} Color</button>
         </div>
         ${tab === 'icon'
-          ? `<div class="mini-icon-grid category-mini-grid">${ICON_CATALOG.slice(24).map(name => `<button class="icon-circle-choice ${name === draft.icon ? 'active' : ''}" data-form-icon="${name}" style="${name === draft.icon ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>`
-          : `<div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(color => `<button class="color-circle-choice ${color === draft.color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}</div>`
+          ? `<div class="mini-icon-grid category-mini-grid picker-scroll-area">${ICON_CATALOG.slice(24).map(name => `<button class="icon-circle-choice ${name === draft.icon ? 'active' : ''}" data-form-icon="${name}" style="${name === draft.icon ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>`
+          : `<div class="mini-color-grid picker-scroll-area">${COLOR_CATALOG.slice(0, 24).map(color => `<button class="color-circle-choice ${color === draft.color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}</div>`
         }
       </section>
     </div>
@@ -1229,9 +1230,9 @@ function categorySubcategoriesSheet() {
             <input class="input" data-category-sub-input="${index}" value="${html(sub.name || '')}" placeholder="Subcategoria">
             <button class="ghost-icon compact-edit" data-category-sub-delete="${html(sub.name || '')}" aria-label="Eliminar subcategoria">${icon('trash')}</button>
           </div>
-        `).join('') || '<div class="empty-state">Sin subcategorias</div>'}
+        `).join('') || '<div class="empty-state compact-empty">Sin subcategorias</div>'}
       </div>
-      <button class="secondary-button" data-category-sub-add>${icon('plus')} Agregar subcategoria</button>
+      <button class="create-action-button create-action-button-muted" data-category-sub-add><span class="create-icon">${icon('plus')}</span><span><strong>Agregar subcategoria</strong><small>Incluye una nueva opcion dentro de esta categoria.</small></span>${icon('chevronRight')}</button>
       <button class="primary-button mt-sm" data-save-category-section="subcategories">Guardar subcategorias</button>
       <button class="secondary-button mt-sm" data-category-action="category-actions">Volver</button>
     </section></div>
@@ -1343,7 +1344,7 @@ function accountColorSheet() {
         <button class="done-button" data-save-account-section="color">Hecho</button>
       </div>
       <div class="icon-preview-large" style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'landmark')}</div>
-      <div class="color-circle-grid color-sheet-grid">
+      <div class="color-circle-grid color-sheet-grid picker-scroll-area">
         ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${draft.color === color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}
       </div>
     </section></div>
@@ -1354,10 +1355,12 @@ function groupedAccountIcons(draft) {
   const accountIcons = ICON_CATALOG.slice(0, 24);
   const categoryIcons = ICON_CATALOG.slice(24);
   return `
-    <h3 class="picker-group-title">Cuentas</h3>
-    <div class="icon-circle-grid">${accountIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
-    <h3 class="picker-group-title">Categorías</h3>
-    <div class="icon-circle-grid">${categoryIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
+    <div class="picker-scroll-area">
+      <h3 class="picker-group-title">Cuentas</h3>
+      <div class="icon-circle-grid">${accountIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
+      <h3 class="picker-group-title">Categorías</h3>
+      <div class="icon-circle-grid">${categoryIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
+    </div>
   `;
 }
 
