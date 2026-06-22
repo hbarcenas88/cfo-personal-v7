@@ -1149,7 +1149,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 4px 6px calc(24px + var(--safe-bottom));
+  padding: 8px 6px calc(24px + var(--safe-bottom));
 }
 
 .icon-picker-sheet > .picker-scroll-area {
@@ -1157,7 +1157,16 @@
 }
 
 .picker-scroll-area .icon-circle-grid + .picker-group-title {
-  margin-top: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.picker-group-title {
+  margin-bottom: var(--space-sm);
+}
+
+.inline-picker-card .picker-scroll-area {
+  max-height: 292px;
+  padding-bottom: 16px;
 }
 
 .done-button {

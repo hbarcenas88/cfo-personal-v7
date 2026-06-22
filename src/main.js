@@ -7,14 +7,14 @@ import { renderBalances } from './screens/balances.js';
 import { renderSummary } from './screens/summary.js';
 import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
-import { renderSettings, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
+import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
 import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
 import { canon, formatMoney, html, parseAmount, todayISO, uid } from './utils/format.js';
-import { COLOR_CATALOG, ICON_CATALOG, icon, inferIcon, renderIcons } from './icons.js';
+import { icon, inferIcon, renderIcons } from './icons.js';
 
 let keypad;
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
@@ -155,8 +155,7 @@ function renderActiveSheet() {
   if (sheet === 'option-picker') return optionPickerSheet();
   if (sheet === 'account-actions') return accountActionsSheet();
   if (sheet === 'account-kpis') return accountKpiSheet();
-  if (sheet === 'account-icon') return accountIconSheet();
-  if (sheet === 'account-color') return accountColorSheet();
+  if (sheet === 'account-visual') return accountVisualSheet();
   if (sheet === 'account-name-type') return accountNameTypeSheet();
   if (sheet === 'account-adjust') return accountAdjustSheet();
   if (sheet === 'confirm-delete-account') return confirmDeleteAccountSheet();
@@ -703,7 +702,7 @@ function bindSheetActions() {
     event.preventDefault();
     const value = button.dataset.formIcon;
     const sheet = button.closest('.sheet');
-    const draft = state.ui.activeSheet === 'category-visual' ? ensureCategoryDraft() : ensureAccountDraft();
+    const draft = isCategoryDraftSheet() ? ensureCategoryDraft() : ensureAccountDraft();
     draft.icon = value;
     const color = draft.color || sheet?.querySelector('[data-create-field="color"]')?.value || '#0A8FE8';
     const iconInput = sheet?.querySelector('[data-create-field="icon"]');
@@ -719,7 +718,7 @@ function bindSheetActions() {
   document.querySelectorAll('[data-form-color]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const value = button.dataset.formColor;
-    const draft = state.ui.activeSheet === 'category-visual' ? ensureCategoryDraft() : ensureAccountDraft();
+    const draft = isCategoryDraftSheet() ? ensureCategoryDraft() : ensureAccountDraft();
     draft.color = value;
     const sheet = button.closest('.sheet');
     const colorInput = sheet?.querySelector('[data-create-field="color"]');
@@ -732,7 +731,8 @@ function bindSheetActions() {
   }));
   document.querySelectorAll('[data-create-action]').forEach(button => button.addEventListener('click', async () => {
     const isAccount = ['create-account', 'update-account'].includes(button.dataset.createAction);
-    const data = isAccount ? normalizedAccountDraft() : Object.fromEntries([...document.querySelectorAll('[data-create-field]')].map(input => [input.dataset.createField, input.value]));
+    const isCategory = button.dataset.createAction === 'create-category';
+    const data = isAccount ? normalizedAccountDraft() : isCategory ? normalizedCategoryDraft() : Object.fromEntries([...document.querySelectorAll('[data-create-field]')].map(input => [input.dataset.createField, input.value]));
     let saved = false;
     debugLog('create action validation', { action: button.dataset.createAction, data });
     if (button.dataset.createAction === 'create-account') saved = await addAccount(data);
@@ -744,7 +744,7 @@ function bindSheetActions() {
         showToast('La categoría ya existe');
       } else {
         const before = state.categories.length;
-        await addCategory({ ...data, subcategories: data.subcategories?.split(',').map(s => s.trim()).filter(Boolean) || [] });
+        await addCategory(data);
         saved = state.categories.length > before;
       }
     }
@@ -759,6 +759,7 @@ function bindSheetActions() {
     debugLog('create action result', { action: button.dataset.createAction, saved });
     if (saved) {
       state.ui.accountDraft = null;
+      state.ui.categoryDraft = null;
       closeSheet();
     }
     render();
@@ -935,9 +936,15 @@ async function handleTool(action) {
   }
   if (action === 'new-account') {
     state.ui.editAccountId = '';
+    state.ui.accountDraft = null;
     return openSheet(action);
   }
-  if (['new-category', 'new-provision', 'recurring'].includes(action)) return openSheet(action);
+  if (action === 'new-category') {
+    state.ui.selectedCategoryId = '';
+    state.ui.categoryDraft = null;
+    return openSheet(action);
+  }
+  if (['new-provision', 'recurring'].includes(action)) return openSheet(action);
   if (action === 'icons') return showToast('Elige Icono dentro de una cuenta o categoría');
   if (action === 'rules') return setSettingsPage('rules');
   if (action === 'appearance' || action === 'security' || action === 'cloud') return showToast('Próximamente');
@@ -1059,6 +1066,10 @@ function selectedCategory() {
   return state.categories.find(category => category.id === state.ui.selectedCategoryId);
 }
 
+function isCategoryDraftSheet() {
+  return ['category-visual', 'new-category'].includes(state.ui.activeSheet);
+}
+
 function ensureCategoryDraft() {
   const category = selectedCategory();
   if (!state.ui.categoryDraft || state.ui.categoryDraft.id !== state.ui.selectedCategoryId) {
@@ -1076,14 +1087,17 @@ function ensureCategoryDraft() {
 
 function normalizedCategoryDraft() {
   const draft = ensureCategoryDraft();
+  const subcategories = typeof draft.subcategoriesText === 'string'
+    ? draft.subcategoriesText.split(',').map(name => ({ id: uid('sub'), name: name.trim() })).filter(sub => sub.name)
+    : (draft.subcategories || []).map(sub => ({
+      id: sub.id || uid('sub'),
+      name: (sub.name || '').trim()
+    })).filter(sub => sub.name);
   return {
     name: draft.name || '',
     icon: draft.icon || inferIcon(draft.name || '', 'category'),
     color: draft.color || '#0A8FE8',
-    subcategories: (draft.subcategories || []).map(sub => ({
-      id: sub.id || uid('sub'),
-      name: (sub.name || '').trim()
-    })).filter(sub => sub.name)
+    subcategories
   };
 }
 
@@ -1189,15 +1203,7 @@ function categoryVisualSheet() {
           <h2 class="sheet-title">Icono y color</h2>
           <button class="done-button" data-save-category-section="visual">Hecho</button>
         </div>
-        <div class="icon-preview-large" data-form-icon-preview style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'folder')}</div>
-        <div class="picker-tabs compact-tabs">
-          <button class="${tab === 'icon' ? 'active' : ''}" data-category-picker-tab="icon">${icon('sparkles')} Icono</button>
-          <button class="${tab === 'color' ? 'active' : ''}" data-category-picker-tab="color">${icon('pie')} Color</button>
-        </div>
-        ${tab === 'icon'
-          ? `<div class="mini-icon-grid category-mini-grid picker-scroll-area">${ICON_CATALOG.slice(24).map(name => `<button class="icon-circle-choice ${name === draft.icon ? 'active' : ''}" data-form-icon="${name}" style="${name === draft.icon ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>`
-          : `<div class="mini-color-grid picker-scroll-area">${COLOR_CATALOG.slice(0, 24).map(color => `<button class="color-circle-choice ${color === draft.color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}</div>`
-        }
+        ${renderDraftIconColorPicker(draft, 'category')}
       </section>
     </div>
   `;
@@ -1285,8 +1291,7 @@ function accountActionsSheet() {
           <div><strong>${html(account.name)}</strong><small>${html(account.type || 'Cuenta Corriente')}</small></div>
         </div>
         ${accountActionRow('account-kpis', 'settings', 'KPIs', 'Define qué métricas impacta esta cuenta')}
-        ${accountActionRow('account-icon', 'sparkles', 'Cambiar icono', 'Biblioteca para cuentas y categorías')}
-        ${accountActionRow('account-color', 'pie', 'Cambiar color', 'Color de fondo del icono')}
+        ${accountActionRow('account-visual', 'sparkles', 'Icono y color', 'Biblioteca completa y preview antes de guardar')}
         ${accountActionRow('account-name-type', 'edit', 'Nombre y tipo', 'Edita nombre y clasificación')}
         ${accountActionRow('account-adjust', 'badgeDollar', 'Ajustar saldo', 'Crea movimiento auditable')}
         ${accountActionRow('confirm-delete-account', 'trash', 'Eliminar cuenta', 'Borra la cuenta y sus registros asociados', 'danger-action-row')}
@@ -1298,6 +1303,20 @@ function accountActionsSheet() {
 
 function accountActionRow(sheet, iconName, title, subtitle, extraClass = '') {
   return `<button class="settings-row ${extraClass}" data-account-action="${sheet}"><span class="row-icon solid-icon" style="background:var(--blue);color:#fff;">${icon(iconName)}</span><span><strong>${title}</strong><small>${subtitle}</small></span>${icon('chevronRight')}</button>`;
+}
+
+function renderDraftIconColorPicker(draft, kind, showPreview = true) {
+  const iconName = draft.icon || (kind === 'category' ? 'folder' : 'landmark');
+  const color = draft.color || '#0A8FE8';
+  return renderIconColorPickerContent({
+    iconName,
+    color,
+    tab: draft.pickerTab || 'icon',
+    tabDataset: kind === 'category' ? 'data-category-picker-tab' : 'data-account-picker-tab',
+    iconDataset: 'data-form-icon',
+    colorDataset: 'data-form-color',
+    showPreview
+  });
 }
 
 function accountKpiSheet() {
@@ -1319,48 +1338,17 @@ function accountKpiSheet() {
   `;
 }
 
-function accountIconSheet() {
+function accountVisualSheet() {
   const draft = ensureAccountDraft();
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide icon-picker-sheet" onclick="event.stopPropagation()">
       <div class="sheet-head-row">
-        <button class="ghost-icon" data-sheet-close aria-label="Cerrar">${icon('x')}</button>
-        <h2 class="sheet-title">Cambiar icono</h2>
-        <button class="done-button" data-save-account-section="icon">Hecho</button>
+        <button class="ghost-icon" data-account-action="account-actions" aria-label="Volver">${icon('chevronLeft')}</button>
+        <h2 class="sheet-title">Icono y color</h2>
+        <button class="done-button" data-save-account-section="visual">Hecho</button>
       </div>
-      <div class="icon-preview-large" style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'landmark')}</div>
-      ${groupedAccountIcons(draft)}
+      ${renderDraftIconColorPicker(draft, 'account')}
     </section></div>
-  `;
-}
-
-function accountColorSheet() {
-  const draft = ensureAccountDraft();
-  return `
-    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide icon-picker-sheet" onclick="event.stopPropagation()">
-      <div class="sheet-head-row">
-        <button class="ghost-icon" data-sheet-close aria-label="Cerrar">${icon('x')}</button>
-        <h2 class="sheet-title">Cambiar color</h2>
-        <button class="done-button" data-save-account-section="color">Hecho</button>
-      </div>
-      <div class="icon-preview-large" style="background:${draft.color || '#0A8FE8'}">${icon(draft.icon || 'landmark')}</div>
-      <div class="color-circle-grid color-sheet-grid picker-scroll-area">
-        ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${draft.color === color ? 'active' : ''}" style="background:${color}" data-form-color="${color}" aria-label="${color}"></button>`).join('')}
-      </div>
-    </section></div>
-  `;
-}
-
-function groupedAccountIcons(draft) {
-  const accountIcons = ICON_CATALOG.slice(0, 24);
-  const categoryIcons = ICON_CATALOG.slice(24);
-  return `
-    <div class="picker-scroll-area">
-      <h3 class="picker-group-title">Cuentas</h3>
-      <div class="icon-circle-grid">${accountIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
-      <h3 class="picker-group-title">Categorías</h3>
-      <div class="icon-circle-grid">${categoryIcons.map(name => `<button class="icon-circle-choice ${draft.icon === name ? 'active' : ''}" data-form-icon="${name}" style="${draft.icon === name ? `background:${draft.color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>
-    </div>
   `;
 }
 
@@ -1448,14 +1436,7 @@ function accountSheetV704() {
       </div>
       <div class="inline-picker-card">
         <div class="inline-picker-head"><strong>Icono y color</strong><small>El preview se actualiza al seleccionar.</small></div>
-        <div class="picker-tabs compact-tabs">
-          <button class="${(draft.pickerTab || 'icon') === 'icon' ? 'active' : ''}" data-account-picker-tab="icon">${icon('sparkles')} Icono</button>
-          <button class="${draft.pickerTab === 'color' ? 'active' : ''}" data-account-picker-tab="color">${icon('pie')} Color</button>
-        </div>
-        ${(draft.pickerTab || 'icon') === 'icon'
-          ? `<div class="mini-icon-grid">${ICON_CATALOG.slice(0, 30).map(name => `<button class="icon-circle-choice ${name === iconName ? 'active' : ''}" data-form-icon="${name}" style="${name === iconName ? `background:${color};color:#fff;` : ''}">${icon(name)}</button>`).join('')}</div>`
-          : `<div class="mini-color-grid">${COLOR_CATALOG.slice(0, 24).map(item => `<button class="color-circle-choice ${item === color ? 'active' : ''}" style="background:${item}" data-form-color="${item}" aria-label="${item}"></button>`).join('')}</div>`
-        }
+        ${renderDraftIconColorPicker(draft, 'account', false)}
       </div>
       <div class="switch-grid">
         ${formKpiSwitch('income', 'Ingresos', draft.kpi?.income !== false)}
@@ -1485,7 +1466,30 @@ function accountSheet() {
 }
 
 function categorySheet() {
-  return simpleCreateSheet('Nueva categoría', [['name', 'Nombre de categoría'], ['subcategories', 'Subcategorías separadas por coma']], 'Crear categoría', 'create-category');
+  const draft = ensureCategoryDraft();
+  const iconName = draft.icon || inferIcon(draft.name || '', 'category');
+  const color = draft.color || '#0A8FE8';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <h2 class="sheet-title">Nueva categoría</h2>
+      <div class="account-form-preview">
+        <span class="icon-preview-medium" data-form-icon-preview style="background:${color};color:#fff;">${icon(iconName)}</span>
+        <div>
+          <strong>${draft.name ? html(draft.name) : 'Categoría nueva'}</strong>
+          <small>Define nombre, subcategorías, icono y color antes de guardar.</small>
+        </div>
+      </div>
+      <div class="field"><label>Nombre</label><input class="input" data-category-draft-field="name" value="${html(draft.name || '')}" placeholder="Nombre de categoría"></div>
+      <div class="field"><label>Subcategorías</label><input class="input" data-category-draft-field="subcategoriesText" value="${html(draft.subcategoriesText || '')}" placeholder="Separadas por coma"></div>
+      <div class="inline-picker-card">
+        <div class="inline-picker-head"><strong>Icono y color</strong><small>El preview se actualiza al seleccionar.</small></div>
+        ${renderDraftIconColorPicker(draft, 'category', false)}
+      </div>
+      <button class="primary-button" data-create-action="create-category">Crear categoría</button>
+      <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
+    </section></div>
+  `;
 }
 
 function provisionSheet() {

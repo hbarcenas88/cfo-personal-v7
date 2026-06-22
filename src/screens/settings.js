@@ -243,39 +243,61 @@ export function renderIconPickerSheet(state) {
           <h2 class="sheet-title">Icono y color</h2>
           <button class="done-button" data-save-icon>Hecho</button>
         </div>
-        <div class="icon-preview-large" style="background:${picker.color || '#0A8FE8'}">${icon(picker.icon || 'folder')}</div>
-        <div class="segmented">
-          <button class="${tab === 'icon' ? 'active' : ''}" data-picker-tab="icon">${icon('sparkles')} Icono</button>
-          <button class="${tab === 'color' ? 'active' : ''}" data-picker-tab="color">${icon('pie')} Color</button>
-        </div>
-        ${tab === 'icon' ? groupedIcons(picker) : colorGrid(picker)}
+        ${renderIconColorPickerContent({
+          iconName: picker.icon || 'folder',
+          color: picker.color || '#0A8FE8',
+          tab,
+          tabDataset: 'data-picker-tab',
+          iconDataset: 'data-pick-icon',
+          colorDataset: 'data-pick-color'
+        })}
       </section>
     </div>
   `;
 }
 
-function groupedIcons(picker) {
+export function renderIconColorPickerContent({
+  iconName = 'folder',
+  color = '#0A8FE8',
+  tab = 'icon',
+  tabDataset = 'data-picker-tab',
+  iconDataset = 'data-pick-icon',
+  colorDataset = 'data-pick-color',
+  showPreview = true
+} = {}) {
+  const picker = { icon: iconName, color };
+  return `
+    ${showPreview ? `<div class="icon-preview-large" data-form-icon-preview style="background:${color};color:#fff;">${icon(iconName)}</div>` : ''}
+    <div class="picker-tabs compact-tabs">
+      <button class="${tab === 'icon' ? 'active' : ''}" ${tabDataset}="icon">${icon('sparkles')} Icono</button>
+      <button class="${tab === 'color' ? 'active' : ''}" ${tabDataset}="color">${icon('pie')} Color</button>
+    </div>
+    ${tab === 'icon' ? groupedIcons(picker, iconDataset) : colorGrid(picker, colorDataset)}
+  `;
+}
+
+function groupedIcons(picker, iconDataset = 'data-pick-icon') {
   const accountIcons = ICON_CATALOG.slice(0, 24);
   const categoryIcons = ICON_CATALOG.slice(24);
   return `
     <div class="picker-scroll-area">
       <h3 class="picker-group-title">Cuentas</h3>
-      <div class="icon-circle-grid">${accountIcons.map(name => iconChoice(name, picker)).join('')}</div>
+      <div class="icon-circle-grid">${accountIcons.map(name => iconChoice(name, picker, iconDataset)).join('')}</div>
       <h3 class="picker-group-title">Categorías</h3>
-      <div class="icon-circle-grid">${categoryIcons.map(name => iconChoice(name, picker)).join('')}</div>
+      <div class="icon-circle-grid">${categoryIcons.map(name => iconChoice(name, picker, iconDataset)).join('')}</div>
     </div>
   `;
 }
 
-function iconChoice(name, picker) {
+function iconChoice(name, picker, iconDataset = 'data-pick-icon') {
   const active = picker.icon === name;
-  return `<button class="icon-circle-choice ${active ? 'active' : ''}" data-pick-icon="${name}" style="${active ? `background:${picker.color || '#0A8FE8'};color:#fff;` : ''}">${icon(name)}</button>`;
+  return `<button class="icon-circle-choice ${active ? 'active' : ''}" ${iconDataset}="${name}" style="${active ? `background:${picker.color || '#0A8FE8'};color:#fff;` : ''}">${icon(name)}</button>`;
 }
 
-function colorGrid(picker) {
+function colorGrid(picker, colorDataset = 'data-pick-color') {
   return `
     <div class="color-circle-grid picker-scroll-area">
-      ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" data-pick-color="${color}" aria-label="${color}"></button>`).join('')}
+      ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" ${colorDataset}="${color}" aria-label="${color}"></button>`).join('')}
     </div>
   `;
 }
