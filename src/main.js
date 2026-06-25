@@ -13,6 +13,7 @@ import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDel
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
+import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
 import { canon, formatMoney, html, parseAmount, todayISO, uid } from './utils/format.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
@@ -1598,7 +1599,8 @@ function auditFilterOptions(type) {
 }
 
 function debugSheet() {
-  const localKeys = Object.keys(localStorage);
+  const financeLocalKeys = getFinanceLocalStorageKeys(localStorage);
+  const otherLocalKeys = getOtherLocalStorageKeys(localStorage);
   const debug = state.debug || {};
   const controller = navigator.serviceWorker?.controller ? 'Activo' : 'Sin controlador';
   const logs = window.CFO_DEBUG?.logs || [];
@@ -1616,8 +1618,14 @@ function debugSheet() {
         <div class="debug-item"><small>Presupuestos</small><strong>${state.budgets.length}</strong></div>
       </div>
       <div class="card">
-        <strong>localStorage</strong>
-        <p class="muted">${localKeys.length ? localKeys.map(html).join(' · ') : 'Sin claves en localStorage'}</p>
+        <strong>localStorage de Finance</strong>
+        <p class="muted">Prefijo: ${html(APP_STORAGE_PREFIX)}</p>
+        <p class="muted">${financeLocalKeys.length ? financeLocalKeys.map(html).join(' · ') : 'Sin claves de Finance en localStorage'}</p>
+      </div>
+      <div class="card">
+        <strong>Otras apps en este origen</strong>
+        <p class="muted">Detectadas solo como referencia. Finance no las lee ni las borra.</p>
+        <p class="muted">${otherLocalKeys.length ? otherLocalKeys.map(html).join(' · ') : 'No se detectaron claves externas'}</p>
       </div>
       <div class="card">
         <strong>Última acción</strong>
@@ -1684,7 +1692,7 @@ async function handleDebugAction(action) {
 
 async function debugStorageRoundTripLocal() {
   const value = { ok: true, at: new Date().toISOString() };
-  localStorage.setItem('cfo_personal_v7_debug_test', JSON.stringify(value));
+  localStorage.setItem(APP_STORAGE_KEYS.debugTest, JSON.stringify(value));
   const db = await new Promise((resolve, reject) => {
     const request = indexedDB.open('cfo_personal_v7', 1);
     request.onupgradeneeded = () => {

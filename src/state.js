@@ -1,4 +1,4 @@
-import { loadState, saveState, clearState } from './services/storageService.js';
+import { loadState, saveState, clearState, clearFinanceLocalStorage } from './services/storageService.js';
 import { createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
 import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
@@ -190,6 +190,7 @@ export async function undo() {
 
 export async function resetAll() {
   await clearState();
+  clearFinanceLocalStorage();
   state = structuredClone(initialState);
   notify();
 }

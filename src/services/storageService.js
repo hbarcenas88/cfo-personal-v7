@@ -1,7 +1,41 @@
 const DB_NAME = 'cfo_personal_v7';
 const DB_VERSION = 1;
 const STORE = 'app';
+export const APP_STORAGE_PREFIX = 'financeDashboard:';
+export const APP_STORAGE_KEYS = {
+  debugTest: `${APP_STORAGE_PREFIX}debug:test`
+};
+const LEGACY_APP_STORAGE_KEYS = new Set([
+  'cfo_personal_v7_debug_test'
+]);
 let dbPromise;
+
+export function isFinanceStorageKey(key = '') {
+  return String(key).startsWith(APP_STORAGE_PREFIX) || LEGACY_APP_STORAGE_KEYS.has(String(key));
+}
+
+function localStorageKeys(storage = globalThis.localStorage) {
+  if (!storage) return [];
+  if (typeof storage.key === 'function' && typeof storage.length === 'number') {
+    return Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(Boolean);
+  }
+  return Object.keys(storage);
+}
+
+export function getFinanceLocalStorageKeys(storage = globalThis.localStorage) {
+  return localStorageKeys(storage).filter(isFinanceStorageKey);
+}
+
+export function getOtherLocalStorageKeys(storage = globalThis.localStorage) {
+  return localStorageKeys(storage).filter(key => !isFinanceStorageKey(key));
+}
+
+export function clearFinanceLocalStorage(storage = globalThis.localStorage) {
+  if (!storage) return [];
+  const keys = getFinanceLocalStorageKeys(storage);
+  keys.forEach(key => storage.removeItem(key));
+  return keys;
+}
 
 function openDB() {
   if (dbPromise) return dbPromise;
