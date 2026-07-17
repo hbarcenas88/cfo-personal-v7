@@ -29,4 +29,6 @@ Abrir `http://127.0.0.1:8787/`; no usar `file://`. Cada cambio JavaScript requie
 - `PROGRESS.md`: estado y siguiente bloque de trabajo.
 - `VERIFIER.md`: evidencia requerida antes de publicar.
 - `BACKLOG.md`: mejoras diferidas.
-- `PROJECT_NOTES.md` y `V7_ROADMAP.md`: criterios y alcance de producto.
+- `PRODUCT_SPEC.md`: propósito, alcance, reglas financieras y flujos de producto.
+- `DESIGN_SYSTEM.md`: criterios visuales, componentes y reglas de interacción.
+- `PROJECT_NOTES.md` y `V7_ROADMAP.md`: principios resumidos y prioridades de producto.
