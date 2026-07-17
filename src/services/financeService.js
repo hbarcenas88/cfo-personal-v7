@@ -294,6 +294,117 @@ export function createTransfer({ from, to, amount, date, description, source = '
   ];
 }
 
+export function applyTransactionEdit(transactions, id, payload, state) {
+  const original = transactions.find(tx => tx.id === id);
+  if (!original) return { ok: false, reason: 'No encontramos el movimiento para editar.' };
+
+  if (original.transferId) {
+    const pair = transactions.filter(tx => tx.transferId === original.transferId);
+    if (pair.length !== 2) return { ok: false, reason: 'La transferencia vinculada está incompleta y no se puede editar con seguridad.' };
+    if (!pair.some(tx => tx.movement === 'Gasto') || !pair.some(tx => tx.movement === 'Ingreso')) {
+      return { ok: false, reason: 'La transferencia vinculada no tiene sus dos movimientos requeridos.' };
+    }
+    if (normalizeMovement(payload.movement || 'Transferencia') !== 'Transferencia') {
+      return { ok: false, reason: 'Las transferencias se editan como un par vinculado.' };
+    }
+    return {
+      ok: true,
+      transactions: editTransferPair(transactions, pair, payload, state)
+    };
+  }
+
+  const nextMovement = normalizeMovement(payload.movement || original.movement);
+  if (!['Gasto', 'Ingreso', 'Provisión'].includes(nextMovement)) {
+    return { ok: false, reason: 'Este movimiento no se puede convertir en transferencia o presupuesto desde la edición.' };
+  }
+
+  const edited = normalizeTransaction({
+    ...original,
+    ...payload,
+    id: original.id,
+    source: original.source,
+    createdAt: original.createdAt,
+    transferId: '',
+    linkedId: ''
+  }, state);
+  const transaction = applyMovementRules(edited, original);
+  return {
+    ok: true,
+    transactions: transactions.map(tx => tx.id === id ? transaction : tx)
+  };
+}
+
+function editTransferPair(transactions, pair, payload, state) {
+  const outgoing = pair.find(tx => tx.movement === 'Gasto');
+  const incoming = pair.find(tx => tx.movement === 'Ingreso');
+
+  const shared = {
+    date: payload.date,
+    amount: payload.amount,
+    description: payload.description,
+    transferId: outgoing.transferId,
+    recordKind: 'Transferencia',
+    affectsBalance: true,
+    affectsIncome: false,
+    affectsExpense: false,
+    affectsBudget: false,
+    category: '',
+    subcategory: ''
+  };
+  const editedOutgoing = normalizeTransaction({
+    ...outgoing,
+    ...shared,
+    id: outgoing.id,
+    source: outgoing.source,
+    createdAt: outgoing.createdAt,
+    note: payload.note === undefined ? outgoing.note : payload.note,
+    movement: 'Gasto',
+    account: payload.account,
+    accountTo: payload.accountTo
+  }, state);
+  const editedIncoming = normalizeTransaction({
+    ...incoming,
+    ...shared,
+    id: incoming.id,
+    source: incoming.source,
+    createdAt: incoming.createdAt,
+    note: payload.note === undefined ? incoming.note : payload.note,
+    movement: 'Ingreso',
+    account: payload.accountTo,
+    accountTo: payload.account
+  }, state);
+
+  return transactions.map(tx => {
+    if (tx.id === outgoing.id) return editedOutgoing;
+    if (tx.id === incoming.id) return editedIncoming;
+    return tx;
+  });
+}
+
+function applyMovementRules(transaction, original) {
+  if (transaction.movement === 'Provisión') {
+    return {
+      ...transaction,
+      provisionId: original.movement === 'Provisión' ? original.provisionId : '',
+      provisionDelta: transaction.amount,
+      affectsBalance: false,
+      affectsExpense: false,
+      affectsBudget: false,
+      recordKind: 'Movimiento por provisión'
+    };
+  }
+  return {
+    ...transaction,
+    provisionId: '',
+    provisionDelta: 0,
+    affectsBalance: true,
+    affectsIncome: true,
+    affectsExpense: true,
+    affectsBudget: true,
+    recordKind: transaction.movement
+  };
+}
+
 function groupSum(items, key) {
   return items.reduce((acc, item) => {
     const k = item[key] || 'Sin categoría';

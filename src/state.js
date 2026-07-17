@@ -1,5 +1,5 @@
 import { loadState, saveState, clearState, clearFinanceLocalStorage } from './services/storageService.js';
-import { createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
+import { applyTransactionEdit, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
 import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
@@ -58,6 +58,7 @@ export const initialState = {
     selectedTransactionId: '',
     selectedHealthIssue: '',
     auditFilter: '',
+    auditDropdown: '',
     filterSearch: '',
     categoryDraft: null
   }
@@ -649,6 +650,34 @@ export async function saveTransaction(payload) {
     s.onboarded = true;
   }, { undo: `${type} guardado` });
   showToast(`${type} guardado`);
+  return true;
+}
+
+export async function updateTransaction(id, payload) {
+  const type = payload.movement || payload.type || 'Gasto';
+  const amount = Number(payload.amount) || 0;
+  if (!payload.date || !amount) {
+    showToast('Fecha y monto requeridos');
+    return false;
+  }
+  if (!payload.account) {
+    showToast('Cuenta requerida');
+    return false;
+  }
+  if (type === 'Transferencia' && (!payload.accountTo || payload.account === payload.accountTo)) {
+    showToast('Selecciona cuentas distintas');
+    return false;
+  }
+
+  const result = applyTransactionEdit(state.transactions, id, { ...payload, movement: type, amount }, state);
+  if (!result.ok) {
+    showToast(result.reason || 'No se pudo actualizar el movimiento');
+    return false;
+  }
+  await mutate(s => {
+    s.transactions = result.transactions;
+  }, { undo: 'Movimiento actualizado' });
+  showToast('Movimiento actualizado');
   return true;
 }
 

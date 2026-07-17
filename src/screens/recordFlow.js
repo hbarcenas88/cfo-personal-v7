@@ -21,7 +21,7 @@ function renderChoose() {
   return `
     <section class="record-screen open">
       <header class="record-header">
-        <button class="icon-button" data-record-close>${icon('x')}</button>
+        <button class="icon-button" data-record-close aria-label="Cerrar registro">${icon('x')}</button>
         <h2>Nuevo registro</h2>
         <span></span>
       </header>
@@ -49,12 +49,13 @@ function renderForm(state, flow) {
     budget: ['Nuevo presupuesto', 'Presupuesto', 'var(--blue)', 'Presupuesto'],
     provision: ['Nueva provisión', 'Provisión', 'var(--amber)', 'Provisión']
   }[type];
+  const title = flow.editTransactionId ? `Editar ${labels[1].toLowerCase()}` : labels[0];
   return `
     <section class="record-screen open">
       <header class="record-header">
-        <button class="icon-button" data-record-back>${icon('chevronLeft')}</button>
-        <h2>${labels[0]}</h2>
-        <button class="icon-button primary" data-record-save>${icon('check')}</button>
+        <button class="icon-button" data-record-back aria-label="${flow.editTransactionId ? 'Cancelar edición' : 'Volver a tipos'}">${icon('chevronLeft')}</button>
+        <h2>${title}</h2>
+        <button class="icon-button primary" data-record-save aria-label="${flow.editTransactionId ? 'Guardar cambios' : 'Guardar movimiento'}">${icon('check')}</button>
       </header>
       <main class="record-body">
         <button class="flow-box flow-box-full" data-record-calendar>
@@ -76,6 +77,7 @@ function renderForm(state, flow) {
 
 function renderStandardFields(state, flow, type) {
   return `
+    ${flow.editTransactionId ? `<div class="record-type-edit">${fieldButton('Tipo', typeLabel(type), 'Seleccionar', 'movement')}</div>` : ''}
     <div class="flow-pair record-field-pair">
       ${fieldButton(type === 'income' ? 'A cuenta' : type === 'budget' ? 'Cuenta presupuesto' : 'De cuenta', flow.account, 'Seleccionar', 'account')}
       ${fieldButton(type === 'income' ? 'Origen' : 'Categoría', flow.category, type === 'income' ? 'Sin categoría' : 'Seleccionar', 'category')}
@@ -84,6 +86,10 @@ function renderStandardFields(state, flow, type) {
       ${subcategories(state, flow.category).map(sub => `<button class="chip dense ${flow.subcategory === sub ? 'active' : ''}" data-record-sub="${sub}"><span class="chip-label">${sub}</span></button>`).join('')}
     </div>
   `;
+}
+
+function typeLabel(type) {
+  return { expense: 'Gasto', income: 'Ingreso', provision: 'Provisión' }[type] || 'Gasto';
 }
 
 function renderTransferFields(state, flow) {

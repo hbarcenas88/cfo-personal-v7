@@ -1,7 +1,7 @@
 import { icon } from '../icons.js';
 import { periodTransactions } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
-import { canon, formatDate, formatMoney } from '../utils/format.js';
+import { canon, formatDate, formatMoney, html } from '../utils/format.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
@@ -26,20 +26,60 @@ function renderFilters(state, filters) {
     <div class="chip-row audit-active-filters">
       ${filterChips(filters)}
     </div>
-    <div class="chip-row">
-      ${selectorChip('Cuenta', 'account', state.accounts.map(a => a.name))}
-      ${selectorChip('Tipo', 'type', ['Gasto', 'Ingreso', 'Transferencia', 'Provisión'])}
-      ${selectorChip('Categoría', 'category', state.categories.map(c => c.name))}
-      ${selectorChip('Subcategoría', 'subcategory', state.categories.flatMap(c => c.subcategories || []).map(s => s.name || s))}
+    <div class="chip-row audit-filter-selectors">
+      ${selectorChip('Cuenta', 'account', state)}
+      ${selectorChip('Tipo', 'type', state)}
+      ${selectorChip('Categoría', 'category', state)}
+      ${selectorChip('Subcategoría', 'subcategory', state)}
     </div>
   `);
 }
 
-function selectorChip(label, type, options) {
+function selectorChip(label, type, state) {
   return `
-    <button class="chip dense" data-open-filter="${type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
-    <template data-filter-options="${type}">${options.map(option => `<button class="chip dense" data-filter-add="${type}:${option}"><span class="chip-label">${option}</span></button>`).join('')}</template>
+    <div class="audit-selector">
+      <button class="chip dense" data-open-filter="${type}" aria-expanded="${state.ui.auditDropdown === type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
+      ${state.ui.auditDropdown === type ? renderAuditDropdown(state) : ''}
+    </div>
   `;
+}
+
+function renderAuditDropdown(state) {
+  const type = state.ui.auditDropdown;
+  if (!type) return '';
+  const key = { account: 'accounts', type: 'types', category: 'categories', subcategory: 'subcategories' }[type];
+  const search = state.ui.auditDropdownSearch || '';
+  const options = auditDropdownOptions(state, type)
+    .filter(value => !search || canon(value).includes(canon(search)))
+    .slice(0, 80);
+  return `
+    <div class="audit-dropdown" role="dialog" aria-label="Opciones de filtro">
+      <div class="audit-dropdown-head"><strong>${auditDropdownTitle(type)}</strong><button class="icon-button compact" data-audit-dropdown-close aria-label="Cerrar selector">${icon('x')}</button></div>
+      ${options.length > 8 ? `<input class="input audit-dropdown-search" data-audit-dropdown-search placeholder="Buscar..." value="${html(search)}" autofocus>` : ''}
+      <div class="audit-dropdown-options">
+        ${options.map(value => `
+          <button class="audit-dropdown-option ${state.filters.audit[key].includes(value) ? 'selected' : ''}" data-audit-dropdown-toggle="${type}:${html(value)}">
+            <span>${html(value)}</span>${state.filters.audit[key].includes(value) ? icon('check') : ''}
+          </button>
+        `).join('') || '<div class="empty-state">Sin opciones</div>'}
+      </div>
+      <div class="audit-dropdown-footer"><button class="audit-dropdown-clear" data-audit-dropdown-clear="${type}">Limpiar</button><button class="secondary-button compact" data-audit-dropdown-close>Listo</button></div>
+    </div>
+  `;
+}
+
+function auditDropdownOptions(state, type) {
+  if (type === 'account') return state.accounts.map(account => account.name);
+  if (type === 'type') return ['Gasto', 'Ingreso', 'Transferencia', 'Provisión'];
+  if (type === 'category') return [...new Set([...state.categories.map(category => category.name), ...state.transactions.map(tx => tx.category).filter(Boolean)])];
+  return [...new Set([
+    ...state.categories.flatMap(category => category.subcategories || []).map(sub => sub.name || sub),
+    ...state.transactions.map(tx => tx.subcategory).filter(Boolean)
+  ])];
+}
+
+function auditDropdownTitle(type) {
+  return { account: 'Cuenta', type: 'Tipo', category: 'Categoría', subcategory: 'Subcategoría' }[type] || 'Filtro';
 }
 
 function filterChips(filters) {
@@ -64,7 +104,7 @@ function transactionCard(tx, state) {
         <span class="row-subtitle audit-meta">${formatDate(tx.date)} · ${tx.account}</span>
         ${tx.transferId ? `<span class="transfer-link">${tx.account} ${icon('link')} ${tx.accountTo || 'Cuenta vinculada'}</span>` : ''}
       </span>
-      <span class="audit-side"><span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span><button class="menu-button" data-tx-menu="${tx.id}">${icon('more')}</button></span>
+      <span class="audit-side"><span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span><button class="menu-button" data-tx-menu="${tx.id}" aria-label="Abrir acciones">${icon('more')}</button></span>
     </div>
   `, 'audit-card-wrap');
 }

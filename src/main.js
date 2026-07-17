@@ -9,7 +9,7 @@ import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, setView, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
@@ -21,6 +21,7 @@ let keypad;
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
 let draggedAccountId = '';
 let pointerDragAccount = null;
+let auditDropdownDismissBound = false;
 const APP_VERSION = '7.0.4';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 
@@ -175,7 +176,6 @@ function renderActiveSheet() {
   if (sheet === 'search') return searchSheet();
   if (sheet === 'health-detail') return healthDetailSheet();
   if (sheet === 'transaction-menu') return transactionMenuSheet();
-  if (sheet === 'audit-filter') return auditFilterSheet();
   if (sheet === 'debug') return debugSheet();
   if (sheet === 'restore') return restoreSheet();
   if (sheet === 'confirm-reset') return confirmResetSheet();
@@ -257,7 +257,7 @@ function bindRecordEvents() {
     render();
   }));
   document.querySelectorAll('[data-record-back]').forEach(button => button.addEventListener('click', () => {
-    state.ui.recordFlow = { step: 'choose' };
+    state.ui.recordFlow = state.ui.recordFlow?.editTransactionId ? null : { step: 'choose' };
     render();
   }));
   document.querySelectorAll('[data-record-type]').forEach(button => button.addEventListener('click', () => {
@@ -317,11 +317,39 @@ function bindRecordEvents() {
   document.querySelector('[data-record-save]')?.addEventListener('click', async () => {
     const payload = recordPayload(state.ui.recordFlow);
     debugLog('record save validation', payload);
-    const saved = await saveTransaction(payload);
+    const saved = state.ui.recordFlow.editTransactionId
+      ? await updateTransaction(state.ui.recordFlow.editTransactionId, payload)
+      : await saveTransaction(payload);
     debugLog('record save result', { saved, transactions: state.transactions.length, budgets: state.budgets.length });
     if (saved) state.ui.recordFlow = null;
     render();
   });
+}
+
+function startTransactionEdit(id) {
+  const selected = state.transactions.find(tx => tx.id === id);
+  if (!selected) return;
+  const tx = selected.transferId
+    ? state.transactions.find(item => item.transferId === selected.transferId && item.movement === 'Gasto') || selected
+    : selected;
+  const type = tx.transferId ? 'transfer' : ({ Gasto: 'expense', Ingreso: 'income', 'Provisión': 'provision' }[tx.movement] || 'expense');
+  const amount = Number(tx.amount) || 0;
+  state.ui.recordFlow = {
+    step: 'form',
+    editTransactionId: selected.id,
+    type,
+    date: tx.date || todayISO(),
+    account: tx.account || '',
+    accountTo: tx.accountTo || '',
+    category: tx.category || '',
+    subcategory: tx.subcategory || '',
+    description: tx.description || '',
+    amount,
+    amountExpression: String(amount),
+    displayAmount: amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  };
+  closeSheet();
+  render();
 }
 
 function bindPeriodEvents() {
@@ -407,6 +435,21 @@ function bindCalendarEvents() {
 }
 
 function bindFilters() {
+  if (!auditDropdownDismissBound) {
+    auditDropdownDismissBound = true;
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !state.ui.auditDropdown) return;
+      state.ui.auditDropdown = '';
+      state.ui.auditDropdownSearch = '';
+      render();
+    });
+    document.addEventListener('click', event => {
+      if (!state.ui.auditDropdown || event.target.closest('.audit-dropdown, [data-open-filter]')) return;
+      state.ui.auditDropdown = '';
+      state.ui.auditDropdownSearch = '';
+      render();
+    });
+  }
   document.querySelector('[data-cat-search]')?.addEventListener('input', event => {
     state.filters.categories.text = event.target.value;
     render();
@@ -453,21 +496,36 @@ function bindFilters() {
     render();
   });
   document.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
-    const [key, value] = button.dataset.filterRemove.split(':');
+    const [key, value] = splitPair(button.dataset.filterRemove);
     state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
     render();
   }));
   document.querySelectorAll('[data-open-filter]').forEach(button => button.addEventListener('click', () => {
-    state.ui.auditFilter = button.dataset.openFilter;
-    state.ui.filterSearch = '';
-    openSheet('audit-filter');
+    const type = button.dataset.openFilter;
+    state.ui.auditDropdown = state.ui.auditDropdown === type ? '' : type;
+    state.ui.auditDropdownSearch = '';
+    render();
   }));
-  document.querySelectorAll('[data-filter-add]').forEach(button => button.addEventListener('click', () => {
-    const [type, value] = splitPair(button.dataset.filterAdd);
+  document.querySelector('[data-audit-dropdown-search]')?.addEventListener('input', event => {
+    state.ui.auditDropdownSearch = event.target.value;
+    render();
+  });
+  document.querySelectorAll('[data-audit-dropdown-toggle]').forEach(button => button.addEventListener('click', () => {
+    const [type, value] = splitPair(button.dataset.auditDropdownToggle);
     const key = auditFilterKey(type);
-    if (key && value && !state.filters.audit[key].includes(value)) state.filters.audit[key].push(value);
-    debugLog('audit filter added', { type, value });
-    closeSheet();
+    if (!key || !value) return;
+    const selected = state.filters.audit[key];
+    state.filters.audit[key] = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value];
+    render();
+  }));
+  document.querySelectorAll('[data-audit-dropdown-clear]').forEach(button => button.addEventListener('click', () => {
+    const key = auditFilterKey(button.dataset.auditDropdownClear);
+    if (key) state.filters.audit[key] = [];
+    render();
+  }));
+  document.querySelectorAll('[data-audit-dropdown-close]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditDropdown = '';
+    state.ui.auditDropdownSearch = '';
     render();
   }));
   document.querySelector('[data-audit-excess]')?.addEventListener('dblclick', () => {
@@ -592,11 +650,13 @@ function bindSheetActions() {
     event.preventDefault();
     const key = button.dataset.recordPick;
     const flow = state.ui.recordFlow || {};
-    const options = key === 'category'
+    const options = key === 'movement'
+      ? optionObjects(['Gasto', 'Ingreso', 'Provisión'])
+      : key === 'category'
       ? optionObjects(state.categories.map(category => category.name), flow.type === 'income' ? 'Sin categoría' : 'Seleccionar')
       : optionObjects(state.accounts.map(account => account.name), 'Seleccionar');
     openOptionPicker({
-      title: key === 'accountTo' ? 'Cuenta destino' : key === 'account' ? 'Cuenta' : 'Categoría',
+      title: key === 'movement' ? 'Tipo de movimiento' : key === 'accountTo' ? 'Cuenta destino' : key === 'account' ? 'Cuenta' : 'Categoría',
       target: `record.${key}`,
       options,
       value: flow[key] || '',
@@ -792,6 +852,9 @@ function bindSheetActions() {
     await duplicateTransaction(button.dataset.txDuplicate);
     closeSheet();
     render();
+  }));
+  document.querySelectorAll('[data-tx-edit]').forEach(button => button.addEventListener('click', () => {
+    startTransactionEdit(button.dataset.txEdit);
   }));
   document.querySelectorAll('[data-tx-delete]').forEach(button => button.addEventListener('click', async () => {
     await deleteTransaction(button.dataset.txDelete);
@@ -1003,8 +1066,14 @@ function applyOptionSelection(value) {
   } else if (picker.target.startsWith('record.')) {
     const key = picker.target.split('.')[1];
     if (state.ui.recordFlow) {
-      state.ui.recordFlow[key] = value;
-      if (key === 'category') state.ui.recordFlow.subcategory = '';
+      if (key === 'movement') {
+        state.ui.recordFlow.type = { Gasto: 'expense', Ingreso: 'income', 'Provisión': 'provision' }[value] || 'expense';
+        state.ui.recordFlow.category = '';
+        state.ui.recordFlow.subcategory = '';
+      } else {
+        state.ui.recordFlow[key] = value;
+        if (key === 'category') state.ui.recordFlow.subcategory = '';
+      }
     }
   }
   state.ui.activeSheet = picker.returnSheet || '';
@@ -1555,6 +1624,7 @@ function transactionMenuSheet() {
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">${tx.description || tx.movement}</h2>
+      <button class="settings-row" data-tx-edit="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('edit')}</span><span><strong>Editar</strong><small>${tx.transferId ? 'Actualiza las dos partes vinculadas' : 'Modifica los datos del movimiento'}</small></span>${icon('chevronRight')}</button>
       <button class="settings-row" data-tx-duplicate="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('copy')}</span><span><strong>Duplicar</strong><small>Crea una copia editable luego</small></span>${icon('chevronRight')}</button>
       <button class="settings-row" data-tx-transfer="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('repeat')}</span><span><strong>Convertir en transferencia</strong><small>Requiere contrapartida compatible</small></span>${icon('chevronRight')}</button>
       <button class="settings-row" data-tx-delete="${tx.id}"><span class="row-icon" style="background:var(--red-soft);color:var(--red)">${icon('trash')}</span><span><strong>Eliminar</strong><small>Podrás deshacerlo</small></span>${icon('chevronRight')}</button>
@@ -1563,40 +1633,6 @@ function transactionMenuSheet() {
   `;
 }
 
-function auditFilterSheet() {
-  const type = state.ui.auditFilter || 'account';
-  const title = {
-    account: 'Filtrar cuenta',
-    type: 'Filtrar tipo',
-    category: 'Filtrar categoría',
-    subcategory: 'Filtrar subcategoría'
-  }[type] || 'Filtrar';
-  const search = state.ui.filterSearch || '';
-  const options = auditFilterOptions(type)
-    .filter(value => !search || canon(value).includes(canon(search)))
-    .slice(0, 80);
-  return `
-    <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div><h2 class="sheet-title">${title}</h2>
-      <input class="input" data-filter-search placeholder="Buscar..." value="${html(search)}" autofocus>
-      <div class="chip-row chart-chip-row">
-        ${options.map(value => `<button class="chip dense" data-filter-add="${type}:${html(value)}"><span class="chip-label">${html(value)}</span></button>`).join('') || '<div class="empty-state">Sin opciones</div>'}
-      </div>
-      <button class="secondary-button mt-md" data-sheet-close>Cerrar</button>
-    </section></div>
-  `;
-}
-
-function auditFilterOptions(type) {
-  if (type === 'account') return state.accounts.map(account => account.name);
-  if (type === 'type') return ['Gasto', 'Ingreso', 'Transferencia', 'Provisión'];
-  if (type === 'category') return [...new Set([...state.categories.map(cat => cat.name), ...state.transactions.map(tx => tx.category).filter(Boolean)])];
-  if (type === 'subcategory') return [...new Set([
-    ...state.categories.flatMap(cat => cat.subcategories || []).map(sub => sub.name || sub),
-    ...state.transactions.map(tx => tx.subcategory).filter(Boolean)
-  ])];
-  return [];
-}
 
 function debugSheet() {
   const financeLocalKeys = getFinanceLocalStorageKeys(localStorage);
@@ -1742,10 +1778,6 @@ async function clearAppServiceWorkerAndCaches() {
 document.addEventListener('input', event => {
   if (event.target.matches('[data-global-search-input]')) {
     state.ui.searchText = event.target.value;
-    render();
-  }
-  if (event.target.matches('[data-filter-search]')) {
-    state.ui.filterSearch = event.target.value;
     render();
   }
   if (event.target.matches('[data-import-edit]')) {

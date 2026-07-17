@@ -11,23 +11,23 @@ python -m http.server 8787
 Luego abre:
 
 ```text
-http://127.0.0.1:8787/cfo-personal-v7/
+http://127.0.0.1:8787/
 ```
 
 Si Python no esta disponible, se puede usar cualquier servidor estatico local.
 
 ## Publicarla en GitHub Pages
 
-La app esta preparada para vivir en una subcarpeta tipo:
+La app esta preparada para vivir en la raíz del repositorio de GitHub Pages:
 
 ```text
 https://USUARIO.github.io/cfo-personal-v7/
 ```
 
-Las rutas de HTML, manifest, iconos y service worker son relativas al directorio `cfo-personal-v7/`, por lo que tambien funcionan localmente con:
+Las rutas de HTML, manifest, iconos y service worker son relativas a la app, por lo que también funcionan localmente con:
 
 ```text
-http://127.0.0.1:8787/cfo-personal-v7/
+http://127.0.0.1:8787/
 ```
 
 No cambies `start_url`, `scope` ni el registro del service worker a rutas que empiecen con `/`, porque eso apuntaria a la raiz del dominio y no a la subcarpeta del proyecto.
