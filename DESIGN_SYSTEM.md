@@ -68,4 +68,3 @@ Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmaci
 - `PRODUCT_SPEC.md` define el comportamiento y las reglas de producto; este documento define su expresión en interfaz.
 - `ui-kit.html` funciona como muestra visual, no como fuente de reglas.
 - `VERIFIER.md` registra la evidencia de revisión antes de publicar.
-

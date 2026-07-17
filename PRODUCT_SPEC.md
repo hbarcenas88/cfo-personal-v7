@@ -71,4 +71,3 @@ Un cambio está listo cuando:
 - `DESIGN_SYSTEM.md` define cómo se presenta la experiencia.
 - `V7_ROADMAP.md` y `BACKLOG.md` priorizan el trabajo futuro; no cambian por sí solos el alcance aprobado aquí.
 - `AGENTS.md` define cómo trabajar técnicamente en el repositorio.
-
