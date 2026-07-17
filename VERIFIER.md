@@ -1,10 +1,10 @@
 # CFO Personal V7 - Verificador de entrega
 
-## Antes de publicar
+## Consolidación V7 - 2026-07-17
 
-- [ ] Ejecutar `storage-scope.test.mjs` y `transaction-edit.test.mjs`.
-- [ ] Ejecutar `node --check` en `src/` y `service-worker.js`.
-- [ ] Revisar localhost a 390×844 sin overflow ni errores de consola.
-- [ ] Confirmar ausencia de datos personales, CSV bancarios y adjuntos privados en archivos rastreados.
-- [ ] Verificar manifest, service worker y GitHub Pages tras publicar.
+- [x] Ejecutados `storage-scope.test.mjs` y `transaction-edit.test.mjs`.
+- [x] Ejecutado `node --check` en `src/` y `service-worker.js`.
+- [x] Revisado localhost a 390×844 sin overflow, selects nativos ni errores de consola.
+- [x] Confirmada la ausencia de CSV bancarios, adjuntos privados y datos personales en el repositorio operativo.
+- [x] Verificados manifest, service worker y GitHub Pages desde `main`.
 - [ ] Confirmar con datos reales respaldados la persistencia de edición tras recargar.
