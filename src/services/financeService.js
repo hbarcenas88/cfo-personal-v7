@@ -334,6 +334,10 @@ export function applyTransactionEdit(transactions, id, payload, state) {
   };
 }
 
+export function canDuplicateTransaction(transaction) {
+  return Boolean(transaction) && !transaction.transferId;
+}
+
 function editTransferPair(transactions, pair, payload, state) {
   const outgoing = pair.find(tx => tx.movement === 'Gasto');
   const incoming = pair.find(tx => tx.movement === 'Ingreso');

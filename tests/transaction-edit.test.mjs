@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { applyTransactionEdit, createTransfer, normalizeTransaction } from '../src/services/financeService.js';
+import { applyTransactionEdit, canDuplicateTransaction, createTransfer, normalizeTransaction } from '../src/services/financeService.js';
 
 const state = {
   accounts: [{ name: 'Caja' }, { name: 'Banco' }, { name: 'Tarjeta' }],
@@ -114,5 +114,8 @@ const malformedTransferResult = applyTransactionEdit([
   { ...transferOut, id: 'bad-second', transferId: 'bad-transfer' }
 ], 'bad-out', { movement: 'Transferencia' }, state);
 assert.equal(malformedTransferResult.ok, false);
+
+assert.equal(canDuplicateTransaction(normal), true);
+assert.equal(canDuplicateTransaction(transferOut), false);
 
 console.log('transaction-edit.test.mjs passed');

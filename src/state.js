@@ -1,5 +1,5 @@
 import { loadState, saveState, clearState, clearFinanceLocalStorage } from './services/storageService.js';
-import { applyTransactionEdit, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
+import { applyTransactionEdit, canDuplicateTransaction, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
 import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
@@ -693,7 +693,7 @@ export async function deleteTransaction(id) {
 export async function duplicateTransaction(id) {
   await mutate(s => {
     const tx = s.transactions.find(item => item.id === id);
-    if (!tx) return;
+    if (!canDuplicateTransaction(tx)) return;
     s.transactions.push({ ...tx, id: uid('tx'), description: `${tx.description || tx.movement} copia`, createdAt: new Date().toISOString() });
   }, { undo: 'Registro duplicado' });
 }
