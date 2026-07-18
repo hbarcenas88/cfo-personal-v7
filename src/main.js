@@ -4,7 +4,7 @@ import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './compone
 import { applyPreset, renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
 import { renderBalances } from './screens/balances.js';
-import { renderSummary } from './screens/summary.js';
+import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
 import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
@@ -22,7 +22,7 @@ let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0
 let draggedAccountId = '';
 let pointerDragAccount = null;
 let auditDropdownDismissBound = false;
-const APP_VERSION = '7.0.4';
+const APP_VERSION = '7.0.5';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 
 function debugLog(action, detail = {}) {
@@ -179,6 +179,8 @@ function renderActiveSheet() {
   if (sheet === 'debug') return debugSheet();
   if (sheet === 'restore') return restoreSheet();
   if (sheet === 'confirm-reset') return confirmResetSheet();
+  if (sheet === 'summary-analysis') return renderSummaryAnalysisSheet(state);
+  if (sheet === 'capacity-calculation') return renderCapacityCalculationSheet(state);
   return '';
 }
 
@@ -286,6 +288,10 @@ function bindRecordEvents() {
     state.ui.recordFlow.subcategory = button.dataset.recordSub;
     render();
   }));
+  document.querySelector('[data-record-extraordinary]')?.addEventListener('change', event => {
+    if (!state.ui.recordFlow) return;
+    state.ui.recordFlow.isExtraordinary = event.target.checked;
+  });
   document.querySelector('[data-record-calendar]')?.addEventListener('click', () => {
     state.ui.calendarTarget = 'record-date';
     calendarDraft = {
@@ -344,6 +350,7 @@ function startTransactionEdit(id) {
     category: tx.category || '',
     subcategory: tx.subcategory || '',
     description: tx.description || '',
+    isExtraordinary: Boolean(tx.isExtraordinary),
     amount,
     amountExpression: String(amount),
     displayAmount: amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -438,14 +445,16 @@ function bindFilters() {
   if (!auditDropdownDismissBound) {
     auditDropdownDismissBound = true;
     document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape' || !state.ui.auditDropdown) return;
+      if (event.key !== 'Escape' || (!state.ui.auditDropdown && !state.ui.categoryDropdown)) return;
       state.ui.auditDropdown = '';
+      state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
       render();
     });
     document.addEventListener('click', event => {
-      if (!state.ui.auditDropdown || event.target.closest('.audit-dropdown, [data-open-filter]')) return;
+      if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter]')) return;
       state.ui.auditDropdown = '';
+      state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
       render();
     });
@@ -458,10 +467,6 @@ function bindFilters() {
     state.filters.categories.view = button.dataset.catView;
     render();
   }));
-  document.querySelector('[data-budget-toggle]')?.addEventListener('click', () => {
-    state.filters.categories.budgetExpanded = state.filters.categories.budgetExpanded === false;
-    render();
-  });
   document.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
     const list = state.filters.categories.expanded;
     const name = button.dataset.catExpand;
@@ -479,8 +484,48 @@ function bindFilters() {
   document.querySelector('[data-clear-cat-filters]')?.addEventListener('click', () => {
     state.filters.categories.text = '';
     state.filters.categories.categories = [];
+    state.ui.categoryDropdown = false;
     render();
   });
+  document.querySelector('[data-open-category-filter]')?.addEventListener('click', () => {
+    state.ui.categoryDropdown = !state.ui.categoryDropdown;
+    state.ui.auditDropdown = '';
+    render();
+  });
+  document.querySelectorAll('[data-category-filter-toggle]').forEach(button => button.addEventListener('click', () => {
+    const name = button.dataset.categoryFilterToggle;
+    const selected = state.filters.categories.categories;
+    state.filters.categories.categories = selected.includes(name) ? selected.filter(value => value !== name) : [...selected, name];
+    render();
+  }));
+  document.querySelector('[data-category-filter-clear]')?.addEventListener('click', () => {
+    state.filters.categories.categories = [];
+    render();
+  });
+  document.querySelectorAll('[data-category-filter-close]').forEach(button => button.addEventListener('click', () => {
+    state.ui.categoryDropdown = false;
+    render();
+  }));
+  document.querySelectorAll('[data-open-summary-analysis]').forEach(button => button.addEventListener('click', () => openSheet('summary-analysis')));
+  document.querySelectorAll('[data-open-capacity-calculation]').forEach(button => button.addEventListener('click', () => openSheet('capacity-calculation')));
+  document.querySelectorAll('[data-view-categories]').forEach(button => button.addEventListener('click', () => setView('categories')));
+  document.querySelector('[data-summary-include-extraordinary]')?.addEventListener('change', async event => {
+    await mutate(s => {
+      s.filters.summary = { ...(s.filters.summary || {}), includeExtraordinary: event.target.checked };
+    }, { undo: 'Análisis de extraordinarios actualizado' });
+    render();
+  });
+  document.querySelectorAll('[data-summary-category-toggle]').forEach(button => button.addEventListener('click', async () => {
+    const name = button.dataset.summaryCategoryToggle;
+    await mutate(s => {
+      const excluded = s.filters.summary?.excludedCategories || [];
+      s.filters.summary = {
+        ...(s.filters.summary || {}),
+        excludedCategories: excluded.includes(name) ? excluded.filter(value => value !== name) : [...excluded, name]
+      };
+    }, { undo: 'Categoría de análisis actualizada' });
+    render();
+  }));
   document.querySelectorAll('[data-chart-toggle]').forEach(button => button.addEventListener('click', () => {
     const name = button.dataset.chartToggle;
     const list = state.filters.excludedChartCategories;
@@ -576,6 +621,28 @@ function bindTools() {
       account.kpi[key] = input.checked;
     }, { undo: 'KPI de cuenta actualizado' });
     render();
+  }));
+  document.querySelectorAll('[data-capacity-role]').forEach(button => button.addEventListener('click', async () => {
+    const [id, role] = splitPair(button.dataset.capacityRole);
+    if (!['liquidity', 'debt', 'exclude'].includes(role)) return;
+    await mutate(s => {
+      s.capacityRules = s.capacityRules || { accountRoles: {}, provisionIds: null };
+      s.capacityRules.accountRoles = { ...(s.capacityRules.accountRoles || {}), [id]: role };
+    }, { undo: 'Rol de capacidad actualizado' });
+    render();
+  }));
+  document.querySelectorAll('[data-capacity-provision]').forEach(input => input.addEventListener('change', async () => {
+    const id = input.dataset.capacityProvision;
+    await mutate(s => {
+      s.capacityRules = s.capacityRules || { accountRoles: {}, provisionIds: null };
+      const selected = Array.isArray(s.capacityRules.provisionIds) ? s.capacityRules.provisionIds : s.provisions.map(provision => provision.id);
+      s.capacityRules.provisionIds = input.checked ? [...new Set([...selected, id])] : selected.filter(value => value !== id);
+    }, { undo: 'Provisión de capacidad actualizada' });
+    render();
+  }));
+  document.querySelectorAll('[data-open-capacity-settings]').forEach(button => button.addEventListener('click', () => {
+    closeSheet();
+    setSettingsPage('capacity');
   }));
   document.querySelectorAll('[data-picker-tab]').forEach(button => button.addEventListener('click', () => {
     state.ui.iconPicker.tab = button.dataset.pickerTab;

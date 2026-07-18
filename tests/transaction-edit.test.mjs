@@ -42,6 +42,33 @@ assert.equal(normalResult.transactions[0].account, 'Banco');
 assert.equal(normalResult.transactions[0].affectsIncome, true);
 assert.equal(normalResult.transactions[0].affectsExpense, true);
 
+const extraordinary = normalizeTransaction({
+  id: 'extraordinary-1',
+  date: '2026-04-18',
+  account: 'Caja',
+  movement: 'Gasto',
+  amount: 90,
+  category: 'Comida',
+  isExtraordinary: true
+}, state);
+const extraordinaryEdit = applyTransactionEdit([extraordinary], extraordinary.id, {
+  date: '2026-04-19',
+  account: 'Caja',
+  movement: 'Gasto',
+  amount: 95,
+  category: 'Comida'
+}, state);
+assert.equal(extraordinary.isExtraordinary, true);
+assert.equal(extraordinaryEdit.transactions[0].isExtraordinary, true);
+const extraordinaryAsIncome = applyTransactionEdit([extraordinary], extraordinary.id, {
+  date: '2026-04-19',
+  account: 'Caja',
+  movement: 'Ingreso',
+  amount: 95,
+  category: 'Salario'
+}, state);
+assert.equal(extraordinaryAsIncome.transactions[0].isExtraordinary, false);
+
 const provisionResult = applyTransactionEdit([normal], normal.id, {
   date: '2026-04-19',
   account: 'Caja',

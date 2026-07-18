@@ -7,7 +7,7 @@ const listeners = new Set();
 export const DEFAULT_ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'];
 
 export const initialState = {
-  version: '7.0.4',
+  version: '7.0.5',
   onboarded: false,
   activeView: 'balances',
   settingsPage: '',
@@ -18,11 +18,13 @@ export const initialState = {
   transactions: [],
   budgets: [],
   provisions: [],
+  capacityRules: { accountRoles: {}, provisionIds: null },
   recurring: [],
   recurringDone: {},
   filters: {
     audit: { text: '', accounts: [], types: [], categories: [], subcategories: [] },
     categories: { text: '', categories: [], view: 'combined', expanded: [], budgetExpanded: true },
+    summary: { excludedCategories: [], includeExtraordinary: false },
     excludedChartCategories: []
   },
   rules: {
@@ -82,7 +84,12 @@ function mergeState(saved) {
     ...initialState.filters,
     ...(saved.filters || {}),
     audit: { ...initialState.filters.audit, ...(saved.filters?.audit || {}) },
-    categories: { ...initialState.filters.categories, ...(saved.filters?.categories || {}) }
+    categories: { ...initialState.filters.categories, ...(saved.filters?.categories || {}) },
+    summary: {
+      ...initialState.filters.summary,
+      ...(saved.filters?.summary || {}),
+      excludedCategories: saved.filters?.summary?.excludedCategories || saved.filters?.excludedChartCategories || []
+    }
   };
   merged.rules = { ...initialState.rules, ...(saved.rules || {}) };
   merged.debug = { ...initialState.debug, ...(saved.debug || {}) };
@@ -98,8 +105,23 @@ function mergeState(saved) {
     .filter(row => parseMonth(row.month || row.mes || row.date || row.fecha) || !(row.month || row.mes || row.date || row.fecha))
     .map(row => normalizeBudget(row, merged));
   merged.provisions = Array.isArray(saved.provisions) ? saved.provisions : [];
+  merged.capacityRules = migrateCapacityRules(saved.capacityRules, merged.accounts, merged.provisions);
   merged.recurring = Array.isArray(saved.recurring) ? saved.recurring : [];
   return merged;
+}
+
+export function migrateCapacityRules(rules, accounts = [], provisions = []) {
+  const savedRules = rules || {};
+  const accountRoles = Object.fromEntries(accounts.map(account => {
+    const role = savedRules.accountRoles?.[account.id];
+    return [account.id, ['liquidity', 'debt', 'exclude'].includes(role)
+      ? role
+      : account.kpi?.available !== false ? 'liquidity' : 'exclude'];
+  }));
+  const provisionIds = Array.isArray(savedRules.provisionIds)
+    ? savedRules.provisionIds.filter(id => provisions.some(provision => provision.id === id))
+    : provisions.map(provision => provision.id);
+  return { accountRoles, provisionIds };
 }
 
 function mergeAccountTypes(savedTypes = [], accounts = []) {
@@ -259,8 +281,9 @@ export async function addAccount(payload) {
   await mutate(s => {
     if (payload.type && !s.accountTypes.some(type => canon(type) === canon(payload.type))) s.accountTypes.push(payload.type);
     const nextOrder = Math.max(-1, ...s.accounts.map(account => Number(account.order) || 0)) + 1;
+    const id = uid('account');
     s.accounts.push({
-      id: uid('account'),
+      id,
       name,
       type: payload.type || 'Cuenta Corriente',
       icon: payload.icon || inferIcon(name, 'account'),
@@ -274,6 +297,9 @@ export async function addAccount(payload) {
         visible: payload.kpi?.visible !== false
       }
     });
+    s.capacityRules = s.capacityRules || { accountRoles: {}, provisionIds: null };
+    s.capacityRules.accountRoles = s.capacityRules.accountRoles || {};
+    s.capacityRules.accountRoles[id] = payload.kpi?.available !== false ? 'liquidity' : 'exclude';
     s.onboarded = true;
   }, { undo: 'Cuenta creada' });
   showToast('Cuenta creada');
@@ -371,6 +397,7 @@ export async function deleteAccount(id) {
       .filter(account => account.id !== id)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map((account, order) => ({ ...account, order }));
+    if (s.capacityRules?.accountRoles) delete s.capacityRules.accountRoles[id];
   }, { undo: 'Cuenta eliminada' });
   showToast('Cuenta eliminada');
   return true;
@@ -574,14 +601,18 @@ export async function addProvision(payload) {
   const name = payload.name?.trim();
   if (!name) return showToast('Nombre de provisión requerido');
   await mutate(s => {
+    const id = uid('provision');
     s.provisions.push({
-      id: uid('provision'),
+      id,
       name,
       balance: Math.max(0, Number(payload.balance) || 0),
       monthlyAmount: Math.max(0, Number(payload.monthlyAmount) || 0),
       icon: payload.icon || inferIcon(name, 'provision'),
       color: payload.color || '#C68000'
     });
+    s.capacityRules = s.capacityRules || { accountRoles: {}, provisionIds: null };
+    if (Array.isArray(s.capacityRules.provisionIds)) s.capacityRules.provisionIds = [...new Set([...s.capacityRules.provisionIds, id])];
+    else s.capacityRules.provisionIds = s.provisions.map(provision => provision.id);
     s.onboarded = true;
   }, { undo: 'Provisión creada' });
 }

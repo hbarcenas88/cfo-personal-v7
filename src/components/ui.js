@@ -39,7 +39,7 @@ export function renderHeader() {
       </div>
       <div class="period-pill">
         <button data-action="prev-period" aria-label="Periodo anterior">${icon('chevronLeft')}</button>
-        <button class="period-value" data-action="period">${periodLabel(state.period)}</button>
+        <button class="period-value" data-action="period">${icon('calendar')}<span>${periodLabel(state.period)}</span></button>
         <button data-action="next-period" aria-label="Periodo siguiente">${icon('chevronRight')}</button>
       </div>
     </header>
@@ -49,7 +49,7 @@ export function renderHeader() {
 export function renderBottomNav() {
   const items = [
     ['balances', 'walletCards', 'Balances'],
-    ['summary', 'barChart', 'Resumen'],
+    ['summary', 'chart', 'Resumen'],
     ['categories', 'grid', 'Categorías'],
     ['audit', 'listChecks', 'Auditoría']
   ];

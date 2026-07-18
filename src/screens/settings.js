@@ -1,5 +1,6 @@
 import { COLOR_CATALOG, ICON_CATALOG, icon } from '../icons.js';
 import { dataHealth } from '../services/healthService.js';
+import { resolveCapacityRules } from '../services/financeService.js';
 import { card, emptyState } from '../components/ui.js';
 import { explainTemplate, templateHeaders } from '../services/importExportService.js';
 import { formatMoney, html } from '../utils/format.js';
@@ -20,6 +21,7 @@ export function renderSettings(state) {
     ${page === 'health' ? renderHealth(state) : ''}
     ${page === 'settings' ? renderPreferences(state) : ''}
     ${page === 'rules' ? renderRules(state) : ''}
+    ${page === 'capacity' ? renderCapacitySettings(state) : ''}
   `;
 }
 
@@ -32,6 +34,7 @@ function pageTitle(page) {
     'categories-admin': 'Categorías y subcategorías',
     'provisions-admin': 'Provisiones',
     rules: 'Reglas y KPIs',
+    capacity: 'Capacidad de pago',
     health: 'Salud de datos',
     settings: 'Configuración'
   }[page] || 'Configuración';
@@ -143,7 +146,39 @@ function renderHealth(state) {
 }
 
 function renderPreferences(state) {
-  return card(`${settingsLink('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card');
+  return card(`${settingsLink('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${settingsLink('capacity', 'wallet', 'Capacidad de pago', 'Cuentas, provisiones y deuda que participan en la proyección')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card');
+}
+
+function renderCapacitySettings(state) {
+  const rules = resolveCapacityRules(state);
+  return `
+    ${card(`<div class="card-heading-block section-intro"><h3 class="card-heading">Cuentas para capacidad</h3><p class="muted tight">Clasifica cada cuenta de forma explícita. La configuración sólo modifica la proyección de capacidad; no altera los saldos ni las reglas contables.</p></div>${state.accounts.length ? `<div class="capacity-settings-list">${state.accounts.map(account => accountRoleRow(account, rules.accountRoles[account.id])).join('')}</div>` : emptyState('wallet', 'Sin cuentas para configurar')}`)}
+    ${card(`<div class="card-heading-block section-intro"><h3 class="card-heading">Provisiones reservadas</h3><p class="muted tight">Por defecto, todas se restan usando su saldo conceptual. Desactiva sólo las que no deban reservarse para esta lectura.</p></div>${state.provisions.length ? `<div class="capacity-settings-list">${state.provisions.map(provision => provisionRow(provision, rules.provisionIds.includes(provision.id))).join('')}</div>` : emptyState('shield', 'Sin provisiones para configurar')}`)}
+  `;
+}
+
+function accountRoleRow(account, role) {
+  const choices = [
+    ['liquidity', 'Liquidez'],
+    ['debt', 'Deuda'],
+    ['exclude', 'Excluir']
+  ];
+  return `
+    <div class="capacity-account-row">
+      <div class="row-card compact"><span class="row-icon solid-icon" style="background:${account.color || '#0A8FE8'};color:#fff">${icon(account.icon || 'wallet')}</span><span class="row-main"><span class="row-title">${html(account.name)}</span><span class="row-subtitle">${html(account.type || 'Cuenta')}</span></span></div>
+      <div class="role-segmented" role="radiogroup" aria-label="Rol de capacidad para ${html(account.name)}">${choices.map(([value, label]) => `<button class="${role === value ? 'active' : ''}" role="radio" aria-checked="${role === value}" data-capacity-role="${account.id}:${value}">${label}</button>`).join('')}</div>
+    </div>
+  `;
+}
+
+function provisionRow(provision, selected) {
+  return `
+    <label class="analysis-toggle capacity-provision-row">
+      <span class="row-icon solid-icon" style="background:${provision.color || '#C68000'};color:#fff">${icon(provision.icon || 'shield')}</span>
+      <span><strong>${html(provision.name)}</strong><small>${formatMoney(provision.balance)} de saldo conceptual</small></span>
+      <input type="checkbox" data-capacity-provision="${provision.id}" ${selected ? 'checked' : ''}><i></i>
+    </label>
+  `;
 }
 
 function renderRules(state) {

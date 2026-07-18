@@ -12,6 +12,8 @@ Desde la raíz, usar un servidor local:
 python -m http.server 8787
 node tests/storage-scope.test.mjs
 node tests/transaction-edit.test.mjs
+node tests/capacity-summary.test.mjs
+node tests/mobile-ui-contract.test.mjs
 ```
 
 Abrir `http://127.0.0.1:8787/`; no usar `file://`. Cada cambio JavaScript requiere comprobación sintáctica, pruebas enfocadas y revisión móvil a 390×844. Si cambian assets, aumentar la versión en `service-worker.js`.

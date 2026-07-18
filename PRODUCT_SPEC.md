@@ -66,6 +66,22 @@ Un cambio está listo cuando:
 - Conserva la capacidad de respaldo y restauración cuando toca persistencia.
 - Se verifica con la evidencia indicada en `VERIFIER.md`.
 
+## Lecturas financieras configurables
+
+Estas lecturas ayudan a decidir y visualizar; no reemplazan los saldos de cuenta, la trazabilidad de movimientos ni las reglas de ingresos, gastos y transferencias.
+
+- **Por ejecutar:** presupuesto total menos gasto realizado dentro del presupuesto de cada categoría. El gasto extraordinario también cuenta aquí, porque sigue siendo un gasto y no se debe ocultar del control presupuestario.
+- **Desviación del plan:** suma de gasto sin presupuesto y exceso sobre el presupuesto de una categoría. No se resta nuevamente al calcular `Por ejecutar`, para no duplicar una obligación.
+- **Liquidez utilizable:** suma de saldos de cuentas clasificadas como liquidez, menos los saldos conceptuales de provisiones seleccionadas.
+- **Deuda neta:** parte negativa de los saldos de cuentas clasificadas explícitamente como deuda. Una cuenta de deuda con saldo positivo no crea liquidez.
+- **Saldo proyectado:** `Liquidez utilizable − Por ejecutar − Deuda neta`. Es una lectura conservadora configurable para saber si el dinero alcanza al cerrar el período.
+
+La configuración de capacidad es explícita y auditable: cada cuenta se clasifica como liquidez, deuda o excluida; cada provisión se incluye o excluye. Valores iniciales seguros: cuentas antes marcadas como disponibles pasan a liquidez, las provisiones existentes quedan seleccionadas y ninguna cuenta se infiere como deuda.
+
+### Extraordinarios
+
+Un movimiento de gasto puede marcarse manualmente como **extraordinario** durante su registro o edición. La marca sólo modifica las vistas analíticas operativas: gasto por categoría y ritmo presupuestario pueden excluirlo para no ocultar patrones cotidianos. El selector de categoría de ese análisis excluye la categoría tanto de su gasto como de la guía presupuestaria del ritmo; nunca modifica saldos, ingresos, gastos, presupuesto, transferencias, reglas financieras, exportación ni trazabilidad. Auditoría masiva de esta marca pertenece a una etapa posterior.
+
 ## Relación con otros documentos
 
 - `DESIGN_SYSTEM.md` define cómo se presenta la experiencia.

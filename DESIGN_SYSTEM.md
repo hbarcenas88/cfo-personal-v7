@@ -68,3 +68,38 @@ Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmaci
 - `PRODUCT_SPEC.md` define el comportamiento y las reglas de producto; este documento define su expresión en interfaz.
 - `ui-kit.html` funciona como muestra visual, no como fuente de reglas.
 - `VERIFIER.md` registra la evidencia de revisión antes de publicar.
+
+## Dirección visual aprobada: Resumen y Categorías
+
+La armonización se hace por flujos, no por pantallas aisladas. Resumen y Categorías son el patrón de referencia inicial; Balances y Auditoría lo adoptan en la siguiente etapa; registro, menú, planeación y ajustes cierran el programa. No se debe copiar un layout de forma literal: se reutilizan sus principios de lectura, densidad y superficie.
+
+- El selector de período usa el icono de calendario junto al período activo; el icono comunica que es un control editable, no un título estático.
+- La navegación de Resumen usa el icono de tendencia, no barras verticales.
+- Los iconos funcionales viven en superficies suaves; el color semántico apoya el significado sin sustituir texto.
+- Cada tarjeta responde una pregunta: estado global, presupuesto, análisis operativo o ritmo. No reunir indicadores no relacionados sólo para llenar espacio.
+- En móvil, una tarjeta muestra hasta tres métricas hermanas en fila o cuatro en cuadrícula 2×2. Si un importe no cabe, se debe ajustar el patrón, no permitir overflow ni reducir el target táctil.
+
+### Resumen de decisión
+
+- **Capacidad de pago:** tarjeta principal con saldo proyectado y acceso a `Ver cálculo`. La explicación detallada pertenece a un sheet, no se expande por defecto dentro del dashboard.
+- **Salud presupuestaria:** Plan, Ejecutado, Por ejecutar y Desviación del plan. La desviación combina gasto sin presupuesto y exceso sobre categorías presupuestadas.
+- **Gasto operativo por categoría:** máximo cinco barras horizontales. Sus filtros se concentran en el sheet `Análisis`; no usar una nube de chips debajo de la gráfica.
+- **Ritmo presupuestario:** línea acumulada día a día contra una guía lineal del presupuesto. Debe usar datos operativos y explicar de forma visible la guía. Si `Análisis` excluye una categoría, excluye tanto su gasto como su presupuesto de la guía para comparar el mismo universo.
+- **Categorías:** conserva presupuesto, gasto y detalle por categoría; no duplica el bloque financiero global de Resumen.
+
+### Selectores, filtros y overlays
+
+- Los dropdowns propios se anclan al contenedor visible del grupo de filtros, no a un chip angosto. Su borde izquierdo y derecho deben permanecer dentro del viewport a 390 px.
+- La búsqueda y su acción de limpieza forman una misma fila: alturas coherentes, botón de limpieza de 44 px y sin competir visualmente con el campo.
+- Un dropdown abierto puede cubrir contenido posterior, pero nunca quedar recortado, iniciar fuera de pantalla ni ocultar su título, opciones o acción `Listo`.
+- Todo sheet o dropdown debe cerrarse con control visible, Escape, toque fuera y, cuando hay selección múltiple, `Listo`.
+
+### Matriz de adopción
+
+| Flujo | Patrón vigente | Próxima acción |
+| --- | --- | --- |
+| Resumen | Tarjetas de decisión, gráficos operativos, análisis en sheet | Validar con datos reales y densidad mensual |
+| Categorías | Detalle por categoría sin bloque global | Revisar filtros y lógica de presupuesto por categoría |
+| Auditoría | Filtros anclados compactos y tarjetas de movimiento | Marcas masivas de extraordinarios en etapa 2 |
+| Balances | Patrón V7 previo | Adoptar jerarquía y superficies de Resumen en etapa 2 |
+| Registro y ajustes | Flujos V7 previos | Unificar sheets, formularios y estados en etapa 3 |

@@ -62,6 +62,7 @@ function renderForm(state, flow) {
           <small>Fecha</small><strong>${flow.date || todayISO()}</strong>
         </button>
         ${type === 'transfer' ? renderTransferFields(state, flow) : renderStandardFields(state, flow, type)}
+        ${type === 'expense' ? renderExtraordinaryControl(flow) : ''}
         <div class="amount-hero">
           <small>${labels[1]}</small>
           <strong class="money record-amount-value" style="--record-accent:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
@@ -72,6 +73,17 @@ function renderForm(state, flow) {
         ${renderKeypad({ value: flow.amountExpression, variant: type === 'income' ? 'income' : 'expense', currency: 'USD' })}
       </main>
     </section>
+  `;
+}
+
+function renderExtraordinaryControl(flow) {
+  return `
+    <label class="analysis-toggle">
+      <span class="row-icon" style="background:var(--amber-soft);color:var(--amber)">${icon('sparkles')}</span>
+      <span><strong>Extraordinario</strong><small>Se excluye del análisis operativo; no cambia saldos ni presupuesto.</small></span>
+      <input type="checkbox" data-record-extraordinary ${flow.isExtraordinary ? 'checked' : ''}>
+      <i></i>
+    </label>
   `;
 }
 
@@ -125,6 +137,7 @@ export function recordPayload(flow) {
     amount: Number(flow.amount) || 0,
     category: flow.category || '',
     subcategory: flow.subcategory || '',
-    description: flow.description || ''
+    description: flow.description || '',
+    isExtraordinary: flow.type === 'expense' && Boolean(flow.isExtraordinary)
   };
 }
