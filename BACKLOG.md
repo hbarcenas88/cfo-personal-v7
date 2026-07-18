@@ -5,6 +5,8 @@
 - Conciliación mensual guiada.
 - Auditoría contra estados de cuenta PDF.
 - Cobertura de obligaciones y presupuesto planeado.
+- Marcar extraordinarios de forma masiva desde Auditoría, con confirmación y trazabilidad.
+- Revisar pagos programados: mantenerlos como avisos o retirarlos del Resumen según la decisión de producto.
 
 ## Después
 

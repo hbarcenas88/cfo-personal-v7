@@ -19,9 +19,9 @@ export function renderAudit(state) {
 function renderFilters(state, filters) {
   return card(`
     <div class="audit-filter-head"><strong>Registros</strong><small>Busca y combina filtros</small></div>
-    <div class="search-panel">
+    <div class="search-panel audit-search-panel">
       <input class="input" data-audit-search placeholder="Buscar movimientos..." value="${filters.text || ''}">
-      <button class="filter-button" data-audit-clear>${icon('x')}</button>
+      <button class="filter-button audit-clear-button" data-audit-clear aria-label="Limpiar búsqueda y filtros">${icon('x')}</button>
     </div>
     <div class="chip-row audit-active-filters">
       ${filterChips(filters)}

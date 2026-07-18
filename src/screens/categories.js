@@ -1,18 +1,16 @@
 import { icon } from '../icons.js';
-import { budgetSummary, categoryRows } from '../services/financeService.js';
+import { categoryRows } from '../services/financeService.js';
 import { card, emptyState, softColor } from '../components/ui.js';
-import { canon, formatMoney } from '../utils/format.js';
+import { canon, formatMoney, html } from '../utils/format.js';
 
 export function renderCategories(state) {
   const filters = state.filters.categories;
-  const budget = budgetSummary(state);
   let rows = categoryRows(state);
   if (filters.text) rows = rows.filter(row => canon(row.name).includes(canon(filters.text)));
   if (filters.categories.length) rows = rows.filter(row => filters.categories.some(cat => canon(cat) === canon(row.name)));
   rows = rows.filter(row => filters.view === 'budget' ? row.planned > 0 : filters.view === 'spend' ? row.spent > 0 : row.planned > 0 || row.spent > 0);
   return `
     ${renderFilterPanel(filters, state)}
-    ${renderBudgetExecution(budget, filters.budgetExpanded !== false)}
     <div class="segmented">
       <button class="${filters.view === 'combined' ? 'active' : ''}" data-cat-view="combined">Combinado</button>
       <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget">Solo presupuesto</button>
@@ -24,44 +22,37 @@ export function renderCategories(state) {
 }
 
 function renderFilterPanel(filters, state) {
+  const activeCount = filters.categories.length;
+  const label = activeCount ? `Categorías (${activeCount})` : 'Todas las categorías';
   return card(`
     <div class="metric-top">
       <h2 class="card-heading">Filtros de categorías</h2>
       <button class="chip dense" data-clear-cat-filters>Limpiar filtros</button>
     </div>
-    <div class="search-panel">
-      <input class="input" data-cat-search placeholder="Buscar y agregar categorías..." value="${filters.text || ''}">
-      <button class="filter-button">${icon('search')}</button>
-    </div>
-    <div class="chip-row">
-      ${filters.categories.map(cat => `<button class="chip dense active" data-remove-cat-filter="${cat}"><span class="chip-label">${cat}</span> ${icon('x')}</button>`).join('')}
-      ${state.categories.filter(cat => !filters.categories.includes(cat.name)).slice(0, 6).map(cat => `<button class="chip dense" data-add-cat-filter="${cat.name}"><span class="chip-label">${cat.name}</span></button>`).join('')}
+    <div class="category-filter-controls">
+      <input class="input" data-cat-search placeholder="Buscar categorías..." value="${html(filters.text || '')}">
+      <div class="category-selector">
+        <button class="chip dense category-filter-trigger" data-open-category-filter aria-expanded="${Boolean(state.ui.categoryDropdown)}"><span class="chip-label">${label}</span>${icon('chevronDown')}</button>
+        ${state.ui.categoryDropdown ? renderCategoryDropdown(state) : ''}
+      </div>
     </div>
   `);
 }
 
-function renderBudgetExecution(budget, expanded = true) {
-  return card(`
-    <div class="metric-top">
-      <div><div class="metric-title">Ejecución presupuestaria</div><div class="metric-value metric-value-lg blue">${budget.executedPct.toFixed(0)}%</div></div>
-      <button class="chip dense ${expanded ? 'active' : ''}" data-budget-toggle>${expanded ? 'Cerrar' : 'Detalle'}</button>
+function renderCategoryDropdown(state) {
+  const selected = state.filters.categories.categories;
+  return `
+    <div class="category-filter-dropdown" role="dialog" aria-label="Filtrar categorías">
+      <div class="audit-dropdown-head"><strong>Categorías</strong><button class="icon-button compact" data-category-filter-close aria-label="Cerrar selector">${icon('x')}</button></div>
+      <div class="category-filter-options">
+        ${state.categories.length ? state.categories.map(category => {
+          const included = selected.includes(category.name);
+          return `<button class="category-filter-option ${included ? 'selected' : ''}" data-category-filter-toggle="${html(category.name)}"><span>${html(category.name)}</span>${included ? icon('check') : ''}</button>`;
+        }).join('') : '<div class="empty-state">Sin categorías</div>'}
+      </div>
+      <div class="audit-dropdown-footer"><button class="audit-dropdown-clear" data-category-filter-clear>Limpiar</button><button class="secondary-button compact" data-category-filter-close>Listo</button></div>
     </div>
-    <div class="progress tight"><span style="width:${Math.min(100, budget.executedPct)}%;background:${budget.executedPct > 100 ? 'var(--red)' : 'var(--green)'}"></span></div>
-    ${expanded ? `<div class="budget-grid">
-      ${budgetLine('Presupuesto total', budget.totalBudget, 'blue')}
-      ${budgetLine('Gasto dentro del presupuesto', budget.used)}
-      ${budgetLine('Pendiente por usar', budget.pending)}
-      ${budgetLine('No presupuestado', budget.unbudgeted, 'danger')}
-      ${budgetLine('Exceso presupuestado', budget.budgetedExcess, 'danger')}
-      ${budgetLine('Excedente total', budget.excessTotal, 'danger', 'data-audit-excess')}
-      ${budgetLine('Disponible', budget.available, budget.available < 0 ? 'danger' : 'success')}
-      ${budgetLine(budget.margin >= 0 ? 'Margen para cubrir pendiente' : 'Faltante para cubrir pendiente', budget.margin, budget.margin < 0 ? 'danger' : 'success')}
-    </div>` : ''}
-  `);
-}
-
-function budgetLine(label, amount, cls = '', attr = '') {
-  return `<div class="row-card compact" ${attr}><span><strong>${label}</strong>${attr ? '<small class="row-subtitle">Doble toque para auditar</small>' : ''}</span><strong class="row-amount ${cls}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</strong></div>`;
+  `;
 }
 
 function categoryCard(row, expanded) {

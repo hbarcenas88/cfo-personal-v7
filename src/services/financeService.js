@@ -24,6 +24,7 @@ export function normalizeTransaction(tx = {}, state) {
     affectsIncome: tx.affectsIncome !== false,
     affectsExpense: tx.affectsExpense !== false,
     affectsBudget: tx.affectsBudget !== false,
+    isExtraordinary: tx.isExtraordinary === true || tx.isExtraordinary === 'true' || tx.isExtraordinary === 1,
     provisionId: tx.provisionId || '',
     provisionDelta: Number(tx.provisionDelta) || 0,
     recordKind: tx.recordKind || tx.tipoRegistro || movement,
@@ -104,7 +105,7 @@ export function periodBudgets(state, period = state.period) {
 export function accountBalances(state, period = state.period) {
   const balances = Object.fromEntries(state.accounts.map(account => [account.name, 0]));
   transactionsToCutoff(state, period).forEach(tx => {
-    if (!tx.affectsBalance || !balances.hasOwnProperty(tx.account)) return;
+    if (tx.affectsBalance === false || !balances.hasOwnProperty(tx.account)) return;
     if (tx.movement === 'Ingreso') balances[tx.account] += Number(tx.amount) || 0;
     if (tx.movement === 'Gasto') balances[tx.account] -= Number(tx.amount) || 0;
     if (tx.movement === 'Provisión' && tx.provisionDelta < 0) balances[tx.account] -= Math.abs(Number(tx.provisionDelta) || 0);
@@ -178,7 +179,7 @@ function delta(value, previous) {
 
 export function budgetSummary(state, period = state.period) {
   const budgets = periodBudgets(state, period);
-  const txs = periodTransactions(state, period).filter(tx => tx.movement === 'Gasto' && !tx.transferId && tx.affectsBudget !== false);
+  const txs = budgetTransactions(state, period);
   const budgetByCat = groupSum(budgets, 'category');
   const spendByCat = groupSum(txs, 'category');
   const totalBudget = sum(budgets.map(b => b.amount));
@@ -216,7 +217,11 @@ export function budgetSummary(state, period = state.period) {
 
 export function categoryRows(state, period = state.period) {
   const budgets = periodBudgets(state, period);
-  const txs = periodTransactions(state, period).filter(tx => tx.movement === 'Gasto' && !tx.transferId && tx.affectsBudget !== false);
+  const txs = budgetTransactions(state, period);
+  return rowsForCategories(state, budgets, txs);
+}
+
+function rowsForCategories(state, budgets, txs) {
   const names = new Set([
     ...state.categories.map(cat => cat.name),
     ...budgets.map(row => row.category).filter(Boolean),
@@ -246,6 +251,93 @@ export function categoryRows(state, period = state.period) {
       }))
     };
   }).sort((a, b) => b.spent - a.spent);
+}
+
+export function operationalCategoryRows(state, period = state.period, { includeExtraordinary = false } = {}) {
+  const budgets = periodBudgets(state, period);
+  const txs = budgetTransactions(state, period)
+    .filter(tx => includeExtraordinary || !tx.isExtraordinary);
+  return rowsForCategories(state, budgets, txs).filter(row => row.spent > 0);
+}
+
+export function operationalBudgetTotal(state, period = state.period, { excludedCategories = [] } = {}) {
+  return sum(periodBudgets(state, period)
+    .filter(budget => !excludedCategories.some(category => canon(category) === canon(budget.category)))
+    .map(budget => budget.amount));
+}
+
+export function dailyBudgetPace(state, period = state.period, { includeExtraordinary = false, excludedCategories = [] } = {}) {
+  const month = parseMonth(period.month || state.period?.month) || currentMonth();
+  const days = Number(monthEnd(month).slice(-2));
+  const totalBudget = operationalBudgetTotal(state, { mode: 'month', month }, { excludedCategories });
+  const spendByDay = new Map();
+  budgetTransactions(state, { mode: 'month', month })
+    .filter(tx => (includeExtraordinary || !tx.isExtraordinary)
+      && !excludedCategories.some(category => canon(category) === canon(tx.category)))
+    .forEach(tx => {
+      const day = Number(parseDate(tx.date).slice(-2));
+      spendByDay.set(day, (spendByDay.get(day) || 0) + (Number(tx.amount) || 0));
+    });
+  let actual = 0;
+  return Array.from({ length: days }, (_, index) => {
+    const day = index + 1;
+    actual += spendByDay.get(day) || 0;
+    return {
+      day,
+      actual,
+      expected: totalBudget * day / days
+    };
+  });
+}
+
+export function capacitySummary(state, period = state.period) {
+  const rules = resolveCapacityRules(state);
+  const balances = accountBalances(state, period);
+  const budget = budgetSummary(state, period);
+  const liquidityAccounts = state.accounts
+    .filter(account => rules.accountRoles[account.id] === 'liquidity')
+    .map(account => ({ ...account, balance: balances[account.name] || 0 }));
+  const debtAccounts = state.accounts
+    .filter(account => rules.accountRoles[account.id] === 'debt')
+    .map(account => ({ ...account, balance: balances[account.name] || 0 }));
+  const selectedProvisions = state.provisions
+    .filter(provision => rules.provisionIds.includes(provision.id))
+    .map(provision => ({ ...provision, balance: Math.max(0, Number(provision.balance) || 0) }));
+  const liquidity = sum(liquidityAccounts.map(account => account.balance));
+  const provisionAmount = sum(selectedProvisions.map(provision => provision.balance));
+  const liquidityUsable = liquidity - provisionAmount;
+  const debt = sum(debtAccounts.map(account => Math.max(0, -account.balance)));
+  const projectedBalance = liquidityUsable - budget.pending - debt;
+  return {
+    rules,
+    balances,
+    budget,
+    liquidity,
+    liquidityAccounts,
+    selectedProvisions: provisionAmount,
+    selectedProvisionDetails: selectedProvisions,
+    liquidityUsable,
+    planRemaining: budget.pending,
+    debt,
+    debtAccounts,
+    projectedBalance
+  };
+}
+
+export function resolveCapacityRules(state) {
+  const saved = state.capacityRules || {};
+  const savedRoles = saved.accountRoles || {};
+  const accountRoles = Object.fromEntries(state.accounts.map(account => {
+    const savedRole = savedRoles[account.id];
+    const role = ['liquidity', 'debt', 'exclude'].includes(savedRole)
+      ? savedRole
+      : account.kpi?.available !== false ? 'liquidity' : 'exclude';
+    return [account.id, role];
+  }));
+  const provisionIds = Array.isArray(saved.provisionIds)
+    ? saved.provisionIds.filter(id => state.provisions.some(provision => provision.id === id))
+    : state.provisions.map(provision => provision.id);
+  return { accountRoles, provisionIds };
 }
 
 export function monthlySeries(state, year = String((state.period.month || currentMonth()).slice(0, 4))) {
@@ -352,6 +444,7 @@ function editTransferPair(transactions, pair, payload, state) {
     affectsIncome: false,
     affectsExpense: false,
     affectsBudget: false,
+    isExtraordinary: false,
     category: '',
     subcategory: ''
   };
@@ -394,6 +487,7 @@ function applyMovementRules(transaction, original) {
       affectsBalance: false,
       affectsExpense: false,
       affectsBudget: false,
+      isExtraordinary: false,
       recordKind: 'Movimiento por provisión'
     };
   }
@@ -405,8 +499,14 @@ function applyMovementRules(transaction, original) {
     affectsIncome: true,
     affectsExpense: true,
     affectsBudget: true,
+    isExtraordinary: transaction.movement === 'Gasto' && transaction.isExtraordinary,
     recordKind: transaction.movement
   };
+}
+
+function budgetTransactions(state, period) {
+  return periodTransactions(state, period)
+    .filter(tx => tx.movement === 'Gasto' && !tx.transferId && tx.affectsBudget !== false);
 }
 
 function groupSum(items, key) {
