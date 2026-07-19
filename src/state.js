@@ -1,5 +1,6 @@
 import { loadState, saveState, clearState, clearFinanceLocalStorage } from './services/storageService.js';
 import { applyTransactionEdit, canDuplicateTransaction, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
+import { migrateAuditPeriod } from './services/periodService.js';
 import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
@@ -12,6 +13,7 @@ export const initialState = {
   activeView: 'balances',
   settingsPage: '',
   period: { mode: 'month', month: currentMonth(), compareMode: 'previous' },
+  auditPeriod: { mode: 'all', compare: false },
   accountTypes: [...DEFAULT_ACCOUNT_TYPES],
   accounts: [],
   categories: [],
@@ -23,7 +25,7 @@ export const initialState = {
   recurringDone: {},
   filters: {
     audit: { text: '', accounts: [], types: [], categories: [], subcategories: [] },
-    categories: { text: '', categories: [], view: 'combined', expanded: [], budgetExpanded: true },
+    categories: { text: '', categories: [], view: 'combined', expanded: [], budgetExpanded: true, compare: false },
     summary: { excludedCategories: [], includeExtraordinary: false },
     excludedChartCategories: []
   },
@@ -80,11 +82,16 @@ function mergeState(saved) {
   Object.assign(merged, saved);
   merged.ui = { ...initialState.ui };
   merged.period = { ...initialState.period, ...(saved.period || {}) };
+  merged.auditPeriod = migrateAuditPeriod(saved.auditPeriod);
   merged.filters = {
     ...initialState.filters,
     ...(saved.filters || {}),
     audit: { ...initialState.filters.audit, ...(saved.filters?.audit || {}) },
-    categories: { ...initialState.filters.categories, ...(saved.filters?.categories || {}) },
+    categories: {
+      ...initialState.filters.categories,
+      ...(saved.filters?.categories || {}),
+      compare: Boolean(saved.filters?.categories?.compare)
+    },
     summary: {
       ...initialState.filters.summary,
       ...(saved.filters?.summary || {}),
