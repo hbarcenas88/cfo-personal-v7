@@ -5,6 +5,7 @@ import { runInNewContext } from 'node:vm';
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
+const componentStyles = await readFile(new URL('../styles/components.css', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../styles/screens.css', import.meta.url), 'utf8');
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
@@ -42,7 +43,17 @@ assert.match(audit, /audit-filter-toggle/);
 assert.match(audit, /audit-filter-control/);
 assert.match(audit, /audit-filter-active/);
 assert.match(audit, /audit-filter-footer-action/);
-assert.match(styles, /\.category-filter-clear,[\s\S]*?\.audit-filter-footer-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
+assert.match(componentStyles, /\.chip\.dense\s*\{[\s\S]*?min-height:\s*32px/);
+[
+  /\.metric-top\s+\.category-filter-clear\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.category-filter-controls\s+\.category-filter-trigger\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.category-view-segmented\s*>\s*button\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-period-seal\s+\.audit-period-change\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-filter-head\s+\.audit-filter-toggle\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-filter-selectors\s+\.audit-filter-control\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-active-filters\s+\.audit-filter-active\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-dropdown-footer\s+\.audit-filter-footer-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/
+].forEach(targetRule => assert.match(styles, targetRule));
 assert.match(summary, /operationalCategoryDistribution/);
 assert.match(summary, /class="operational-chart-total"/);
 assert.match(summary, /class="operational-chart-row"/);

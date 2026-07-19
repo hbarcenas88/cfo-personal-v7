@@ -633,13 +633,31 @@
   padding: 0 12px;
 }
 
-.category-filter-clear,
-.category-filter-trigger,
-.audit-period-change,
-.audit-filter-toggle,
-.audit-filter-control,
-.audit-filter-active,
-.audit-filter-footer-action {
+.metric-top .category-filter-clear {
+  min-height: var(--control-md);
+}
+
+.category-filter-controls .category-filter-trigger {
+  min-height: var(--control-md);
+}
+
+.audit-period-seal .audit-period-change {
+  min-height: var(--control-md);
+}
+
+.audit-filter-head .audit-filter-toggle {
+  min-height: var(--control-md);
+}
+
+.audit-filter-selectors .audit-filter-control {
+  min-height: var(--control-md);
+}
+
+.audit-active-filters .audit-filter-active {
+  min-height: var(--control-md);
+}
+
+.audit-dropdown-footer .audit-filter-footer-action {
   min-height: var(--control-md);
 }
 
