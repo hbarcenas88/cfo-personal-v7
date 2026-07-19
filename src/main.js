@@ -219,21 +219,15 @@ async function applyPeriodDraft() {
     return;
   }
   const { scope, tab, error, compare, ...period } = draft;
-  let categoryFiltersChanged = false;
   if (scope === 'audit') state.auditPeriod = { ...period, compare: Boolean(compare && isComparisonAvailable(period)) };
   else {
     state.period = period;
     if (state.activeView === 'categories') {
       state.filters.categories.compare = Boolean(compare && isComparisonAvailable(period));
-      categoryFiltersChanged = true;
     }
   }
   state.ui.periodDraft = null;
   closeSheet();
-  if (categoryFiltersChanged) {
-    renderAndPersistFilters();
-    return;
-  }
   await persist();
   render();
 }

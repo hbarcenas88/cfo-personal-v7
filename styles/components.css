@@ -854,6 +854,14 @@ textarea[aria-invalid="true"] {
   margin-bottom: 12px;
 }
 
+.period-sheet .segmented {
+  min-height: 54px;
+}
+
+.period-sheet [data-period-tab] {
+  min-height: 44px;
+}
+
 .sheet-handle {
   width: 52px;
   height: 5px;

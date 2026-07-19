@@ -4,10 +4,27 @@ const isIsoDate = value => {
   const iso = String(value || '');
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) && parseDate(iso) === iso;
 };
-const monthFor = period => period?.month || currentMonth();
+// Persisted periods accept ordinary financial history and near-term planning, but reject malformed years.
+const MIN_PERIOD_YEAR = 1900;
+const MAX_PERIOD_YEAR = 2100;
+const isValidYear = value => Number.isInteger(value) && value >= MIN_PERIOD_YEAR && value <= MAX_PERIOD_YEAR;
+const isValidMonth = value => {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(value || ''));
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  return isValidYear(year) && month >= 1 && month <= 12;
+};
+const monthFor = (period, mode) => {
+  if (isValidMonth(period?.month)) return period.month;
+  if (mode === 'year' && isValidYear(period?.year)) return `${period.year}-01`;
+  if (mode === 'range' && isIsoDate(period?.from)) return period.from.slice(0, 7);
+  return currentMonth();
+};
 
 export function migrateAuditPeriod(period) {
   if (!period || period.mode === 'all') return { mode: 'all', compare: false };
+  if (!isValidPersistedPeriod(period)) return { mode: 'all', compare: false };
   const draft = createPeriodDraft(period, { scope: 'audit', compare: Boolean(period.compare) });
   const validation = validatePeriodDraft(draft);
   return validation.ok ? stripDraft(draft) : { mode: 'all', compare: false };
@@ -15,11 +32,12 @@ export function migrateAuditPeriod(period) {
 
 export function createPeriodDraft(period = {}, { scope = 'global', compare = false } = {}) {
   if (scope === 'audit' && period.mode === 'all') {
-    return { scope, mode: 'all', month: monthFor(period), year: Number(monthFor(period).slice(0, 4)), from: '', to: '', compare: false, tab: 'range' };
+    const month = monthFor(period, 'all');
+    return { scope, mode: 'all', month, year: Number(month.slice(0, 4)), from: '', to: '', compare: false, tab: 'range' };
   }
   const mode = ['month', 'year', 'range'].includes(period.mode) ? period.mode : 'month';
-  const month = monthFor(period);
-  const year = Number(period.year || month.slice(0, 4));
+  const month = monthFor(period, mode);
+  const year = isValidYear(period.year) ? period.year : Number(month.slice(0, 4));
   const bounds = mode === 'range'
     ? { from: period.from || monthStart(month), to: period.to || monthEnd(month) }
     : { from: '', to: '' };
@@ -66,8 +84,14 @@ function shiftIsoDate(value, days) {
 }
 
 export function validatePeriodDraft(draft) {
+  if (!draft || !['all', 'month', 'year', 'range'].includes(draft.mode)) return { ok: false, message: 'Selecciona un período válido.' };
   if (draft.mode === 'all') return { ok: true };
-  if (draft.mode !== 'range') return { ok: true };
+  if (!isValidMonth(draft.month)) return { ok: false, message: 'Selecciona un mes válido.' };
+  if (draft.mode === 'month') return { ok: true };
+  if (draft.mode === 'year') {
+    if (!isValidYear(draft.year) || draft.year !== Number(draft.month.slice(0, 4))) return { ok: false, message: 'Selecciona un año válido.' };
+    return { ok: true };
+  }
   if (!isIsoDate(draft.from) || !isIsoDate(draft.to)) return { ok: false, message: 'Selecciona ambas fechas.' };
   if (draft.from > draft.to) return { ok: false, message: 'La fecha inicial no puede ser posterior a la final.' };
   return { ok: true };
@@ -84,4 +108,17 @@ export function comparisonPeriod(period) {
 function stripDraft(draft) {
   const { scope, tab, ...period } = draft;
   return period;
+}
+
+function isValidPersistedPeriod(period) {
+  if (!['month', 'year', 'range'].includes(period?.mode)) return false;
+  if (period.mode === 'month') {
+    return isValidMonth(period.month) && (!Object.hasOwn(period, 'year') || (isValidYear(period.year) && period.year === Number(period.month.slice(0, 4))));
+  }
+  if (period.mode === 'year') {
+    return isValidYear(period.year) && (!period.month || (isValidMonth(period.month) && Number(period.month.slice(0, 4)) === period.year));
+  }
+  if (!isIsoDate(period.from) || !isIsoDate(period.to) || period.from > period.to) return false;
+  if (period.month && !isValidMonth(period.month)) return false;
+  return !Object.hasOwn(period, 'year') || isValidYear(period.year);
 }

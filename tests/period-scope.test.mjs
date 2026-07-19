@@ -23,5 +23,25 @@ assert.deepEqual(
   migrateAuditPeriod({ mode: 'range', month: '2026-02', from: '2026-02-30', to: '2026-03-01' }),
   { mode: 'all', compare: false }
 );
+assert.deepEqual(
+  migrateAuditPeriod({ mode: 'month', month: '2026-99', compare: true }),
+  { mode: 'all', compare: false }
+);
+assert.deepEqual(
+  migrateAuditPeriod({ mode: 'year', year: 2201, month: '2201-01', compare: true }),
+  { mode: 'all', compare: false }
+);
+assert.deepEqual(
+  migrateAuditPeriod({ mode: 'range', month: '2026-05', from: '2026-06-01', to: '2026-05-31' }),
+  { mode: 'all', compare: false }
+);
+assert.deepEqual(
+  migrateAuditPeriod({ mode: 'month', month: '2026-05', compare: true }),
+  { mode: 'month', month: '2026-05', year: 2026, from: '', to: '', compare: true }
+);
+assert.deepEqual(
+  migrateAuditPeriod({ mode: 'year', year: 2026, month: '2026-01', compare: true }),
+  { mode: 'year', month: '2026-01', year: 2026, from: '', to: '', compare: true }
+);
 assert.deepEqual(applyDraftPreset(createPeriodDraft({ mode: 'all' }, { scope: 'audit' }), 'dashboard', may).mode, 'month');
 console.log('period-scope.test.mjs passed');

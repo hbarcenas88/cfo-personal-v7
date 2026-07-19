@@ -10,11 +10,21 @@ const styles = await readFile(new URL('../styles/screens.css', import.meta.url),
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
 const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+const progress = await readFile(new URL('../PROGRESS.md', import.meta.url), 'utf8');
+const verifier = await readFile(new URL('../VERIFIER.md', import.meta.url), 'utf8');
+const backlog = await readFile(new URL('../BACKLOG.md', import.meta.url), 'utf8');
+const roadmap = await readFile(new URL('../V7_ROADMAP.md', import.meta.url), 'utf8');
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
 assert.match(periodPicker, /data-period-copy-dashboard/);
 assert.doesNotMatch(periodPicker, /data-period-tab="compare"/);
+const periodTabTargets = componentStyles.match(/\.period-sheet \[data-period-tab\]\s*\{[\s\S]*?\n\}/)?.[0];
+assert.ok(periodTabTargets, 'period-picker tabs must have their own touch-target rule');
+assert.match(periodTabTargets, /min-height:\s*44px/);
+const periodTabContainer = componentStyles.match(/\.period-sheet \.segmented\s*\{[\s\S]*?\n\}/)?.[0];
+assert.ok(periodTabContainer, 'period-picker tabs must reserve their touch-target height');
+assert.match(periodTabContainer, /min-height:\s*54px/);
 assert.match(audit, /data-open-audit-period/);
 assert.match(audit, /data-toggle-audit-filters/);
 assert.match(styles, /\.period-sheet-footer\s*\{[\s\S]*?position:\s*sticky/);
@@ -140,6 +150,56 @@ await persistPreferences();
 assert.equal(persistCalls, 1);
 assert.equal(mutationCalls, 0);
 
+function extractFunction(source, signature) {
+  const start = source.indexOf(signature);
+  assert.notEqual(start, -1, `${signature} must remain available`);
+  const bodyStart = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index++) {
+    if (source[index] === '{') depth++;
+    if (source[index] === '}') depth--;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+  assert.fail(`${signature} must have a complete body`);
+}
+
+const applyPeriodDraftSource = extractFunction(main, 'async function applyPeriodDraft()');
+const appliedState = {
+  activeView: 'categories',
+  period: { mode: 'month', month: '2026-05' },
+  filters: { categories: { compare: false } },
+  ui: {
+    periodDraft: {
+      scope: 'global',
+      mode: 'month',
+      month: '2026-06',
+      year: 2026,
+      from: '',
+      to: '',
+      compare: true,
+      tab: 'range'
+    }
+  }
+};
+let appliedPersistCalls = 0;
+let appliedPreferenceDebounceCalls = 0;
+let appliedRenderCalls = 0;
+const applyPeriodDraft = runInNewContext(`${applyPeriodDraftSource}\napplyPeriodDraft;`, {
+  state: appliedState,
+  validatePeriodDraft: () => ({ ok: true }),
+  isComparisonAvailable: period => period.mode !== 'all',
+  closeSheet: () => {},
+  persist: async () => { appliedPersistCalls++; },
+  renderAndPersistFilters: () => { appliedPreferenceDebounceCalls++; },
+  render: () => { appliedRenderCalls++; }
+});
+await applyPeriodDraft();
+assert.equal(appliedPersistCalls, 1, 'applying a global period from Categorías must persist immediately');
+assert.equal(appliedPreferenceDebounceCalls, 0, 'applying a period must not use the preference debounce');
+assert.equal(appliedRenderCalls, 1);
+assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month', month: '2026-06', year: 2026, from: '', to: '' });
+assert.equal(appliedState.filters.categories.compare, true);
+
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
 const lifecycleHandlers = new Map();
 const lifecycleFetches = [];
@@ -150,6 +210,10 @@ const lifecycleCache = {
   put: async (request, response) => { cachePuts.push({ request, response }); }
 };
 let skipWaitingCalls = 0;
+let failedAsset;
+let runtimeCache;
+let runtimeNetwork;
+let runtimeMatch;
 const appShell = runInNewContext(`${worker}\nAPP_SHELL`, {
   URL,
   Promise,
@@ -160,13 +224,15 @@ const appShell = runInNewContext(`${worker}\nAPP_SHELL`, {
     clients: { claim: () => {} }
   },
   caches: {
-    open: async () => lifecycleCache,
+    open: async () => runtimeCache || lifecycleCache,
     keys: async () => [],
     delete: async () => true,
-    match: async () => undefined
+    match: async request => runtimeMatch ? runtimeMatch(request) : undefined
   },
   fetch: async (request, options) => {
-    const response = { request, options };
+    if (runtimeNetwork) return runtimeNetwork(request, options);
+    const failed = request === failedAsset;
+    const response = { request, options, ok: !failed, status: failed ? 404 : 200 };
     lifecycleFetches.push({ request, options, response });
     return response;
   }
@@ -186,8 +252,83 @@ for (const asset of appShell) {
   assert.ok(cachePuts.some(call => call.request === asset && call.response === fetchCall.response), `install must cache ${asset}`);
 }
 
-assert.match(worker, /cfo-personal-v7-cache-35/);
+const failedInstallWaits = [];
+const failedPutsStart = cachePuts.length;
+failedAsset = appShell[0];
+lifecycleHandlers.get('install')({ waitUntil: promise => failedInstallWaits.push(promise) });
+assert.equal(failedInstallWaits.length, 1);
+await assert.rejects(failedInstallWaits[0], /404/);
+assert.ok(!cachePuts.slice(failedPutsStart).some(call => call.request === failedAsset), 'install must not cache a failed response');
+
+function runtimeResponseFor(request) {
+  const responses = [];
+  lifecycleHandlers.get('fetch')({ request, respondWith: promise => responses.push(promise) });
+  assert.equal(responses.length, 1, 'same-origin GET requests must receive a response promise');
+  return responses[0];
+}
+
+const runtimeRequest = { method: 'GET', mode: 'cors', url: 'https://app.test/src/main.js' };
+const successfulRuntimeResponse = { ok: true, status: 200, clone: () => ({ cached: 'success' }) };
+const runtimePuts = [];
+let releaseRuntimeCacheWrite;
+const runtimeCacheWrite = new Promise(resolve => { releaseRuntimeCacheWrite = resolve; });
+runtimeNetwork = async () => successfulRuntimeResponse;
+runtimeCache = {
+  put: async (request, response) => {
+    runtimePuts.push({ request, response });
+    await runtimeCacheWrite;
+  }
+};
+const successfulRuntimePromise = runtimeResponseFor(runtimeRequest);
+let successfulRuntimeDelivered = false;
+successfulRuntimePromise.then(() => { successfulRuntimeDelivered = true; });
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(successfulRuntimeDelivered, false, 'runtime response must await its cache write');
+assert.equal(runtimePuts.length, 1);
+releaseRuntimeCacheWrite();
+assert.strictEqual(await successfulRuntimePromise, successfulRuntimeResponse);
+assert.deepEqual(runtimePuts, [{ request: runtimeRequest, response: { cached: 'success' } }]);
+
+for (const status of [404, 206]) {
+  let invalidRuntimePuts = 0;
+  const invalidResponse = { ok: status !== 404, status, clone: () => ({ cached: status }) };
+  runtimeNetwork = async () => invalidResponse;
+  runtimeCache = { put: async () => { invalidRuntimePuts++; } };
+  assert.strictEqual(await runtimeResponseFor(runtimeRequest), invalidResponse);
+  assert.equal(invalidRuntimePuts, 0, `runtime ${status} responses must not enter Cache Storage`);
+}
+
+const cacheWriteFailureResponse = { ok: true, status: 200, clone: () => ({ cached: 'failed-write' }) };
+runtimeNetwork = async () => cacheWriteFailureResponse;
+runtimeCache = { put: async () => { throw new Error('cache write failed'); } };
+runtimeMatch = async () => ({ offline: true });
+assert.strictEqual(await runtimeResponseFor(runtimeRequest), cacheWriteFailureResponse, 'a cache-write failure must not replace a usable network response');
+
+const offlineResponse = { offline: true };
+const matchedRequests = [];
+runtimeNetwork = async () => { throw new Error('offline'); };
+runtimeMatch = async request => {
+  matchedRequests.push(request);
+  return offlineResponse;
+};
+assert.strictEqual(
+  await runtimeResponseFor({ method: 'GET', mode: 'navigate', url: 'https://app.test/audit' }),
+  offlineResponse
+);
+assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
+
+assert.match(worker, /cfo-personal-v7-cache-37/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
+assert.match(worker, /!response\.ok\s*\|\|\s*response\.status\s*===\s*206/);
+assert.match(worker, /await cache\.put\(event\.request, copy\)/);
+
+for (const document of [progress, verifier, backlog, roadmap]) {
+  assert.match(document, /Observación sintética no adjunta \(narrativa, no evidencia de entrega\)/);
+  assert.match(document, /captura duradera o validación móvil del usuario/);
+  assert.match(document, /no autoriza publicación ni merge/);
+}
+assert.doesNotMatch(verifier, /- \[x\] Sesi.n (controlada|sint.tica):/);
+assert.match(verifier, /- \[ \] Adjuntar captura visual duradera o completar validación móvil del usuario antes de tratar esta revisión como evidencia de entrega\./);
 
 console.log('mobile-ui-contract.test.mjs passed');
