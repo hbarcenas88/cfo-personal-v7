@@ -64,8 +64,9 @@ function renderFilters(state, filters) {
 }
 
 function selectorChip(label, type, state) {
+  const alignRight = ['type', 'subcategory'].includes(type) ? ' audit-selector-align-right' : '';
   return `
-    <div class="audit-selector">
+    <div class="audit-selector${alignRight}">
       <button class="chip dense" data-open-filter="${type}" aria-expanded="${state.ui.auditDropdown === type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
       ${state.ui.auditDropdown === type ? renderAuditDropdown(state) : ''}
     </div>

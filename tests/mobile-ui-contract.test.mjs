@@ -21,7 +21,10 @@ assert.match(styles, /\.audit-filter-panel\s*\{[\s\S]*?position:\s*relative/);
 
 assert.match(audit, /class="search-panel audit-search-panel"/);
 assert.match(styles, /\.audit-filter-selectors\s*\{\s*position:\s*relative;/);
+assert.match(styles, /\.audit-filter-selectors\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
 assert.match(styles, /\.audit-selector\s*\{\s*position:\s*relative;/);
+assert.match(audit, /audit-selector-align-right/);
+assert.match(styles, /\.audit-selector\.audit-selector-align-right\s+\.audit-dropdown\s*\{[\s\S]*?right:\s*0;[\s\S]*?left:\s*auto;/);
 assert.doesNotMatch(styles, /\.audit-selector:nth-child/);
 assert.match(styles, /\.audit-search-panel\s*\.audit-clear-button\s*\{[\s\S]*?width:\s*var\(--control-md\)/);
 assert.match(categories, /class="category-filter-controls"/);

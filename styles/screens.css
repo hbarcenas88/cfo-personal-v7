@@ -541,6 +541,8 @@
 
 .audit-filter-selectors {
   position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .audit-filter-panel {
@@ -560,6 +562,11 @@
   border-radius: var(--radius-md);
   background: #fff;
   box-shadow: var(--shadow-control);
+}
+
+.audit-selector.audit-selector-align-right .audit-dropdown {
+  right: 0;
+  left: auto;
 }
 
 .audit-dropdown-head,
