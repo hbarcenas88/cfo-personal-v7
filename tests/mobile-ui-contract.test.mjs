@@ -57,6 +57,25 @@ assert.match(componentStyles, /\.chip\.dense\s*\{[\s\S]*?min-height:\s*32px/);
   /\.audit-active-filters\s+\.audit-filter-active\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   /\.audit-dropdown-footer\s+\.audit-filter-footer-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/
 ].forEach(targetRule => assert.match(styles, targetRule));
+assert.match(audit, /class="icon-button compact" data-audit-dropdown-close/);
+assert.match(audit, /class="audit-dropdown-option/);
+assert.match(audit, /class="audit-dropdown-clear audit-filter-footer-action"/);
+assert.match(audit, /class="secondary-button compact audit-filter-footer-action"/);
+assert.match(categories, /class="icon-button compact" data-category-filter-close/);
+assert.match(categories, /class="category-filter-option/);
+assert.match(categories, /class="audit-dropdown-clear" data-category-filter-clear/);
+assert.match(categories, /class="secondary-button compact" data-category-filter-close/);
+[
+  /\.audit-dropdown-head\s+\.icon-button\.compact\s*\{[\s\S]*?min-width:\s*var\(--control-md\)[\s\S]*?min-height:\s*var\(--control-md\)[\s\S]*?height:\s*var\(--control-md\)/,
+  /\.audit-dropdown-option\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.category-filter-option\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-dropdown-clear\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
+  /\.audit-dropdown-footer\s+\.secondary-button\.compact\s*\{[\s\S]*?min-height:\s*var\(--control-md\)[\s\S]*?height:\s*var\(--control-md\)/
+].forEach(dropdownTargetRule => assert.match(styles, dropdownTargetRule));
+assert.match(styles, /\.audit-dropdown\s*\{[\s\S]*?max-width:\s*calc\(100vw - 48px\)/);
+assert.match(styles, /\.category-filter-dropdown\s*\{[\s\S]*?max-width:\s*calc\(100vw - 48px\)/);
+assert.match(styles, /\.audit-dropdown-options\s*\{[\s\S]*?overflow:\s*auto/);
+assert.match(styles, /\.category-filter-options\s*\{[\s\S]*?overflow:\s*auto/);
 assert.match(summary, /operationalCategoryDistribution/);
 assert.match(summary, /class="operational-chart-total"/);
 assert.match(summary, /class="operational-chart-row"/);
@@ -122,7 +141,52 @@ assert.equal(persistCalls, 1);
 assert.equal(mutationCalls, 0);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-34/);
+const lifecycleHandlers = new Map();
+const lifecycleFetches = [];
+const cachePuts = [];
+const addAllCalls = [];
+const lifecycleCache = {
+  addAll: async assets => { addAllCalls.push(assets); },
+  put: async (request, response) => { cachePuts.push({ request, response }); }
+};
+let skipWaitingCalls = 0;
+const appShell = runInNewContext(`${worker}\nAPP_SHELL`, {
+  URL,
+  Promise,
+  self: {
+    location: { href: 'https://app.test/' },
+    addEventListener: (type, handler) => lifecycleHandlers.set(type, handler),
+    skipWaiting: () => { skipWaitingCalls++; },
+    clients: { claim: () => {} }
+  },
+  caches: {
+    open: async () => lifecycleCache,
+    keys: async () => [],
+    delete: async () => true,
+    match: async () => undefined
+  },
+  fetch: async (request, options) => {
+    const response = { request, options };
+    lifecycleFetches.push({ request, options, response });
+    return response;
+  }
+});
+const installWaits = [];
+lifecycleHandlers.get('install')({ waitUntil: promise => installWaits.push(promise) });
+assert.equal(skipWaitingCalls, 1);
+assert.equal(installWaits.length, 1);
+await installWaits[0];
+assert.equal(addAllCalls.length, 0, 'install must precache assets through fetch and cache.put');
+assert.equal(lifecycleFetches.length, appShell.length);
+assert.equal(cachePuts.length, appShell.length);
+for (const asset of appShell) {
+  const fetchCall = lifecycleFetches.find(call => call.request === asset);
+  assert.ok(fetchCall, `install must fetch ${asset}`);
+  assert.equal(fetchCall.options.cache, 'no-store');
+  assert.ok(cachePuts.some(call => call.request === asset && call.response === fetchCall.response), `install must cache ${asset}`);
+}
+
+assert.match(worker, /cfo-personal-v7-cache-35/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
 

@@ -36,8 +36,8 @@
 
 - [x] Ejecutados con código 0 los `node --check` de `periodService.js`, `state.js`, `periodPicker.js`, `ui.js`, `keypad.js`, `financeService.js`, `audit.js`, `categories.js`, `recordFlow.js`, `main.js` y `service-worker.js`.
 - [x] Ejecutados con código 0 `storage-scope.test.mjs`, `transaction-edit.test.mjs`, `capacity-summary.test.mjs`, `period-scope.test.mjs`, `comparison-analysis.test.mjs` y `mobile-ui-contract.test.mjs`.
-- [x] Confirmado por la regresión de `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-34`, incluye `./src/services/periodService.js` y hace el fetch same-origin de la carcasa con `cache: 'no-store'`.
-- [x] Confirmado en la entrega local que, después de refrescar/recargar el service worker, los activos fuente actualizados se sirven en lugar de la respuesta HTTP anterior.
+- [x] Confirmado por la regresión de `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-35`, incluye `./src/services/periodService.js`, hace el fetch same-origin de la carcasa con `cache: 'no-store'` y durante instalación obtiene/cacha cada activo del `APP_SHELL` sin HTTP cache.
+- [x] Confirmada en la entrega local anterior con `cfo-personal-v7-cache-34` que, después de refrescar/recargar el service worker, los activos fuente actualizados se sirvieron en lugar de la respuesta HTTP anterior. La versión actual `cache-35` queda pendiente de captura duradera o validación móvil del usuario.
 - [x] Ejecutado `git diff --check` sin errores de espacios.
 
 ### Lógica y persistencia
@@ -48,16 +48,17 @@
 - [ ] Confirmar que `Copiar período del dashboard` genera una instantánea sin vínculo vivo.
 - [ ] Confirmar que comparación sólo aparece en Auditoría y Categorías, usa el período anterior equivalente y no muta datos financieros.
 - [ ] Probar comparación con filtros de Auditoría, categorías seleccionadas, Solo gasto, Combinado, Solo presupuesto y referencia vacía (`Sin base anterior`).
-- [x] Con datos de prueba a 390 × 844, Auditoría conservó julio de 2026 al mover el dashboard a junio de 2025 y su comparación respetó una categoría seleccionada.
-- [x] Con datos de prueba a 390 × 844, Categorías mostró período previo y `Sin base anterior`; en Solo presupuesto informó correctamente que la comparación no está disponible.
+- [x] En una sesión controlada con datos sintéticos a 390 × 844, Auditoría conservó julio de 2026 al mover el dashboard a junio de 2025 y su comparación respetó una categoría seleccionada.
+- [x] En una sesión controlada con datos sintéticos a 390 × 844, Categorías mostró período previo y `Sin base anterior`; en Solo presupuesto informó correctamente que la comparación no está disponible.
 - [ ] Con datos reales, confirmar primero que existe un respaldo JSON y realizar la validación sin crear, editar ni borrar registros reales.
 
 ### Revisión visual a 390 × 844
 
-- [x] Capturada evidencia aislada a 390 × 844 de los flujos nuevos; la revisión visual complementa, sin sustituir, la batería automatizada.
-- [x] Selector de período: el cuerpo es realmente desplazable por encima del pie fijo y el toggle de comparación queda alcanzable.
-- [x] Auditoría y Categorías: sus controles no presentan overflow horizontal y ninguno de los targets medidos es menor de 44 px.
-- [x] Registro de ingreso: el keypad no muestra botón de calendario.
+- [x] Sesión controlada con datos sintéticos a 390 × 844 de los flujos nuevos; complementa, sin sustituir, la batería automatizada.
+- [x] Sesión sintética: selector de período con cuerpo desplazable por encima del pie fijo y toggle de comparación alcanzable.
+- [x] Sesión sintética: controles de Auditoría y Categorías sin overflow horizontal ni targets medidos menores de 44 px.
+- [x] Sesión sintética: el keypad de ingreso no muestra botón de calendario.
+- [ ] Adjuntar captura visual duradera o completar validación móvil del usuario antes de tratar esta revisión como evidencia de entrega.
 - [ ] Revisar selector de período: secuencia vertical, Desde/Hasta, comparación contextual y pie Cancelar/Aplicar sin solapes ni controles apretados.
 - [ ] Revisar Auditoría: búsqueda a ancho completo, disparador compacto Filtros, dropdowns anclados completos, importes visibles y navegación inferior libre.
 - [ ] Revisar Categorías con y sin comparación: sello superior y variación secundaria no pueden aumentar overflow ni desplazar importes.

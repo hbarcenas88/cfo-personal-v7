@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-34';
+const CACHE_NAME = 'cfo-personal-v7-cache-35';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -35,7 +35,14 @@ const APP_SHELL = [
 ].map(appUrl);
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => Promise.all(
+      APP_SHELL.map(async asset => {
+        const response = await fetch(asset, { cache: 'no-store' });
+        await cache.put(asset, response);
+      })
+    ))
+  );
   self.skipWaiting();
 });
 

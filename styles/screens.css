@@ -590,7 +590,7 @@
 
 .audit-dropdown-option {
   width: 100%;
-  min-height: 40px;
+  min-height: var(--control-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -620,7 +620,7 @@
 }
 
 .audit-dropdown-clear {
-  min-height: 36px;
+  min-height: var(--control-md);
   padding: 0 8px;
   border: 0;
   background: transparent;
@@ -711,7 +711,7 @@
 
 .category-filter-option {
   width: 100%;
-  min-height: 40px;
+  min-height: var(--control-md);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -740,6 +740,17 @@
 .secondary-button.compact {
   min-width: 36px;
   height: 36px;
+}
+
+.audit-dropdown-head .icon-button.compact {
+  min-width: var(--control-md);
+  min-height: var(--control-md);
+  height: var(--control-md);
+}
+
+.audit-dropdown-footer .secondary-button.compact {
+  min-height: var(--control-md);
+  height: var(--control-md);
 }
 
 .record-type-edit {
