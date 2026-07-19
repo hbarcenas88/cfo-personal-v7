@@ -83,7 +83,7 @@ La armonización se hace por flujos, no por pantallas aisladas. Resumen y Catego
 
 - **Capacidad de pago:** tarjeta principal con saldo proyectado y acceso a `Ver cálculo`. La explicación detallada pertenece a un sheet, no se expande por defecto dentro del dashboard.
 - **Salud presupuestaria:** Plan, Ejecutado, Por ejecutar y Desviación del plan. La desviación combina gasto sin presupuesto y exceso sobre categorías presupuestadas.
-- **Gasto operativo por categoría:** máximo cinco barras horizontales. Sus filtros se concentran en el sheet `Análisis`; no usar una nube de chips debajo de la gráfica.
+- **Gasto operativo por categoría:** máximo cinco filas ordenadas por gasto. Cada fila usa marcador de color, nombre y monto en la primera línea; una barra fina y su porcentaje secundario en la segunda. El largo de la barra y el porcentaje representan la misma participación sobre el total operativo incluido. No usar texto dentro de la barra ni una nube de chips debajo de la gráfica. Sus filtros se concentran en el sheet `Análisis`.
 - **Ritmo presupuestario:** línea acumulada día a día contra una guía lineal del presupuesto. Debe usar datos operativos y explicar de forma visible la guía. Si `Análisis` excluye una categoría, excluye tanto su gasto como su presupuesto de la guía para comparar el mismo universo.
 - **Categorías:** conserva presupuesto, gasto y detalle por categoría; no duplica el bloque financiero global de Resumen.
 
