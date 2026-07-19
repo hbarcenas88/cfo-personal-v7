@@ -36,6 +36,8 @@ const operationalBarRow = summary.match(/function operationalBarRow\(row\) \{[\s
 assert.match(operationalBarRow, /class="operational-chart-share">\$\{percent\.toFixed\(0\)\}%<\/span>/);
 assert.doesNotMatch(operationalBarRow, /\$\{row\.color\}/);
 assert.match(styles, /\.operational-chart-track\s*\{[\s\S]*?height:\s*8px/);
+const operationalChartFill = styles.match(/\.operational-chart-track > span\s*\{[\s\S]*?\n\}/)[0];
+assert.doesNotMatch(operationalChartFill, /min-width\s*:/);
 assert.match(styles, /\.operational-chart-row-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 assert.match(styles, /\.operational-category > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
 
