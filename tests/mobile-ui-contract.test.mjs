@@ -33,6 +33,7 @@ const operationalChartColor = summary.match(/function operationalChartColor\(col
 assert.match(operationalChartColor, /return hexColor\.test\(normalized\) \? normalized : '#0A8FE8';/);
 assert.match(summary, /const color = operationalChartColor\(row\.color\);/);
 const operationalBarRow = summary.match(/function operationalBarRow\(row\) \{[\s\S]*?\n\}\r?\n\r?\nexport function renderSummaryAnalysisSheet/)[0];
+assert.match(operationalBarRow, /role="progressbar"[^>]*aria-valuenow="\$\{percent\.toFixed\(1\)\}"/);
 assert.match(operationalBarRow, /class="operational-chart-share">\$\{percent\.toFixed\(0\)\}%<\/span>/);
 assert.doesNotMatch(operationalBarRow, /\$\{row\.color\}/);
 assert.match(styles, /\.operational-chart-track\s*\{[\s\S]*?height:\s*8px/);
