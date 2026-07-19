@@ -8,6 +8,7 @@ export function renderCategories(state) {
   const comparison = filters.compare && filters.view !== 'budget'
     ? buildCategoryComparison(state, state.period, filters)
     : null;
+  const comparisonUnavailable = filters.compare && filters.view === 'budget';
   let rows = comparison?.rows || categoryRows(state);
   if (!comparison) {
     if (filters.text) rows = rows.filter(row => canon(row.name).includes(canon(filters.text)));
@@ -22,7 +23,7 @@ export function renderCategories(state) {
       <button class="${filters.view === 'spend' ? 'active' : ''}" data-cat-view="spend">Solo gasto</button>
     </div>
     <div class="section-title"><h2>Categorías</h2></div>
-    ${comparison ? renderComparisonSummary(comparison) : ''}
+    ${comparison ? renderComparisonSummary(comparison) : comparisonUnavailable ? renderComparisonUnavailable() : ''}
     ${rows.length ? rows.map(row => categoryCard(row, filters.expanded.includes(row.name), Boolean(comparison))).join('') : emptyState('grid', 'Sin datos en este período', 'Ajusta fechas, filtros o carga datos')}
   `;
 }
@@ -37,6 +38,10 @@ function renderComparisonSummary(comparison) {
       <div><span>vs. período anterior (${periodLabel(comparison.previousPeriod)})</span><strong class="${comparison.delta > 0 ? 'danger' : comparison.delta < 0 ? 'success' : ''}">${formatSignedDelta(comparison.delta)} · ${percentage}</strong></div>
     </div>
   `;
+}
+
+function renderComparisonUnavailable() {
+  return '<div class="category-comparison-unavailable">La variación de gasto no está disponible en Solo presupuesto.</div>';
 }
 
 function renderFilterPanel(filters, state) {
@@ -97,7 +102,7 @@ function renderComparisonNote(row) {
   if (row.spentDeltaPercent === null) return '<div class="category-comparison-note">vs. período anterior: Sin base anterior</div>';
   const percentage = `${row.spentDeltaPercent > 0 ? '+' : ''}${row.spentDeltaPercent.toFixed(1)}%`;
   const deltaClass = row.spentDelta > 0 ? 'danger' : row.spentDelta < 0 ? 'success' : '';
-  return `<div class="category-comparison-note">vs. período anterior: <strong class="${deltaClass}">${formatSignedDelta(row.spentDelta)} · ${percentage}</strong></div>`;
+  return `<div class="category-comparison-note">vs. período anterior: ${formatMoney(row.previousSpent)} → <strong class="${deltaClass}">${formatSignedDelta(row.spentDelta)} · ${percentage}</strong></div>`;
 }
 
 function formatSignedDelta(value) {

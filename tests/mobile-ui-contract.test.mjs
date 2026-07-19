@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { runInNewContext } from 'node:vm';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
@@ -7,6 +8,7 @@ const summary = await readFile(new URL('../src/screens/summary.js', import.meta.
 const styles = await readFile(new URL('../styles/screens.css', import.meta.url), 'utf8');
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
+const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
@@ -19,7 +21,7 @@ assert.match(styles, /\.audit-filter-panel\s*\{[\s\S]*?position:\s*relative/);
 
 assert.match(audit, /class="search-panel audit-search-panel"/);
 assert.match(styles, /\.audit-filter-selectors\s*\{\s*position:\s*relative;/);
-assert.match(styles, /\.audit-selector\s*\{\s*position:\s*static;/);
+assert.match(styles, /\.audit-selector\s*\{\s*position:\s*relative;/);
 assert.doesNotMatch(styles, /\.audit-selector:nth-child/);
 assert.match(styles, /\.audit-search-panel\s*\.audit-clear-button\s*\{[\s\S]*?width:\s*var\(--control-md\)/);
 assert.match(categories, /class="category-filter-controls"/);
@@ -56,5 +58,40 @@ assert.match(styles, /\.keypad\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, 1
 assert.doesNotMatch(keypad, /key\('calendar'/);
 assert.match(styles, /\.operational-chart-row-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 assert.match(styles, /\.operational-category > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
+
+const filterPersistenceSource = main.match(/function renderAndPersistFilters\(\) \{[\s\S]*?\n\}/)?.[0];
+assert.ok(filterPersistenceSource, 'renderAndPersistFilters must remain available for preference updates');
+const pendingTimers = new Map();
+let nextTimerId = 0;
+let renderCalls = 0;
+let persistCalls = 0;
+let mutationCalls = 0;
+const renderAndPersistFilters = runInNewContext(`
+  let filterPersistTimer = 0;
+  ${filterPersistenceSource}
+  renderAndPersistFilters;
+`, {
+  window: {
+    clearTimeout: id => pendingTimers.delete(id),
+    setTimeout: (callback, delay) => {
+      const id = ++nextTimerId;
+      pendingTimers.set(id, { callback, delay });
+      return id;
+    }
+  },
+  render: () => { renderCalls++; },
+  persist: async () => { persistCalls++; },
+  mutate: () => { mutationCalls++; },
+  captureError: error => { throw error; }
+});
+renderAndPersistFilters();
+renderAndPersistFilters();
+assert.equal(renderCalls, 2);
+assert.equal(pendingTimers.size, 1);
+const [{ callback: persistPreferences, delay }] = pendingTimers.values();
+assert.equal(delay, 250);
+await persistPreferences();
+assert.equal(persistCalls, 1);
+assert.equal(mutationCalls, 0);
 
 console.log('mobile-ui-contract.test.mjs passed');
