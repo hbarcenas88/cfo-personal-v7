@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-32';
+const CACHE_NAME = 'cfo-personal-v7-cache-33';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
