@@ -1,6 +1,9 @@
-import { currentMonth, monthEnd, monthStart, previousEquivalentPeriod } from '../utils/format.js';
+import { currentMonth, monthEnd, monthStart, parseDate, previousEquivalentPeriod } from '../utils/format.js';
 
-const isIsoDate = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+const isIsoDate = value => {
+  const iso = String(value || '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) && parseDate(iso) === iso;
+};
 const monthFor = period => period?.month || currentMonth();
 
 export function migrateAuditPeriod(period) {

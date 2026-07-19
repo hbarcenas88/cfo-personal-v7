@@ -19,5 +19,9 @@ assert.deepEqual(comparisonPeriod({ mode: 'range', from: '2026-05-01', to: '2026
 assert.equal(validatePeriodDraft({ mode: 'range', from: '2026-05-31', to: '2026-05-01' }).ok, false);
 assert.equal(isComparisonAvailable({ mode: 'all' }), false);
 assert.deepEqual(migrateAuditPeriod(), { mode: 'all', compare: false });
+assert.deepEqual(
+  migrateAuditPeriod({ mode: 'range', month: '2026-02', from: '2026-02-30', to: '2026-03-01' }),
+  { mode: 'all', compare: false }
+);
 assert.deepEqual(applyDraftPreset(createPeriodDraft({ mode: 'all' }, { scope: 'audit' }), 'dashboard', may).mode, 'month');
 console.log('period-scope.test.mjs passed');
