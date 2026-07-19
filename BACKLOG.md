@@ -5,8 +5,8 @@ Estado: esta lista ordena el trabajo pendiente; no autoriza por sí sola cambios
 ## Prioridad 0 — Fundamento antes de nueva funcionalidad
 
 1. **Validación integral con datos reales respaldados.** Recorrer Balances, Resumen, Categorías, Auditoría, Registro y Ajustes; validar capacidad de pago, extraordinarios, ritmo presupuestario, edición y persistencia tras recargar.
-2. **Períodos por contexto y comparación analítica.** Diseño aprobado: separar período global y Auditoría, confirmar borradores, preservar mes/año/rango en navegación y comparar sólo en Auditoría/Categorías. Pendiente de plan técnico, implementación y validación con datos reales respaldados.
-3. **Densidad y ritmo móvil.** Diseño aprobado: corregir selector de período, filtros de Auditoría/Categorías y calculadora de ingreso; verificar tarjetas, espacios, jerarquía y targets con datos reales. No adelanta el rediseño integral de Etapa 2 y 3.
+2. **Validación con datos reales respaldados — períodos por contexto y comparación analítica.** La separación global/Auditoría, borradores confirmados, navegación por modo y comparación local en Auditoría/Categorías ya están implementadas y pasaron la batería automatizada. Falta evidencia visual a 390 × 844 y validación no destructiva con un respaldo JSON confirmado; no se considera completado hasta entonces.
+3. **Validación con datos reales respaldados — densidad y ritmo móvil.** Las correcciones de selector, filtros de Auditoría/Categorías y calculadora de ingreso están implementadas y cubiertas por pruebas automatizadas. Falta comprobar tarjetas, espacios, jerarquía y targets a 390 × 844 con datos reales respaldados. No adelanta el rediseño integral de Etapa 2 y 3.
 
 ## Prioridad 1 — Siguiente bloque funcional
 

@@ -30,7 +30,14 @@
 - [ ] Revisar iconos, textos truncados, targets táctiles y estados vacíos con el contenido real más largo disponible.
 - [ ] Capturar evidencia visual antes de publicar y registrar cualquier excepción en `PROGRESS.md`.
 
-## Períodos por contexto y densidad móvil — diseño aprobado, pendiente de implementación
+## Períodos por contexto y densidad móvil — implementado, pendiente de evidencia visual y datos reales
+
+### Evidencia automatizada — 2026-07-19
+
+- [x] Ejecutados con código 0 los `node --check` de `periodService.js`, `state.js`, `periodPicker.js`, `ui.js`, `keypad.js`, `financeService.js`, `audit.js`, `categories.js`, `recordFlow.js`, `main.js` y `service-worker.js`.
+- [x] Ejecutados con código 0 `storage-scope.test.mjs`, `transaction-edit.test.mjs`, `capacity-summary.test.mjs`, `period-scope.test.mjs`, `comparison-analysis.test.mjs` y `mobile-ui-contract.test.mjs`.
+- [x] Confirmado por la regresión de `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-30` e incluye `./src/services/periodService.js`.
+- [x] Ejecutado `git diff --check` sin errores de espacios.
 
 ### Lógica y persistencia
 
@@ -40,9 +47,11 @@
 - [ ] Confirmar que `Copiar período del dashboard` genera una instantánea sin vínculo vivo.
 - [ ] Confirmar que comparación sólo aparece en Auditoría y Categorías, usa el período anterior equivalente y no muta datos financieros.
 - [ ] Probar comparación con filtros de Auditoría, categorías seleccionadas, Solo gasto, Combinado, Solo presupuesto y referencia vacía (`Sin base anterior`).
+- [ ] Con datos reales, confirmar primero que existe un respaldo JSON y realizar la validación sin crear, editar ni borrar registros reales.
 
 ### Revisión visual a 390 × 844
 
+- [ ] Capturar evidencia aislada de los flujos nuevos a 390 × 844; la batería automatizada de 2026-07-19 no inició servidor ni navegador.
 - [ ] Revisar selector de período: secuencia vertical, Desde/Hasta, comparación contextual y pie Cancelar/Aplicar sin solapes ni controles apretados.
 - [ ] Revisar Auditoría: búsqueda a ancho completo, disparador compacto Filtros, dropdowns anclados completos, importes visibles y navegación inferior libre.
 - [ ] Revisar Categorías con y sin comparación: sello superior y variación secundaria no pueden aumentar overflow ni desplazar importes.

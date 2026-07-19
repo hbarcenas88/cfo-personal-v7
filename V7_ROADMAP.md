@@ -23,11 +23,12 @@
 - Endurecimiento de seguridad y privacidad local.
 - Sincronización cloud real, sólo después de definir arquitectura, cifrado, recuperación y modelo de privacidad.
 
-## Prioridad 0 aprobada — períodos y densidad móvil
+## Prioridad 0 — implementada, en validación con datos reales
 
-- Implementar selector reutilizable con borrador confirmado para el período global y período independiente de Auditoría.
-- Habilitar comparación automática con período anterior equivalente sólo en Auditoría y Categorías, sin cambiar reglas financieras.
-- Corregir densidad de selector, filtros y calculadora de ingresos; verificar a 390 × 844 con datos reales respaldados.
+- Selector reutilizable con borrador confirmado para el período global y el período independiente de Auditoría: implementado.
+- Comparación automática con período anterior equivalente sólo en Auditoría y Categorías, sin cambiar reglas financieras: implementada.
+- Densidad de selector, filtros y calculadora de ingresos: implementada y cubierta por la batería automatizada registrada en `VERIFIER.md`.
+- Pendiente antes de considerarlo completado: recorrido aislado a 390 × 844 y validación no destructiva con datos reales después de confirmar un respaldo JSON existente.
 - Este bloque precede a la Etapa 2 y está documentado en `docs/superpowers/specs/2026-07-18-period-scope-and-mobile-density-design.md`.
 
 ## Armonización UX gradual
