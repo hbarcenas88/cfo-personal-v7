@@ -1815,7 +1815,7 @@
 
 .operational-chart-row-head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
 }
@@ -1830,6 +1830,7 @@
 }
 
 .operational-category > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1844,6 +1845,7 @@
 
 .operational-chart-row-head .money {
   font-size: 14px;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 

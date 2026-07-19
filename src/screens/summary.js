@@ -129,18 +129,26 @@ function summaryStat(label, value, tone = '') {
   return `<div class="summary-stat"><small>${label}</small><strong class="money ${tone}">${formatSignedMoney(value)}</strong></div>`;
 }
 
+const hexColor = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
+
+function operationalChartColor(color) {
+  const normalized = typeof color === 'string' ? color.trim() : '';
+  return hexColor.test(normalized) ? normalized : '#0A8FE8';
+}
+
 function operationalBarRow(row) {
+  const color = operationalChartColor(row.color);
   const percent = row.share * 100;
   const label = `${row.name}: ${formatMoney(row.spent)}, ${percent.toFixed(0)}% del gasto operativo`;
   return `
     <div class="operational-chart-row">
       <div class="operational-chart-row-head">
-        <span class="operational-category"><i style="background:${row.color}"></i><span>${html(row.name)}</span></span>
+        <span class="operational-category"><i style="background:${color}"></i><span>${html(row.name)}</span></span>
         <strong class="money">${formatMoney(row.spent)}</strong>
       </div>
       <div class="operational-chart-scale">
         <div class="operational-chart-track" role="progressbar" aria-label="${html(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent.toFixed(1)}">
-          <span style="width:${percent.toFixed(1)}%;background:${row.color}"></span>
+          <span style="width:${percent.toFixed(1)}%;background:${color}"></span>
         </div>
         <span class="operational-chart-share">${percent.toFixed(0)}%</span>
       </div>
