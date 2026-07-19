@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-33';
+const CACHE_NAME = 'cfo-personal-v7-cache-34';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -54,7 +54,7 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(APP_BASE.href)) return;
   event.respondWith(
-    fetch(event.request).then(response => {
+    fetch(event.request, { cache: 'no-store' }).then(response => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
       return response;

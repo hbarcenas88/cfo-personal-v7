@@ -122,7 +122,8 @@ assert.equal(persistCalls, 1);
 assert.equal(mutationCalls, 0);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-33/);
+assert.match(worker, /cfo-personal-v7-cache-34/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
+assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
 
 console.log('mobile-ui-contract.test.mjs passed');
