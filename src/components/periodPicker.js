@@ -1,24 +1,35 @@
 import { icon } from '../icons.js';
-import { MONTHS, currentMonth, formatDate, monthEnd, monthStart, periodLabel } from '../utils/format.js';
-import { renderCalendarSheet } from './calendar.js';
+import { currentMonth, formatDate, periodLabel } from '../utils/format.js';
 
-export function renderPeriodSheet(period) {
-  const draft = { mode: period.mode || 'month', month: period.month || currentMonth(), from: period.from, to: period.to, year: period.year || period.month?.slice(0, 4) || new Date().getFullYear(), tab: period.tab || 'range' };
+export function renderPeriodSheet(draft, options) {
+  const scope = options.scope;
   return `
     <div class="sheet-backdrop open" data-period-close>
-      <section class="sheet wide" onclick="event.stopPropagation()">
+      <section class="sheet wide period-sheet" data-period-scope="${scope}" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
-        <h2 class="sheet-title">Selecciona un período</h2>
-        <div class="segmented" data-period-tabs>
-          <button class="${draft.tab === 'range' ? 'active' : ''}" data-period-tab="range">Por rango</button>
-          <button class="${draft.tab === 'compare' ? 'active' : ''}" data-period-tab="compare">Comparar</button>
-          <button class="${draft.tab === 'year' ? 'active' : ''}" data-period-tab="year">Por año</button>
+        <h2 class="sheet-title">${scope === 'audit' ? 'Período de Auditoría' : 'Selecciona un período'}</h2>
+        <div class="period-sheet-content">
+          <div class="segmented" data-period-tabs>
+            <button class="${draft.tab === 'range' ? 'active' : ''}" data-period-tab="range">Por rango</button>
+            <button class="${draft.tab === 'year' ? 'active' : ''}" data-period-tab="year">Por año</button>
+          </div>
+          ${scope === 'audit' ? renderAuditScopeActions() : ''}
+          <div id="period-draft">
+            ${draft.tab === 'year' ? renderYear(draft) : renderRange(draft)}
+          </div>
+          ${options.showComparison ? `
+            <label class="analysis-toggle period-compare-toggle">
+              <span><strong>Comparar con período anterior</strong><small>${options.previousLabel}</small></span>
+              <input type="checkbox" data-period-compare ${draft.compare ? 'checked' : ''} ${draft.mode === 'all' ? 'disabled' : ''}>
+              <i></i>
+            </label>
+          ` : ''}
+          ${draft.error ? `<p class="period-draft-error" role="alert">${draft.error}</p>` : ''}
         </div>
-        <div id="period-draft" data-period='${JSON.stringify(draft)}'>
-          ${draft.tab === 'year' ? renderYear(draft) : renderRange(draft)}
+        <div class="period-sheet-footer">
+          <button class="secondary-button" data-period-close>Cancelar</button>
+          <button class="primary-button" data-period-apply>Aplicar</button>
         </div>
-        <button class="primary-button" data-period-apply>Aplicar período</button>
-        <button class="secondary-button mt-sm" data-period-close>Cancelar</button>
       </section>
     </div>
   `;
@@ -27,9 +38,8 @@ export function renderPeriodSheet(period) {
 function renderRange(draft) {
   const presets = [
     ['thisMonth', 'Este mes', periodLabel({ mode: 'month', month: currentMonth() })],
-    ['lastMonth', 'Mes pasado', periodLabel({ mode: 'month', month: shiftMonth(currentMonth(), -1) })],
-    ['quarter', 'Este trimestre', 'Trimestre actual'],
-    ['year', 'Este año', String(new Date().getFullYear())],
+    ['lastMonth', 'Mes pasado', 'Período mensual anterior'],
+    ['thisYear', 'Este año', String(new Date().getFullYear())],
     ['custom', 'Personalizado', draft.from && draft.to ? `${formatDate(draft.from)} - ${formatDate(draft.to)}` : 'Rango libre']
   ];
   return `
@@ -42,11 +52,27 @@ function renderRange(draft) {
         </button>
       `).join('')}
     </div>
-    <div class="two-col">
+    <div class="two-col period-date-fields">
       <button class="flow-box" data-period-date="from"><small>Desde</small><strong>${draft.from ? formatDate(draft.from, true) : 'Seleccionar'}</strong></button>
       <button class="flow-box" data-period-date="to"><small>Hasta</small><strong>${draft.to ? formatDate(draft.to, true) : 'Seleccionar'}</strong></button>
     </div>
-    ${draft.tab === 'compare' ? '<div class="card"><strong>Comparación inicial</strong><p class="muted">Se compara contra el período anterior equivalente. Luego podremos cambiarlo a media del año o últimos 12 meses.</p></div>' : ''}
+  `;
+}
+
+function renderAuditScopeActions() {
+  return `
+    <div class="tour-list period-scope-actions">
+      <button class="record-choice" data-period-preset="all">
+        <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('calendar')}</span>
+        <span><strong>Todo el historial</strong><small>Todos los registros disponibles</small></span>
+        ${icon('chevronRight')}
+      </button>
+      <button class="record-choice" data-period-copy-dashboard>
+        <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('copy')}</span>
+        <span><strong>Copiar período del dashboard</strong><small>Usar el período global actual</small></span>
+        ${icon('chevronRight')}
+      </button>
+    </div>
   `;
 }
 
@@ -59,29 +85,3 @@ function renderYear(draft) {
     </div>
   `;
 }
-
-export function applyPreset(key) {
-  const now = new Date();
-  if (key === 'thisMonth') return { mode: 'month', month: currentMonth() };
-  if (key === 'lastMonth') return { mode: 'month', month: shiftMonth(currentMonth(), -1) };
-  if (key === 'year') return { mode: 'year', year: now.getFullYear(), month: `${now.getFullYear()}-01` };
-  if (key === 'quarter') {
-    const q = Math.floor(now.getMonth() / 3);
-    const start = new Date(now.getFullYear(), q * 3, 1);
-    const end = new Date(now.getFullYear(), q * 3 + 3, 0);
-    return { mode: 'range', from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10), month: start.toISOString().slice(0, 7) };
-  }
-  return null;
-}
-
-export function shiftMonth(month, delta) {
-  const [year, m] = month.split('-').map(Number);
-  const d = new Date(year, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-export function rangeFromMonth(month) {
-  return { from: monthStart(month), to: monthEnd(month) };
-}
-
-export { renderCalendarSheet };

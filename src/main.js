@@ -1,7 +1,7 @@
 import { renderShell, setScreenActive, toastRoot } from './components/ui.js';
 import { createKeypadController } from './components/keypad.js';
 import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './components/calendar.js';
-import { applyPreset, renderPeriodSheet } from './components/periodPicker.js';
+import { renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
 import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
@@ -13,8 +13,9 @@ import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDel
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
+import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
-import { canon, formatMoney, html, parseAmount, todayISO, uid } from './utils/format.js';
+import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
 let keypad;
@@ -63,8 +64,7 @@ window.addEventListener('cfo:new-record', () => {
   render();
 });
 window.addEventListener('cfo:period', () => {
-  state.ui.activeSheet = 'period';
-  render();
+  openPeriodSheet('global');
 });
 window.addEventListener('cfo:global-search', () => {
   state.ui.activeSheet = 'search';
@@ -150,7 +150,7 @@ function auditFilterKey(type) {
 
 function renderActiveSheet() {
   const sheet = state.ui.activeSheet;
-  if (sheet === 'period') return renderPeriodSheet(state.period);
+  if (sheet === 'period') return renderPeriodSheet(state.ui.periodDraft, periodSheetOptions(state.ui.periodDraft));
   if (sheet === 'calendar') return renderCalendarSheet(calendarDraft);
   if (sheet === 'templates') return renderTemplateSheet();
   if (sheet === 'icon') return renderIconPickerSheet(state);
@@ -184,6 +184,54 @@ function renderActiveSheet() {
   return '';
 }
 
+function openPeriodSheet(scope) {
+  const period = scope === 'audit' ? state.auditPeriod : state.period;
+  const compare = scope === 'audit' ? Boolean(state.auditPeriod.compare) : Boolean(state.filters.categories.compare);
+  state.ui.periodDraft = createPeriodDraft(period, { scope, compare });
+  openSheet('period');
+}
+
+function periodSheetOptions(draft) {
+  const scope = draft?.scope || 'global';
+  const hasPreviousPeriod = draft?.mode !== 'all';
+  return {
+    scope,
+    showComparison: scope === 'audit' || state.activeView === 'categories',
+    previousLabel: hasPreviousPeriod ? periodLabel(shiftPeriod(draft, -1)) : 'No disponible para todo el historial'
+  };
+}
+
+async function applyPeriodDraft() {
+  const draft = state.ui.periodDraft;
+  const validation = validatePeriodDraft(draft);
+  if (!validation.ok) {
+    state.ui.periodDraft = { ...draft, error: validation.message };
+    render();
+    return;
+  }
+  const { scope, tab, error, compare, ...period } = draft;
+  if (scope === 'audit') state.auditPeriod = { ...period, compare: Boolean(compare && isComparisonAvailable(period)) };
+  else {
+    state.period = period;
+    if (state.activeView === 'categories') state.filters.categories.compare = Boolean(compare && isComparisonAvailable(period));
+  }
+  state.ui.periodDraft = null;
+  closeSheet();
+  await persist();
+  render();
+}
+
+function cancelPeriodDraft() {
+  state.ui.periodDraft = null;
+  closeSheet();
+}
+
+function returnToPeriodSheet() {
+  state.ui.activeSheet = 'period';
+  state.ui.calendarTarget = null;
+  render();
+}
+
 function bindDynamicEvents() {
   document.querySelectorAll('[data-onboarding-action]').forEach(button => button.addEventListener('click', () => {
     const action = button.dataset.onboardingAction;
@@ -214,6 +262,12 @@ function bindDynamicEvents() {
   }));
   document.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
     if (event.currentTarget === event.target || el.tagName === 'BUTTON') {
+      if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
+        state.ui.activeSheet = 'period';
+        state.ui.calendarTarget = null;
+        render();
+        return;
+      }
       if (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.returnSheet) {
         state.ui.activeSheet = state.ui.optionPicker.returnSheet;
         state.ui.optionPicker = null;
@@ -248,7 +302,15 @@ function bindSheetDragClose() {
       if (!startY) return;
       const delta = event.clientY - startY;
       startY = 0;
-      if (delta > 72 && startScroll <= 2) closeSheet();
+      if (delta > 72 && startScroll <= 2) {
+        if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
+          returnToPeriodSheet();
+        } else if (state.ui.activeSheet === 'period') {
+          cancelPeriodDraft();
+        } else {
+          closeSheet();
+        }
+      }
     });
   });
 }
@@ -361,43 +423,40 @@ function startTransactionEdit(id) {
 
 function bindPeriodEvents() {
   document.querySelectorAll('[data-period-close]').forEach(el => el.addEventListener('click', event => {
-    if (event.currentTarget === event.target || el.tagName === 'BUTTON') closeSheet();
+    if (event.currentTarget === event.target || el.tagName === 'BUTTON') cancelPeriodDraft();
   }));
   document.querySelectorAll('[data-period-tab]').forEach(button => button.addEventListener('click', () => {
-    state.period.tab = button.dataset.periodTab;
+    state.ui.periodDraft = { ...state.ui.periodDraft, tab: button.dataset.periodTab, error: '' };
     render();
   }));
   document.querySelectorAll('[data-period-preset]').forEach(button => button.addEventListener('click', () => {
-    const next = applyPreset(button.dataset.periodPreset);
-    if (next) Object.assign(state.period, next);
-    else {
-      state.period.mode = 'range';
-      state.period.from = state.period.from || todayISO();
-      state.period.to = state.period.to || todayISO();
-    }
+    state.ui.periodDraft = applyDraftPreset(state.ui.periodDraft, button.dataset.periodPreset, state.period);
+    render();
+  }));
+  document.querySelectorAll('[data-period-copy-dashboard]').forEach(button => button.addEventListener('click', () => {
+    state.ui.periodDraft = applyDraftPreset(state.ui.periodDraft, 'dashboard', state.period);
     render();
   }));
   document.querySelectorAll('[data-period-year]').forEach(button => button.addEventListener('click', () => {
-    state.period.mode = 'year';
-    state.period.year = Number(button.dataset.periodYear);
-    state.period.month = `${button.dataset.periodYear}-01`;
+    const year = Number(button.dataset.periodYear);
+    state.ui.periodDraft = { ...state.ui.periodDraft, mode: 'year', year, month: `${year}-01`, from: '', to: '', tab: 'year', error: '' };
     render();
   }));
   document.querySelectorAll('[data-period-date]').forEach(button => button.addEventListener('click', () => {
-    state.ui.calendarTarget = `period-${button.dataset.periodDate}`;
+    const field = button.dataset.periodDate;
+    const draft = state.ui.periodDraft;
+    state.ui.calendarTarget = `period:${draft.scope}:${field}`;
     calendarDraft = {
-      selectedDate: state.period[button.dataset.periodDate] || todayISO(),
-      visibleMonth: (state.period[button.dataset.periodDate] || todayISO()).slice(0, 7),
-      title: button.dataset.periodDate === 'from' ? 'Fecha inicial' : 'Fecha final'
+      selectedDate: draft[field] || todayISO(),
+      visibleMonth: (draft[field] || todayISO()).slice(0, 7),
+      title: field === 'from' ? 'Fecha inicial' : 'Fecha final'
     };
     openSheet('calendar');
   }));
-  document.querySelector('[data-period-apply]')?.addEventListener('click', async () => {
-    state.period.tab = '';
-    closeSheet();
-    await persist();
-    render();
+  document.querySelector('[data-period-compare]')?.addEventListener('change', event => {
+    state.ui.periodDraft = { ...state.ui.periodDraft, compare: event.target.checked };
   });
+  document.querySelector('[data-period-apply]')?.addEventListener('click', () => applyPeriodDraft());
 }
 
 function bindCalendarEvents() {
@@ -424,16 +483,15 @@ function bindCalendarEvents() {
   }));
   document.querySelector('[data-cal-confirm]')?.addEventListener('click', async () => {
     const target = state.ui.calendarTarget;
+    if (String(target || '').startsWith('period:')) {
+      const [, , field] = target.split(':');
+      state.ui.periodDraft = setDraftDate(state.ui.periodDraft, field, calendarDraft.selectedDate);
+      state.ui.activeSheet = 'period';
+      state.ui.calendarTarget = null;
+      render();
+      return;
+    }
     if (target === 'record-date') state.ui.recordFlow.date = calendarDraft.selectedDate;
-    if (target === 'period-from') {
-      state.period.mode = 'range';
-      state.period.from = calendarDraft.selectedDate;
-      state.period.month = calendarDraft.selectedDate.slice(0, 7);
-    }
-    if (target === 'period-to') {
-      state.period.mode = 'range';
-      state.period.to = calendarDraft.selectedDate;
-    }
     state.ui.calendarTarget = null;
     closeSheet();
     await persist();
@@ -540,6 +598,9 @@ function bindFilters() {
     state.filters.audit = { text: '', accounts: [], types: [], categories: [], subcategories: [] };
     render();
   });
+  document.querySelectorAll('[data-open-audit-period]').forEach(button => button.addEventListener('click', () => {
+    openPeriodSheet('audit');
+  }));
   document.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
     const [key, value] = splitPair(button.dataset.filterRemove);
     state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);

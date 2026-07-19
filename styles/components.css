@@ -827,6 +827,32 @@ textarea[aria-invalid="true"] {
   margin: 0 auto;
 }
 
+.period-sheet {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  padding: 12px 0 0;
+}
+
+.period-sheet .sheet-handle,
+.period-sheet .sheet-title {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+.period-sheet .sheet-handle {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.period-sheet-content {
+  min-height: 0;
+  padding: 0 16px 16px;
+}
+
+.period-sheet-content .segmented {
+  margin-bottom: 12px;
+}
+
 .sheet-handle {
   width: 52px;
   height: 5px;

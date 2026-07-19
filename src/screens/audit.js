@@ -1,14 +1,20 @@
 import { icon } from '../icons.js';
 import { periodTransactions } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
-import { canon, formatDate, formatMoney, html } from '../utils/format.js';
+import { canon, formatDate, formatMoney, html, periodLabel } from '../utils/format.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
+  const auditPeriodLabel = state.auditPeriod?.mode === 'all' ? 'Todo el historial' : periodLabel(state.auditPeriod);
+  const dashboardPeriodLabel = periodLabel(state.period);
   const base = periodTransactions(state);
   const rows = filterRows(base, filters);
   const subtotal = rows.reduce((sum, tx) => sum + signedAmount(tx), 0);
   return `
+    <div class="audit-period-seal">
+      <div><strong>Contexto de Auditoría: ${auditPeriodLabel}</strong><small>${auditPeriodLabel === dashboardPeriodLabel ? 'Coincide con el dashboard' : `Dashboard: ${dashboardPeriodLabel}`}</small></div>
+      <button class="text-button" data-open-audit-period>Cambiar</button>
+    </div>
     ${renderFilters(state, filters)}
     ${card(`<div class="metric-grid audit-summary-grid"><div><div class="metric-title">Total registros</div><div class="metric-value metric-value-sm">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value metric-value-sm ${subtotal < 0 ? 'danger' : 'success'}">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
     <div class="section-title"><h2>Movimientos</h2></div>

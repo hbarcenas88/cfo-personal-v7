@@ -5,6 +5,14 @@ const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url)
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../styles/screens.css', import.meta.url), 'utf8');
+const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
+
+assert.match(periodPicker, /data-period-scope/);
+assert.match(periodPicker, /data-period-compare/);
+assert.match(periodPicker, /data-period-copy-dashboard/);
+assert.doesNotMatch(periodPicker, /data-period-tab="compare"/);
+assert.match(audit, /data-open-audit-period/);
+assert.match(styles, /\.period-sheet-footer\s*\{[\s\S]*?position:\s*sticky/);
 
 assert.match(audit, /class="search-panel audit-search-panel"/);
 assert.match(styles, /\.audit-filter-selectors\s*\{\s*position:\s*relative;/);
