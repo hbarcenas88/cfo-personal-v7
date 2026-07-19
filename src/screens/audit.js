@@ -1,5 +1,5 @@
 import { icon } from '../icons.js';
-import { periodTransactions } from '../services/financeService.js';
+import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
 import { canon, formatDate, formatMoney, html, periodLabel } from '../utils/format.js';
 
@@ -7,19 +7,34 @@ export function renderAudit(state) {
   const filters = state.filters.audit;
   const auditPeriodLabel = state.auditPeriod?.mode === 'all' ? 'Todo el historial' : periodLabel(state.auditPeriod);
   const dashboardPeriodLabel = periodLabel(state.period);
-  const base = periodTransactions(state);
-  const rows = filterRows(base, filters);
-  const subtotal = rows.reduce((sum, tx) => sum + signedAmount(tx), 0);
+  const comparison = buildAuditComparison(state, state.auditPeriod, filters);
+  const rows = comparison.currentRows;
+  const subtotal = comparison.currentTotal;
   return `
     <div class="audit-period-seal">
       <div><strong>Contexto de Auditoría: ${auditPeriodLabel}</strong><small>${auditPeriodLabel === dashboardPeriodLabel ? 'Coincide con el dashboard' : `Dashboard: ${dashboardPeriodLabel}`}</small></div>
       <button class="text-button" data-open-audit-period>Cambiar</button>
     </div>
     ${renderFilters(state, filters)}
+    ${state.auditPeriod?.compare ? renderComparisonCard(comparison) : ''}
     ${card(`<div class="metric-grid audit-summary-grid"><div><div class="metric-title">Total registros</div><div class="metric-value metric-value-sm">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value metric-value-sm ${subtotal < 0 ? 'danger' : 'success'}">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
     <div class="section-title"><h2>Movimientos</h2></div>
     ${rows.length ? rows.map(tx => transactionCard(tx, state)).join('') : emptyState('listChecks', 'Sin movimientos', 'Crea un registro o ajusta los filtros')}
   `;
+}
+
+function renderComparisonCard(comparison) {
+  const percentage = comparison.percent === null
+    ? 'Sin base anterior'
+    : `${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(1)}%`;
+  return card(`
+    <div class="metric-grid audit-summary-grid">
+      <div><div class="metric-title">Total actual</div><div class="metric-value metric-value-sm ${comparison.currentTotal < 0 ? 'danger' : 'success'}">${formatSignedMoney(comparison.currentTotal)}</div></div>
+      <div><div class="metric-title">Total anterior</div><div class="metric-value metric-value-sm ${comparison.previousTotal < 0 ? 'danger' : 'success'}">${formatSignedMoney(comparison.previousTotal)}</div></div>
+      <div><div class="metric-title">Diferencia</div><div class="metric-value metric-value-sm ${comparison.delta < 0 ? 'danger' : 'success'}">${formatSignedMoney(comparison.delta)}</div></div>
+      <div><div class="metric-title">Variación</div><div class="metric-value metric-value-sm">${percentage}</div></div>
+    </div>
+  `);
 }
 
 function renderFilters(state, filters) {
@@ -127,17 +142,6 @@ function signedAmount(tx) {
   return Number(tx.amount || 0);
 }
 
-function filterRows(rows, filters) {
-  return rows.filter(tx => {
-    const text = canon([tx.description, tx.category, tx.subcategory, tx.account, tx.movement].join(' '));
-    if (filters.text && !text.includes(canon(filters.text))) return false;
-    if (filters.accounts.length && !filters.accounts.some(v => canon(v) === canon(tx.account))) return false;
-    if (filters.types.length) {
-      const type = tx.transferId ? 'Transferencia' : tx.movement;
-      if (!filters.types.some(v => canon(v) === canon(type))) return false;
-    }
-    if (filters.categories.length && !filters.categories.some(v => canon(v) === canon(tx.category))) return false;
-    if (filters.subcategories.length && !filters.subcategories.some(v => canon(v) === canon(tx.subcategory))) return false;
-    return true;
-  }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+function formatSignedMoney(value) {
+  return `${value < 0 ? '-' : ''}${formatMoney(value)}`;
 }
