@@ -4,7 +4,8 @@ import {
   capacitySummary,
   dailyBudgetPace,
   operationalBudgetTotal,
-  operationalCategoryRows
+  operationalCategoryRows,
+  operationalCategoryDistribution
 } from '../src/services/financeService.js';
 import { migrateCapacityRules } from '../src/state.js';
 
@@ -64,6 +65,27 @@ const paceWithoutFood = dailyBudgetPace(state, state.period, { excludedCategorie
 assert.equal(paceWithoutFood.at(-1).actual, 0);
 assert.equal(operationalBudgetTotal(state, state.period, { excludedCategories: ['Comida'] }), 500);
 assert.ok(Math.abs(paceWithoutFood[2].expected - (500 / 31 * 3)) < 0.000001);
+
+const distributionState = {
+  ...state,
+  transactions: [
+    ...state.transactions,
+    { id: 'grocery', date: '2026-07-06', account: 'Caja', movement: 'Gasto', category: 'Hogar', amount: 50 }
+  ]
+};
+const distribution = operationalCategoryDistribution(distributionState, state.period, {
+  excludedCategories: []
+});
+assert.deepEqual(distribution.map(row => [row.name, row.spent, row.share]), [
+  ['Comida', 200, 0.8],
+  ['Hogar', 50, 0.2]
+]);
+assert.deepEqual(
+  operationalCategoryDistribution(distributionState, state.period, {
+    excludedCategories: ['Comida']
+  }).map(row => [row.name, row.share]),
+  [['Hogar', 1]]
+);
 
 const migratedRules = migrateCapacityRules(null, state.accounts, state.provisions);
 assert.deepEqual(migratedRules.accountRoles, { cash: 'liquidity', credit: 'exclude', excluded: 'liquidity' });
