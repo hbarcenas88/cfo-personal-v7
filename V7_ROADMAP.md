@@ -17,6 +17,22 @@
 - Sincronización cloud real.
 - Conversión avanzada de JSON a Excel.
 
+## Último horizonte
+
+- Temas y apariencias configurables.
+- Endurecimiento de seguridad y privacidad local.
+- Sincronización cloud real, sólo después de definir arquitectura, cifrado, recuperación y modelo de privacidad.
+
+## Prioridad 0 — implementada, en validación con datos reales
+
+- Selector reutilizable con borrador confirmado para el período global y el período independiente de Auditoría: implementado.
+- Comparación automática con período anterior equivalente sólo en Auditoría y Categorías, sin cambiar reglas financieras: implementada.
+- Densidad de selector, filtros y calculadora de ingresos: implementada y cubierta por la batería automatizada. Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró el sheet, los controles y el keypad; no confirma la versión actual sin captura duradera o validación móvil del usuario.
+- Alcance analítico: la implementación mantiene el período independiente de Auditoría y la comparación de Categorías. Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró esos flujos, pero no sustituye la captura duradera o validación móvil del usuario.
+- Entrega PWA: el worker actual `cfo-personal-v7-cache-37` está cubierto por regresión de precache y runtime sin HTTP cache; sólo cachea respuestas válidas completas y preserva la respuesta de red cuando falla una escritura de caché. Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación anterior con `cache-34` no confirma la versión actual. Sigue pendiente captura duradera o validación móvil del usuario.
+- Pendiente antes de considerarlo completado: captura duradera o validación móvil del usuario, y validación no destructiva con datos reales después de confirmar un respaldo JSON existente. Esta evidencia no autoriza publicación ni merge.
+- Este bloque precede a la Etapa 2 y está documentado en `docs/superpowers/specs/2026-07-18-period-scope-and-mobile-density-design.md`.
+
 ## Armonización UX gradual
 
 ### Etapa 1 — Resumen y Categorías (en validación)

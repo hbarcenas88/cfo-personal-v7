@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-29';
+const CACHE_NAME = 'cfo-personal-v7-cache-37';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -18,6 +18,7 @@ const APP_SHELL = [
   './src/services/importExportService.js',
   './src/services/backupService.js',
   './src/services/healthService.js',
+  './src/services/periodService.js',
   './src/components/ui.js',
   './src/components/keypad.js',
   './src/components/calendar.js',
@@ -34,7 +35,17 @@ const APP_SHELL = [
 ].map(appUrl);
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => Promise.all(
+      APP_SHELL.map(async asset => {
+        const response = await fetch(asset, { cache: 'no-store' });
+        if (!response.ok || response.status === 206) {
+          throw new Error(`Precache failed (${response.status}) for ${asset}`);
+        }
+        await cache.put(asset, response);
+      })
+    ))
+  );
   self.skipWaiting();
 });
 
@@ -53,9 +64,16 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(APP_BASE.href)) return;
   event.respondWith(
-    fetch(event.request).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+    fetch(event.request, { cache: 'no-store' }).then(async response => {
+      if (response.ok && response.status !== 206) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const copy = response.clone();
+          await cache.put(event.request, copy);
+        } catch {
+          // A fresh network response remains usable even when its cache write fails.
+        }
+      }
       return response;
     }).catch(() => {
       if (event.request.mode === 'navigate') return caches.match(appUrl('./index.html'));

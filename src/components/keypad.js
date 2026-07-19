@@ -13,7 +13,6 @@ export function renderKeypad({ value = '', variant = 'expense', currency = 'USD'
       ${key('4')}
       ${key('5')}
       ${key('6')}
-      ${key('calendar', 'op', icon('calendar'))}
       ${key('−', 'op')}
       ${key('1')}
       ${key('2')}
@@ -31,7 +30,7 @@ function key(value, cls = '', label = value) {
   return `<button type="button" class="${cls}" data-key="${value}">${label}</button>`;
 }
 
-export function createKeypadController({ initial = '', onChange, onConfirm, onCalendarOpen, allowOperations = true, preventNegative = true }) {
+export function createKeypadController({ initial = '', onChange, onConfirm, allowOperations = true, preventNegative = true }) {
   let expression = String(initial || '');
   const operators = ['+', '−', '×', '÷'];
   const api = {
@@ -44,7 +43,6 @@ export function createKeypadController({ initial = '', onChange, onConfirm, onCa
       if (/^\d$/.test(key)) expression = appendDigit(expression, key);
       else if (key === '.') expression = appendDecimal(expression);
       else if (key === 'back') expression = expression.slice(0, -1);
-      else if (key === 'calendar') onCalendarOpen?.();
       else if (key === 'currency') return;
       else if (key === 'confirm') {
         const result = evaluateExpression(expression);

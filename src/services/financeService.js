@@ -1,4 +1,5 @@
 import { canon, clamp, currentMonth, monthEnd, parseAmount, parseDate, parseMonth, periodBounds, previousEquivalentPeriod, uid } from '../utils/format.js';
+import { comparisonPeriod } from './periodService.js';
 
 export function normalizeTransaction(tx = {}, state) {
   const amount = Math.abs(parseAmount(tx.amount ?? tx.monto ?? 0) || 0);
@@ -78,11 +79,63 @@ export function normalizeSubcategory(value, categoryName, state) {
 }
 
 export function periodTransactions(state, period = state.period) {
+  if (period?.mode === 'all') return state.transactions.filter(tx => parseDate(tx.date));
   const { from, to } = periodBounds(period);
   return state.transactions.filter(tx => {
     const date = parseDate(tx.date);
     return date && date >= from && date <= to;
   });
+}
+
+export function filterAuditTransactions(rows, filters = {}) {
+  const {
+    text = '',
+    accounts = [],
+    types = [],
+    categories = [],
+    subcategories = []
+  } = filters;
+  return rows.filter(tx => {
+    const searchable = canon([tx.description, tx.category, tx.subcategory, tx.account, tx.movement].join(' '));
+    if (text && !searchable.includes(canon(text))) return false;
+    if (accounts.length && !accounts.some(value => canon(value) === canon(tx.account))) return false;
+    if (types.length) {
+      const type = tx.transferId ? 'Transferencia' : tx.movement;
+      if (!types.some(value => canon(value) === canon(type))) return false;
+    }
+    if (categories.length && !categories.some(value => canon(value) === canon(tx.category))) return false;
+    if (subcategories.length && !subcategories.some(value => canon(value) === canon(tx.subcategory))) return false;
+    return true;
+  }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
+export function buildAuditComparison(state, period, filters) {
+  const currentRows = filterAuditTransactions(periodTransactions(state, period), filters);
+  if (!period.compare || period.mode === 'all') {
+    return {
+      currentRows,
+      previousRows: [],
+      currentTotal: sumSigned(currentRows),
+      previousTotal: 0,
+      delta: 0,
+      percent: null,
+      previousPeriod: null
+    };
+  }
+  const previousPeriod = comparisonPeriod(period);
+  const previousRows = filterAuditTransactions(periodTransactions(state, previousPeriod), filters);
+  const currentTotal = sumSigned(currentRows);
+  const previousTotal = sumSigned(previousRows);
+  const delta = currentTotal - previousTotal;
+  return {
+    currentRows,
+    previousRows,
+    currentTotal,
+    previousTotal,
+    delta,
+    percent: previousTotal === 0 ? null : (delta / Math.abs(previousTotal)) * 100,
+    previousPeriod
+  };
 }
 
 export function transactionsToCutoff(state, period = state.period) {
@@ -219,6 +272,38 @@ export function categoryRows(state, period = state.period) {
   const budgets = periodBudgets(state, period);
   const txs = budgetTransactions(state, period);
   return rowsForCategories(state, budgets, txs);
+}
+
+export function buildCategoryComparison(state, period, filters = {}) {
+  const visible = row => {
+    if (filters.text && !canon(row.name).includes(canon(filters.text))) return false;
+    if (filters.categories?.length && !filters.categories.some(name => canon(name) === canon(row.name))) return false;
+    if (filters.view === 'budget') return row.planned > 0;
+    if (filters.view === 'spend') return row.spent > 0;
+    return row.planned > 0 || row.spent > 0;
+  };
+  const currentRows = categoryRows(state, period).filter(visible);
+  const previousByName = new Map(categoryRows(state, comparisonPeriod(period)).map(row => [canon(row.name), row]));
+  const rows = currentRows.map(row => {
+    const previousSpent = Number(previousByName.get(canon(row.name))?.spent || 0);
+    const spentDelta = row.spent - previousSpent;
+    return {
+      ...row,
+      previousSpent,
+      spentDelta,
+      spentDeltaPercent: previousSpent === 0 ? null : (spentDelta / previousSpent) * 100
+    };
+  });
+  const currentSpent = rows.reduce((sum, row) => sum + row.spent, 0);
+  const previousSpent = rows.reduce((sum, row) => sum + row.previousSpent, 0);
+  return {
+    rows,
+    currentSpent,
+    previousSpent,
+    delta: currentSpent - previousSpent,
+    percent: previousSpent === 0 ? null : ((currentSpent - previousSpent) / previousSpent) * 100,
+    previousPeriod: comparisonPeriod(period)
+  };
 }
 
 function rowsForCategories(state, budgets, txs) {
@@ -531,4 +616,8 @@ function groupSum(items, key) {
 
 function sum(values) {
   return values.reduce((total, value) => total + (Number(value) || 0), 0);
+}
+
+function sumSigned(rows) {
+  return rows.reduce((total, tx) => total + (tx.movement === 'Gasto' ? -Number(tx.amount || 0) : Number(tx.amount || 0)), 0);
 }

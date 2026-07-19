@@ -1,7 +1,7 @@
 import { renderShell, setScreenActive, toastRoot } from './components/ui.js';
 import { createKeypadController } from './components/keypad.js';
 import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './components/calendar.js';
-import { applyPreset, renderPeriodSheet } from './components/periodPicker.js';
+import { renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
 import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
@@ -13,8 +13,9 @@ import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDel
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { dataHealth } from './services/healthService.js';
+import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
-import { canon, formatMoney, html, parseAmount, todayISO, uid } from './utils/format.js';
+import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
 let keypad;
@@ -22,6 +23,7 @@ let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0
 let draggedAccountId = '';
 let pointerDragAccount = null;
 let auditDropdownDismissBound = false;
+let filterPersistTimer = 0;
 const APP_VERSION = '7.0.5';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 
@@ -38,6 +40,14 @@ function captureError(context, error) {
   state.debug = { ...(state.debug || {}), lastError: `${context}: ${message}` };
   console.error('[CFO V7]', context, error);
   showToast(`Error: ${message}`);
+}
+
+function renderAndPersistFilters() {
+  window.clearTimeout(filterPersistTimer);
+  render();
+  filterPersistTimer = window.setTimeout(() => {
+    persist().catch(error => captureError('filter persistence', error));
+  }, 250);
 }
 
 await initState();
@@ -63,8 +73,7 @@ window.addEventListener('cfo:new-record', () => {
   render();
 });
 window.addEventListener('cfo:period', () => {
-  state.ui.activeSheet = 'period';
-  render();
+  openPeriodSheet('global');
 });
 window.addEventListener('cfo:global-search', () => {
   state.ui.activeSheet = 'search';
@@ -150,7 +159,7 @@ function auditFilterKey(type) {
 
 function renderActiveSheet() {
   const sheet = state.ui.activeSheet;
-  if (sheet === 'period') return renderPeriodSheet(state.period);
+  if (sheet === 'period') return renderPeriodSheet(state.ui.periodDraft, periodSheetOptions(state.ui.periodDraft));
   if (sheet === 'calendar') return renderCalendarSheet(calendarDraft);
   if (sheet === 'templates') return renderTemplateSheet();
   if (sheet === 'icon') return renderIconPickerSheet(state);
@@ -184,6 +193,56 @@ function renderActiveSheet() {
   return '';
 }
 
+function openPeriodSheet(scope) {
+  const period = scope === 'audit' ? state.auditPeriod : state.period;
+  const compare = scope === 'audit' ? Boolean(state.auditPeriod.compare) : Boolean(state.filters.categories.compare);
+  state.ui.periodDraft = createPeriodDraft(period, { scope, compare });
+  openSheet('period');
+}
+
+function periodSheetOptions(draft) {
+  const scope = draft?.scope || 'global';
+  const hasPreviousPeriod = draft?.mode !== 'all';
+  return {
+    scope,
+    showComparison: scope === 'audit' || state.activeView === 'categories',
+    previousLabel: hasPreviousPeriod ? periodLabel(shiftPeriod(draft, -1)) : 'No disponible para todo el historial'
+  };
+}
+
+async function applyPeriodDraft() {
+  const draft = state.ui.periodDraft;
+  const validation = validatePeriodDraft(draft);
+  if (!validation.ok) {
+    state.ui.periodDraft = { ...draft, error: validation.message };
+    render();
+    return;
+  }
+  const { scope, tab, error, compare, ...period } = draft;
+  if (scope === 'audit') state.auditPeriod = { ...period, compare: Boolean(compare && isComparisonAvailable(period)) };
+  else {
+    state.period = period;
+    if (state.activeView === 'categories') {
+      state.filters.categories.compare = Boolean(compare && isComparisonAvailable(period));
+    }
+  }
+  state.ui.periodDraft = null;
+  closeSheet();
+  await persist();
+  render();
+}
+
+function cancelPeriodDraft() {
+  state.ui.periodDraft = null;
+  closeSheet();
+}
+
+function returnToPeriodSheet() {
+  state.ui.activeSheet = 'period';
+  state.ui.calendarTarget = null;
+  render();
+}
+
 function bindDynamicEvents() {
   document.querySelectorAll('[data-onboarding-action]').forEach(button => button.addEventListener('click', () => {
     const action = button.dataset.onboardingAction;
@@ -214,6 +273,12 @@ function bindDynamicEvents() {
   }));
   document.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
     if (event.currentTarget === event.target || el.tagName === 'BUTTON') {
+      if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
+        state.ui.activeSheet = 'period';
+        state.ui.calendarTarget = null;
+        render();
+        return;
+      }
       if (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.returnSheet) {
         state.ui.activeSheet = state.ui.optionPicker.returnSheet;
         state.ui.optionPicker = null;
@@ -248,7 +313,15 @@ function bindSheetDragClose() {
       if (!startY) return;
       const delta = event.clientY - startY;
       startY = 0;
-      if (delta > 72 && startScroll <= 2) closeSheet();
+      if (delta > 72 && startScroll <= 2) {
+        if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
+          returnToPeriodSheet();
+        } else if (state.ui.activeSheet === 'period') {
+          cancelPeriodDraft();
+        } else {
+          closeSheet();
+        }
+      }
     });
   });
 }
@@ -315,8 +388,7 @@ function bindRecordEvents() {
       onConfirm: value => {
         state.ui.recordFlow.amount = value;
         state.ui.recordFlow.displayAmount = Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      },
-      onCalendarOpen: () => document.querySelector('[data-record-calendar]')?.click()
+      }
     });
     document.querySelectorAll('[data-key]').forEach(button => button.addEventListener('click', () => keypad.press(button.dataset.key)));
   }
@@ -361,43 +433,40 @@ function startTransactionEdit(id) {
 
 function bindPeriodEvents() {
   document.querySelectorAll('[data-period-close]').forEach(el => el.addEventListener('click', event => {
-    if (event.currentTarget === event.target || el.tagName === 'BUTTON') closeSheet();
+    if (event.currentTarget === event.target || el.tagName === 'BUTTON') cancelPeriodDraft();
   }));
   document.querySelectorAll('[data-period-tab]').forEach(button => button.addEventListener('click', () => {
-    state.period.tab = button.dataset.periodTab;
+    state.ui.periodDraft = { ...state.ui.periodDraft, tab: button.dataset.periodTab, error: '' };
     render();
   }));
   document.querySelectorAll('[data-period-preset]').forEach(button => button.addEventListener('click', () => {
-    const next = applyPreset(button.dataset.periodPreset);
-    if (next) Object.assign(state.period, next);
-    else {
-      state.period.mode = 'range';
-      state.period.from = state.period.from || todayISO();
-      state.period.to = state.period.to || todayISO();
-    }
+    state.ui.periodDraft = applyDraftPreset(state.ui.periodDraft, button.dataset.periodPreset, state.period);
+    render();
+  }));
+  document.querySelectorAll('[data-period-copy-dashboard]').forEach(button => button.addEventListener('click', () => {
+    state.ui.periodDraft = applyDraftPreset(state.ui.periodDraft, 'dashboard', state.period);
     render();
   }));
   document.querySelectorAll('[data-period-year]').forEach(button => button.addEventListener('click', () => {
-    state.period.mode = 'year';
-    state.period.year = Number(button.dataset.periodYear);
-    state.period.month = `${button.dataset.periodYear}-01`;
+    const year = Number(button.dataset.periodYear);
+    state.ui.periodDraft = { ...state.ui.periodDraft, mode: 'year', year, month: `${year}-01`, from: '', to: '', tab: 'year', error: '' };
     render();
   }));
   document.querySelectorAll('[data-period-date]').forEach(button => button.addEventListener('click', () => {
-    state.ui.calendarTarget = `period-${button.dataset.periodDate}`;
+    const field = button.dataset.periodDate;
+    const draft = state.ui.periodDraft;
+    state.ui.calendarTarget = `period:${draft.scope}:${field}`;
     calendarDraft = {
-      selectedDate: state.period[button.dataset.periodDate] || todayISO(),
-      visibleMonth: (state.period[button.dataset.periodDate] || todayISO()).slice(0, 7),
-      title: button.dataset.periodDate === 'from' ? 'Fecha inicial' : 'Fecha final'
+      selectedDate: draft[field] || todayISO(),
+      visibleMonth: (draft[field] || todayISO()).slice(0, 7),
+      title: field === 'from' ? 'Fecha inicial' : 'Fecha final'
     };
     openSheet('calendar');
   }));
-  document.querySelector('[data-period-apply]')?.addEventListener('click', async () => {
-    state.period.tab = '';
-    closeSheet();
-    await persist();
-    render();
+  document.querySelector('[data-period-compare]')?.addEventListener('change', event => {
+    state.ui.periodDraft = { ...state.ui.periodDraft, compare: event.target.checked };
   });
+  document.querySelector('[data-period-apply]')?.addEventListener('click', () => applyPeriodDraft());
 }
 
 function bindCalendarEvents() {
@@ -424,16 +493,15 @@ function bindCalendarEvents() {
   }));
   document.querySelector('[data-cal-confirm]')?.addEventListener('click', async () => {
     const target = state.ui.calendarTarget;
+    if (String(target || '').startsWith('period:')) {
+      const [, , field] = target.split(':');
+      state.ui.periodDraft = setDraftDate(state.ui.periodDraft, field, calendarDraft.selectedDate);
+      state.ui.activeSheet = 'period';
+      state.ui.calendarTarget = null;
+      render();
+      return;
+    }
     if (target === 'record-date') state.ui.recordFlow.date = calendarDraft.selectedDate;
-    if (target === 'period-from') {
-      state.period.mode = 'range';
-      state.period.from = calendarDraft.selectedDate;
-      state.period.month = calendarDraft.selectedDate.slice(0, 7);
-    }
-    if (target === 'period-to') {
-      state.period.mode = 'range';
-      state.period.to = calendarDraft.selectedDate;
-    }
     state.ui.calendarTarget = null;
     closeSheet();
     await persist();
@@ -445,14 +513,15 @@ function bindFilters() {
   if (!auditDropdownDismissBound) {
     auditDropdownDismissBound = true;
     document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape' || (!state.ui.auditDropdown && !state.ui.categoryDropdown)) return;
+      if (event.key !== 'Escape' || (!state.ui.auditDropdown && !state.ui.categoryDropdown && !state.ui.auditFiltersOpen)) return;
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
+      state.ui.auditFiltersOpen = false;
       render();
     });
     document.addEventListener('click', event => {
-      if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter]')) return;
+      if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter], [data-toggle-audit-filters]')) return;
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
@@ -461,31 +530,32 @@ function bindFilters() {
   }
   document.querySelector('[data-cat-search]')?.addEventListener('input', event => {
     state.filters.categories.text = event.target.value;
-    render();
+    renderAndPersistFilters();
   });
   document.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.view = button.dataset.catView;
-    render();
+    state.ui.auditFiltersOpen = false;
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
     const list = state.filters.categories.expanded;
     const name = button.dataset.catExpand;
     state.filters.categories.expanded = list.includes(name) ? list.filter(x => x !== name) : [...list, name];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-add-cat-filter]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.categories.push(button.dataset.addCatFilter);
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-remove-cat-filter]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.categories = state.filters.categories.categories.filter(v => v !== button.dataset.removeCatFilter);
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelector('[data-clear-cat-filters]')?.addEventListener('click', () => {
     state.filters.categories.text = '';
     state.filters.categories.categories = [];
     state.ui.categoryDropdown = false;
-    render();
+    renderAndPersistFilters();
   });
   document.querySelector('[data-open-category-filter]')?.addEventListener('click', () => {
     state.ui.categoryDropdown = !state.ui.categoryDropdown;
@@ -496,11 +566,11 @@ function bindFilters() {
     const name = button.dataset.categoryFilterToggle;
     const selected = state.filters.categories.categories;
     state.filters.categories.categories = selected.includes(name) ? selected.filter(value => value !== name) : [...selected, name];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelector('[data-category-filter-clear]')?.addEventListener('click', () => {
     state.filters.categories.categories = [];
-    render();
+    renderAndPersistFilters();
   });
   document.querySelectorAll('[data-category-filter-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.categoryDropdown = false;
@@ -534,17 +604,29 @@ function bindFilters() {
   }));
   document.querySelector('[data-audit-search]')?.addEventListener('input', event => {
     state.filters.audit.text = event.target.value;
-    render();
+    renderAndPersistFilters();
   });
   document.querySelector('[data-audit-clear]')?.addEventListener('click', () => {
     state.filters.audit = { text: '', accounts: [], types: [], categories: [], subcategories: [] };
-    render();
+    state.ui.auditFiltersOpen = false;
+    state.ui.auditDropdown = '';
+    state.ui.auditDropdownSearch = '';
+    renderAndPersistFilters();
   });
+  document.querySelectorAll('[data-open-audit-period]').forEach(button => button.addEventListener('click', () => {
+    openPeriodSheet('audit');
+  }));
   document.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
     const [key, value] = splitPair(button.dataset.filterRemove);
     state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
-    render();
+    renderAndPersistFilters();
   }));
+  document.querySelector('[data-toggle-audit-filters]')?.addEventListener('click', () => {
+    state.ui.auditFiltersOpen = !state.ui.auditFiltersOpen;
+    state.ui.auditDropdown = '';
+    state.ui.auditDropdownSearch = '';
+    render();
+  });
   document.querySelectorAll('[data-open-filter]').forEach(button => button.addEventListener('click', () => {
     const type = button.dataset.openFilter;
     state.ui.auditDropdown = state.ui.auditDropdown === type ? '' : type;
@@ -561,12 +643,12 @@ function bindFilters() {
     if (!key || !value) return;
     const selected = state.filters.audit[key];
     state.filters.audit[key] = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-audit-dropdown-clear]').forEach(button => button.addEventListener('click', () => {
     const key = auditFilterKey(button.dataset.auditDropdownClear);
     if (key) state.filters.audit[key] = [];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-audit-dropdown-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.auditDropdown = '';
@@ -581,6 +663,7 @@ function bindFilters() {
     button.addEventListener('dblclick', () => {
       state.filters.audit.accounts = [button.dataset.auditAccount];
       setView('audit');
+      renderAndPersistFilters();
     });
   });
 }

@@ -1,24 +1,48 @@
 import { icon } from '../icons.js';
-import { periodTransactions } from '../services/financeService.js';
+import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
-import { canon, formatDate, formatMoney, html } from '../utils/format.js';
+import { canon, formatDate, formatMoney, html, periodLabel } from '../utils/format.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
-  const base = periodTransactions(state);
-  const rows = filterRows(base, filters);
-  const subtotal = rows.reduce((sum, tx) => sum + signedAmount(tx), 0);
+  const auditPeriodLabel = state.auditPeriod?.mode === 'all' ? 'Todo el historial' : periodLabel(state.auditPeriod);
+  const dashboardPeriodLabel = periodLabel(state.period);
+  const comparison = buildAuditComparison(state, state.auditPeriod, filters);
+  const rows = comparison.currentRows;
+  const subtotal = comparison.currentTotal;
   return `
+    <div class="audit-period-seal">
+      <div><strong>Contexto de Auditoría: ${auditPeriodLabel}</strong><small>${auditPeriodLabel === dashboardPeriodLabel ? 'Coincide con el dashboard' : `Dashboard: ${dashboardPeriodLabel}`}</small></div>
+      <button class="text-button audit-period-change" data-open-audit-period>Cambiar</button>
+    </div>
     ${renderFilters(state, filters)}
+    ${state.auditPeriod?.compare ? renderComparisonCard(comparison) : ''}
     ${card(`<div class="metric-grid audit-summary-grid"><div><div class="metric-title">Total registros</div><div class="metric-value metric-value-sm">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value metric-value-sm ${subtotal < 0 ? 'danger' : 'success'}">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
     <div class="section-title"><h2>Movimientos</h2></div>
     ${rows.length ? rows.map(tx => transactionCard(tx, state)).join('') : emptyState('listChecks', 'Sin movimientos', 'Crea un registro o ajusta los filtros')}
   `;
 }
 
-function renderFilters(state, filters) {
+function renderComparisonCard(comparison) {
+  const percentage = comparison.percent === null
+    ? 'Sin base anterior'
+    : `${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(1)}%`;
   return card(`
-    <div class="audit-filter-head"><strong>Registros</strong><small>Busca y combina filtros</small></div>
+    <div class="metric-grid audit-summary-grid">
+      <div><div class="metric-title">Total actual</div><div class="metric-value metric-value-sm ${comparison.currentTotal < 0 ? 'danger' : 'success'}">${formatSignedMoney(comparison.currentTotal)}</div></div>
+      <div><div class="metric-title">Total anterior</div><div class="metric-value metric-value-sm ${comparison.previousTotal < 0 ? 'danger' : 'success'}">${formatSignedMoney(comparison.previousTotal)}</div></div>
+      <div><div class="metric-title">Diferencia</div><div class="metric-value metric-value-sm ${comparison.delta < 0 ? 'danger' : 'success'}">${formatSignedMoney(comparison.delta)}</div></div>
+      <div><div class="metric-title">Variación</div><div class="metric-value metric-value-sm">${percentage}</div></div>
+    </div>
+  `);
+}
+
+function renderFilters(state, filters) {
+  const activeCount = ['accounts', 'types', 'categories', 'subcategories']
+    .reduce((count, key) => count + filters[key].length, 0);
+  const filterLabel = activeCount ? `Filtros (${activeCount})` : 'Filtros';
+  return card(`
+    <div class="audit-filter-head"><strong>Registros</strong><button class="chip dense audit-filter-toggle" data-toggle-audit-filters aria-expanded="${Boolean(state.ui.auditFiltersOpen)}">${filterLabel}</button></div>
     <div class="search-panel audit-search-panel">
       <input class="input" data-audit-search placeholder="Buscar movimientos..." value="${filters.text || ''}">
       <button class="filter-button audit-clear-button" data-audit-clear aria-label="Limpiar búsqueda y filtros">${icon('x')}</button>
@@ -26,19 +50,24 @@ function renderFilters(state, filters) {
     <div class="chip-row audit-active-filters">
       ${filterChips(filters)}
     </div>
-    <div class="chip-row audit-filter-selectors">
-      ${selectorChip('Cuenta', 'account', state)}
-      ${selectorChip('Tipo', 'type', state)}
-      ${selectorChip('Categoría', 'category', state)}
-      ${selectorChip('Subcategoría', 'subcategory', state)}
-    </div>
+    ${state.ui.auditFiltersOpen ? `
+      <div class="audit-filter-panel">
+        <div class="chip-row audit-filter-selectors">
+          ${selectorChip('Cuenta', 'account', state)}
+          ${selectorChip('Tipo', 'type', state)}
+          ${selectorChip('Categoría', 'category', state)}
+          ${selectorChip('Subcategoría', 'subcategory', state)}
+        </div>
+      </div>
+    ` : ''}
   `);
 }
 
 function selectorChip(label, type, state) {
+  const alignRight = ['type', 'subcategory'].includes(type) ? ' audit-selector-align-right' : '';
   return `
-    <div class="audit-selector">
-      <button class="chip dense" data-open-filter="${type}" aria-expanded="${state.ui.auditDropdown === type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
+    <div class="audit-selector${alignRight}">
+      <button class="chip dense audit-filter-control" data-open-filter="${type}" aria-expanded="${state.ui.auditDropdown === type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
       ${state.ui.auditDropdown === type ? renderAuditDropdown(state) : ''}
     </div>
   `;
@@ -63,7 +92,7 @@ function renderAuditDropdown(state) {
           </button>
         `).join('') || '<div class="empty-state">Sin opciones</div>'}
       </div>
-      <div class="audit-dropdown-footer"><button class="audit-dropdown-clear" data-audit-dropdown-clear="${type}">Limpiar</button><button class="secondary-button compact" data-audit-dropdown-close>Listo</button></div>
+      <div class="audit-dropdown-footer"><button class="audit-dropdown-clear audit-filter-footer-action" data-audit-dropdown-clear="${type}">Limpiar</button><button class="secondary-button compact audit-filter-footer-action" data-audit-dropdown-close>Listo</button></div>
     </div>
   `;
 }
@@ -88,7 +117,7 @@ function filterChips(filters) {
   filters.types.forEach(value => chips.push(['types', value]));
   filters.categories.forEach(value => chips.push(['categories', value]));
   filters.subcategories.forEach(value => chips.push(['subcategories', value]));
-  return chips.map(([type, value]) => `<button class="chip dense active" data-filter-remove="${type}:${value}"><span class="chip-label">${value}</span> ${icon('x')}</button>`).join('') || '<span class="row-subtitle">Sin filtros activos</span>';
+  return chips.map(([type, value]) => `<button class="chip dense active audit-filter-active" data-filter-remove="${type}:${value}"><span class="chip-label">${value}</span> ${icon('x')}</button>`).join('') || '<span class="row-subtitle">Sin filtros activos</span>';
 }
 
 function transactionCard(tx, state) {
@@ -121,17 +150,6 @@ function signedAmount(tx) {
   return Number(tx.amount || 0);
 }
 
-function filterRows(rows, filters) {
-  return rows.filter(tx => {
-    const text = canon([tx.description, tx.category, tx.subcategory, tx.account, tx.movement].join(' '));
-    if (filters.text && !text.includes(canon(filters.text))) return false;
-    if (filters.accounts.length && !filters.accounts.some(v => canon(v) === canon(tx.account))) return false;
-    if (filters.types.length) {
-      const type = tx.transferId ? 'Transferencia' : tx.movement;
-      if (!filters.types.some(v => canon(v) === canon(type))) return false;
-    }
-    if (filters.categories.length && !filters.categories.some(v => canon(v) === canon(tx.category))) return false;
-    if (filters.subcategories.length && !filters.subcategories.some(v => canon(v) === canon(tx.subcategory))) return false;
-    return true;
-  }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+function formatSignedMoney(value) {
+  return `${value < 0 ? '-' : ''}${formatMoney(value)}`;
 }

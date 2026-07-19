@@ -1,5 +1,6 @@
 import { icon, renderIcons } from '../icons.js';
 import { dismissToast, setSettingsPage, setView, state, undo } from '../state.js';
+import { shiftPeriod } from '../services/periodService.js';
 import { periodLabel } from '../utils/format.js';
 
 export function renderShell() {
@@ -128,19 +129,12 @@ export function bindShellEvents() {
   document.querySelector('[data-action="search"]')?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('cfo:global-search'));
   });
-  document.querySelector('[data-action="prev-period"]')?.addEventListener('click', () => shiftMonth(-1));
-  document.querySelector('[data-action="next-period"]')?.addEventListener('click', () => shiftMonth(1));
+  document.querySelector('[data-action="prev-period"]')?.addEventListener('click', () => shiftHeaderPeriod(-1));
+  document.querySelector('[data-action="next-period"]')?.addEventListener('click', () => shiftHeaderPeriod(1));
 }
 
-function shiftMonth(delta) {
-  const period = state.period;
-  if (period.mode === 'year') period.year = Number(period.year || period.month.slice(0, 4)) + delta;
-  else {
-    const [year, month] = String(period.month).split('-').map(Number);
-    const d = new Date(year, month - 1 + delta, 1);
-    period.mode = 'month';
-    period.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  }
+function shiftHeaderPeriod(delta) {
+  state.period = { ...state.period, ...shiftPeriod(state.period, delta) };
   window.dispatchEvent(new CustomEvent('cfo:persist-render'));
 }
 

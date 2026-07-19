@@ -48,6 +48,14 @@ La persona abre el flujo de registro, elige tipo, fecha, cuentas, monto y detall
 
 Auditoría permite buscar, combinar filtros y abrir acciones de un movimiento. La edición debe persistir al recargar y conservar las reglas de cada tipo de movimiento.
 
+### Períodos y comparación analítica
+
+Balances, Resumen y Categorías comparten un período global confirmado por la persona usuaria. Su selector trabaja con un borrador hasta `Aplicar`; cancelar no puede alterar los datos visibles. La navegación anterior/siguiente preserva el modo elegido: mes, año o rango de igual duración.
+
+Auditoría abre en Todo el historial y guarda un período independiente junto con sus filtros. Puede copiar una instantánea del período del dashboard, pero nunca queda vinculada a cambios posteriores de ese dashboard. La interfaz explica de forma visible cuando ambos contextos difieren.
+
+Auditoría y Categorías pueden comparar un período acotado con el período anterior equivalente. Auditoría aplica simétricamente los filtros de texto, cuenta, tipo, categoría y subcategoría. Categorías respeta la selección de categorías y compara gasto ejecutado en las vistas Combinado y Solo gasto. La comparación sólo cambia lecturas analíticas; no modifica movimientos, presupuestos, balances, ingresos, gastos, transferencias ni trazabilidad. Si no existe base de comparación, la app indica `Sin base anterior` en lugar de presentar un porcentaje engañoso.
+
 ### Proteger los datos
 
 La app explica que los datos viven en el navegador y facilita exportar un respaldo JSON antes de acciones de riesgo o cambios de dispositivo.

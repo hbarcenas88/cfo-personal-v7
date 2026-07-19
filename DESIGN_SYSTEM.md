@@ -45,6 +45,12 @@ Los flujos móviles usan campos propios, keypad y pickers/sheets. No usar `<sele
 
 Los filtros de auditoría usan dropdowns propios, compactos y anclados a su disparador. Admiten chips activos, selección múltiple y búsqueda cuando la lista es larga. Sólo puede haber un dropdown abierto; se cierra con el mismo disparador, Escape, toque fuera, cerrar o “Listo”.
 
+### Períodos y comparación por contexto
+
+El selector global sirve a Balances, Resumen y Categorías; Auditoría usa un período propio y persistente. Abrir un selector crea un borrador: presets, calendario y campos no cambian la pantalla hasta `Aplicar`; `Cancelar`, Escape, cerrar y tocar fuera lo descartan. Las flechas preservan el modo activo: mes, año o rango de igual duración desplazado completo.
+
+La comparación es una lectura analítica, nunca una mutación financiera. Sólo aparece dentro del selector mientras la pantalla activa es Auditoría o Categorías y compara automáticamente con el período anterior equivalente. Auditoría muestra un sello de contexto cuando difiere del dashboard; Categorías conserva el período global y no expone la comparación desde Balances ni Resumen.
+
 ### Feedback
 
 Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmación explícita para borrar, restaurar, reiniciar o realizar una acción que pueda alterar datos.
@@ -93,6 +99,10 @@ La armonización se hace por flujos, no por pantallas aisladas. Resumen y Catego
 - La búsqueda y su acción de limpieza forman una misma fila: alturas coherentes, botón de limpieza de 44 px y sin competir visualmente con el campo.
 - Un dropdown abierto puede cubrir contenido posterior, pero nunca quedar recortado, iniciar fuera de pantalla ni ocultar su título, opciones o acción `Listo`.
 - Todo sheet o dropdown debe cerrarse con control visible, Escape, toque fuera y, cuando hay selección múltiple, `Listo`.
+- A 390 px, el sheet de período se ordena verticalmente: accesos rápidos, Desde, Hasta, comparación contextual y pie fijo con `Cancelar`/`Aplicar`. No usar una pestaña de comparación meramente informativa.
+- Auditoría prioriza búsqueda a ancho completo, resumen de filtros activos y un disparador compacto `Filtros`; los selectores propios se abren después sin desplazar ni recortar el contenido.
+- Mientras `Comparar` está activo en Categorías, cada tarjeta puede añadir una línea secundaria de variación de gasto; con la opción apagada conserva su densidad normal. La comparación no se expresa en la vista `Solo presupuesto`.
+- En Registro, la fecha se edita desde su campo de formulario. La calculadora no duplica el affordance de calendario y el monto mantiene la jerarquía principal.
 
 ### Matriz de adopción
 
