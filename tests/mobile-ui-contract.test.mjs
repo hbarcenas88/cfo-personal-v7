@@ -18,6 +18,9 @@ assert.doesNotMatch(periodPicker, /data-period-tab="compare"/);
 assert.match(audit, /data-open-audit-period/);
 assert.match(audit, /data-toggle-audit-filters/);
 assert.match(styles, /\.period-sheet-footer\s*\{[\s\S]*?position:\s*sticky/);
+const periodSheetContent = componentStyles.match(/\.period-sheet-content\s*\{[\s\S]*?\n\}/)[0];
+assert.match(periodSheetContent, /min-height:\s*0/);
+assert.match(periodSheetContent, /overflow-y:\s*auto/);
 assert.match(styles, /\.audit-filter-panel\s*\{[\s\S]*?position:\s*relative/);
 
 assert.match(audit, /class="search-panel audit-search-panel"/);
