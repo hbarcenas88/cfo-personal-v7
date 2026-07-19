@@ -8,13 +8,13 @@ Actualizado: 2026-07-19
 - Auditoría móvil: filtros compactos, edición segura de movimientos y transferencias vinculadas completados. La corrección de anclaje y densidad del dropdown fue revisada localmente a 390 × 844; falta el recorrido con datos reales respaldados.
 - Etapa 1 de armonización: Resumen y Categorías implementados, verificados e integrados en `main`; falta la comprobación con datos reales respaldados.
 - Auditoría previa a la entrevista de Prioridad 0 (2026-07-18): recorrido aislado a 390 × 844 que documentó los defectos del selector, navegación y comparación que motivaron este bloque. Esa evidencia histórica no cubre los flujos nuevos.
-- Prioridad 0 — períodos por contexto y densidad móvil (2026-07-19): implementada y verificada mediante la batería automatizada de `VERIFIER.md`, incluido el contrato de caché PWA `cfo-personal-v7-cache-30` para `periodService.js`. Sigue en validación: no hay todavía evidencia visual aislada a 390 × 844 de los flujos nuevos ni comprobación con datos reales respaldados.
+- Prioridad 0 — períodos por contexto y densidad móvil (2026-07-19): implementada y verificada mediante la batería automatizada de `VERIFIER.md` y evidencia aislada a 390 × 844. El sheet de período desplaza su cuerpo por encima del pie fijo y permite alcanzar la comparación; Auditoría conserva julio de 2026 cuando el dashboard cambia a junio de 2025 y su comparación respeta la categoría elegida; Categorías presenta período previo, `Sin base anterior` y la explicación de Solo presupuesto. Los controles de Auditoría/Categorías no desbordan horizontalmente y miden al menos 44 px; el keypad de ingreso no muestra calendario. La entrega PWA se confirmó con `cfo-personal-v7-cache-34`: tras refrescar/recargar el service worker, los activos fuente se actualizan. Sigue pendiente la validación no destructiva con datos reales respaldados; esta evidencia no implica publicación ni merge.
 - Las ramas remotas anteriores se preservaron con etiquetas de archivo y fueron retiradas; sólo `main` queda operativa.
 - El espacio histórico local está en `CFO Personal - Archivo/2026-07-16-pre-v7-operativa`, con bundle Git verificable.
 
 ## Próximo paso
 
-Realizar el recorrido aislado a 390 × 844 de los flujos de Prioridad 0 y adjuntar la evidencia visual. Después, pedir o confirmar un respaldo JSON existente antes de validar con datos reales de forma no destructiva; siguen pendientes capacidad de pago, extraordinarios, ritmo presupuestario y persistencia tras recargar.
+Pedir o confirmar un respaldo JSON existente antes de validar con datos reales de forma no destructiva; siguen pendientes capacidad de pago, extraordinarios, ritmo presupuestario y persistencia tras recargar. La evidencia visual aislada a 390 × 844 ya está registrada, pero no sustituye esa validación con datos reales.
 
 ## Bloqueos
 
