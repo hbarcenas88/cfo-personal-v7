@@ -260,6 +260,18 @@ export function operationalCategoryRows(state, period = state.period, { includeE
   return rowsForCategories(state, budgets, txs).filter(row => row.spent > 0);
 }
 
+export function operationalCategoryDistribution(state, period = state.period, {
+  includeExtraordinary = false,
+  excludedCategories = []
+} = {}) {
+  const rows = operationalCategoryRows(state, period, { includeExtraordinary })
+    .filter(row => !excludedCategories.some(category => canon(category) === canon(row.name)));
+  const total = sum(rows.map(row => row.spent));
+  return total
+    ? rows.map(row => ({ ...row, share: row.spent / total }))
+    : [];
+}
+
 export function operationalBudgetTotal(state, period = state.period, { excludedCategories = [] } = {}) {
   return sum(periodBudgets(state, period)
     .filter(budget => !excludedCategories.some(category => canon(category) === canon(budget.category)))
