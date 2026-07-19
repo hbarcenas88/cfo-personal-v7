@@ -1,5 +1,5 @@
 import { icon } from '../icons.js';
-import { budgetSummary, capacitySummary, dailyBudgetPace, operationalBudgetTotal, operationalCategoryRows } from '../services/financeService.js';
+import { budgetSummary, capacitySummary, dailyBudgetPace, operationalBudgetTotal, operationalCategoryDistribution, operationalCategoryRows } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
 import { formatMoney, html } from '../utils/format.js';
 
@@ -7,8 +7,10 @@ export function renderSummary(state) {
   const analysis = state.filters.summary || { excludedCategories: [], includeExtraordinary: false };
   const capacity = capacitySummary(state);
   const budget = budgetSummary(state);
-  const rows = operationalCategoryRows(state, state.period, { includeExtraordinary: analysis.includeExtraordinary })
-    .filter(row => !analysis.excludedCategories.includes(row.name));
+  const rows = operationalCategoryDistribution(state, state.period, {
+    includeExtraordinary: analysis.includeExtraordinary,
+    excludedCategories: analysis.excludedCategories
+  });
   const isMonthly = state.period.mode === 'month';
   const pace = isMonthly ? dailyBudgetPace(state, state.period, {
     includeExtraordinary: analysis.includeExtraordinary,
@@ -81,7 +83,13 @@ function renderOperationalChart(rows, analysis) {
       <div class="card-heading-block"><h2 class="card-heading">Gasto operativo por categoría</h2><div class="metric-note">${details.length ? details.join(' · ') : 'Gastos registrados del período.'}</div></div>
       <button class="ghost-icon" data-open-summary-analysis aria-label="Ajustar análisis">${icon('settings')}</button>
     </div>
-    ${topRows.length ? `<div class="chart-bars summary-chart-bars">${topRows.map((row, index) => barRow(row, total, chartColor(index))).join('')}</div>` : emptyState('barChart', 'Sin gasto operativo', 'Registra gastos o revisa los filtros de análisis.')}
+    ${topRows.length ? `
+      <div class="operational-chart-total">
+        <small>Analizado en el período</small>
+        <strong class="money">${formatMoney(total)}</strong>
+      </div>
+      <div class="chart-bars summary-chart-bars">${topRows.map(row => operationalBarRow(row)).join('')}</div>
+    ` : emptyState('barChart', 'Sin gasto operativo', 'Registra gastos o revisa los filtros de análisis.')}
     <div class="summary-card-actions"><button class="text-button" data-open-summary-analysis>${icon('settings')} Análisis</button><button class="text-button" data-view-categories>Ver categorías ${icon('chevronRight')}</button></div>
   `, 'chart-card summary-chart-card');
 }
@@ -121,13 +129,21 @@ function summaryStat(label, value, tone = '') {
   return `<div class="summary-stat"><small>${label}</small><strong class="money ${tone}">${formatSignedMoney(value)}</strong></div>`;
 }
 
-function barRow(row, total, color) {
-  const pct = total ? row.spent / total * 100 : 0;
+function operationalBarRow(row) {
+  const percent = row.share * 100;
+  const label = `${row.name}: ${formatMoney(row.spent)}, ${percent.toFixed(0)}% del gasto operativo`;
   return `
-    <div class="bar-row">
-      <div class="bar-label">${html(row.name)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, pct)}%;background:${color}"><span>${formatMoney(row.spent)}</span></div></div>
-      <div class="bar-pct">${pct.toFixed(0)}%</div>
+    <div class="operational-chart-row">
+      <div class="operational-chart-row-head">
+        <span class="operational-category"><i style="background:${row.color}"></i><span>${html(row.name)}</span></span>
+        <strong class="money">${formatMoney(row.spent)}</strong>
+      </div>
+      <div class="operational-chart-scale">
+        <div class="operational-chart-track" role="progressbar" aria-label="${html(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent.toFixed(1)}">
+          <span style="width:${percent.toFixed(1)}%;background:${row.color}"></span>
+        </div>
+        <span class="operational-chart-share">${percent.toFixed(0)}%</span>
+      </div>
     </div>
   `;
 }
@@ -187,8 +203,4 @@ function calculationLine(label, value, kind, note) {
 
 function formatSignedMoney(value) {
   return `${value < 0 ? '−' : ''}${formatMoney(value)}`;
-}
-
-function chartColor(index) {
-  return ['#0A8FE8', '#07966F', '#7C5CFF', '#C68000', '#DC3F61'][index % 5];
 }
