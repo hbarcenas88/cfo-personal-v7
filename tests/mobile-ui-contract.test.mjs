@@ -119,7 +119,7 @@ assert.equal(persistCalls, 1);
 assert.equal(mutationCalls, 0);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-31/);
+assert.match(worker, /cfo-personal-v7-cache-32/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 
 console.log('mobile-ui-contract.test.mjs passed');
