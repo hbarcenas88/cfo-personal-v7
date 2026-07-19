@@ -17,7 +17,7 @@ export function renderCategories(state) {
   }
   return `
     ${renderFilterPanel(filters, state)}
-    <div class="segmented">
+    <div class="segmented category-view-segmented">
       <button class="${filters.view === 'combined' ? 'active' : ''}" data-cat-view="combined">Combinado</button>
       <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget">Solo presupuesto</button>
       <button class="${filters.view === 'spend' ? 'active' : ''}" data-cat-view="spend">Solo gasto</button>
@@ -50,7 +50,7 @@ function renderFilterPanel(filters, state) {
   return card(`
     <div class="metric-top">
       <h2 class="card-heading">Filtros de categorías</h2>
-      <button class="chip dense" data-clear-cat-filters>Limpiar filtros</button>
+      <button class="chip dense category-filter-clear" data-clear-cat-filters>Limpiar filtros</button>
     </div>
     <div class="category-filter-controls">
       <input class="input" data-cat-search placeholder="Buscar categorías..." value="${html(filters.text || '')}">
