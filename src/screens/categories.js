@@ -1,14 +1,19 @@
 import { icon } from '../icons.js';
-import { categoryRows } from '../services/financeService.js';
+import { buildCategoryComparison, categoryRows } from '../services/financeService.js';
 import { card, emptyState, softColor } from '../components/ui.js';
-import { canon, formatMoney, html } from '../utils/format.js';
+import { canon, formatMoney, html, periodLabel } from '../utils/format.js';
 
 export function renderCategories(state) {
   const filters = state.filters.categories;
-  let rows = categoryRows(state);
-  if (filters.text) rows = rows.filter(row => canon(row.name).includes(canon(filters.text)));
-  if (filters.categories.length) rows = rows.filter(row => filters.categories.some(cat => canon(cat) === canon(row.name)));
-  rows = rows.filter(row => filters.view === 'budget' ? row.planned > 0 : filters.view === 'spend' ? row.spent > 0 : row.planned > 0 || row.spent > 0);
+  const comparison = filters.compare && filters.view !== 'budget'
+    ? buildCategoryComparison(state, state.period, filters)
+    : null;
+  let rows = comparison?.rows || categoryRows(state);
+  if (!comparison) {
+    if (filters.text) rows = rows.filter(row => canon(row.name).includes(canon(filters.text)));
+    if (filters.categories.length) rows = rows.filter(row => filters.categories.some(cat => canon(cat) === canon(row.name)));
+    rows = rows.filter(row => filters.view === 'budget' ? row.planned > 0 : filters.view === 'spend' ? row.spent > 0 : row.planned > 0 || row.spent > 0);
+  }
   return `
     ${renderFilterPanel(filters, state)}
     <div class="segmented">
@@ -17,7 +22,20 @@ export function renderCategories(state) {
       <button class="${filters.view === 'spend' ? 'active' : ''}" data-cat-view="spend">Solo gasto</button>
     </div>
     <div class="section-title"><h2>Categorías</h2></div>
-    ${rows.length ? rows.map(row => categoryCard(row, filters.expanded.includes(row.name))).join('') : emptyState('grid', 'Sin datos en este período', 'Ajusta fechas, filtros o carga datos')}
+    ${comparison ? renderComparisonSummary(comparison) : ''}
+    ${rows.length ? rows.map(row => categoryCard(row, filters.expanded.includes(row.name), Boolean(comparison))).join('') : emptyState('grid', 'Sin datos en este período', 'Ajusta fechas, filtros o carga datos')}
+  `;
+}
+
+function renderComparisonSummary(comparison) {
+  const percentage = comparison.percent === null
+    ? 'Sin base anterior'
+    : `${comparison.percent > 0 ? '+' : ''}${comparison.percent.toFixed(1)}%`;
+  return `
+    <div class="category-comparison-summary">
+      <div><span>Gasto del período</span><strong>${formatMoney(comparison.currentSpent)}</strong></div>
+      <div><span>vs. período anterior (${periodLabel(comparison.previousPeriod)})</span><strong class="${comparison.delta > 0 ? 'danger' : comparison.delta < 0 ? 'success' : ''}">${formatSignedDelta(comparison.delta)} · ${percentage}</strong></div>
+    </div>
   `;
 }
 
@@ -55,7 +73,7 @@ function renderCategoryDropdown(state) {
   `;
 }
 
-function categoryCard(row, expanded) {
+function categoryCard(row, expanded, showComparison) {
   const pct = row.planned ? Math.min(999, row.spent / row.planned * 100) : 0;
   const over = row.planned && row.spent > row.planned;
   const color = row.color || '#0A8FE8';
@@ -69,7 +87,19 @@ function categoryCard(row, expanded) {
       <span class="row-amount ${over ? 'danger' : ''}">${formatMoney(row.spent)}<small class="row-amount-note" style="--amount-note-color:${over ? 'var(--red)' : 'var(--green)'}">${row.planned ? `${pct.toFixed(0)}%` : 'sin ppto'}</small></span>
     </button>
     <div class="progress"><span style="width:${row.planned ? Math.min(100, pct) : 100}%;background:${over ? 'var(--red)' : color}"></span></div>
+    ${showComparison ? renderComparisonNote(row) : ''}
     ${over ? `<div class="row-subtitle mt-sm">Exceso: <strong class="danger">${formatMoney(row.spent - row.planned)}</strong></div>` : ''}
     ${expanded ? `<div class="subrows">${row.subcategories.length ? row.subcategories.map(sub => `<div class="subrow"><span>${sub.name}</span><strong>${formatMoney(sub.spent)} / ${formatMoney(sub.planned)}</strong></div>`).join('') : '<div class="row-subtitle">Sin subcategorías</div>'}</div>` : ''}
   `, 'category-card');
+}
+
+function renderComparisonNote(row) {
+  if (row.spentDeltaPercent === null) return '<div class="category-comparison-note">vs. período anterior: Sin base anterior</div>';
+  const percentage = `${row.spentDeltaPercent > 0 ? '+' : ''}${row.spentDeltaPercent.toFixed(1)}%`;
+  const deltaClass = row.spentDelta > 0 ? 'danger' : row.spentDelta < 0 ? 'success' : '';
+  return `<div class="category-comparison-note">vs. período anterior: <strong class="${deltaClass}">${formatSignedDelta(row.spentDelta)} · ${percentage}</strong></div>`;
+}
+
+function formatSignedDelta(value) {
+  return `${value > 0 ? '+' : value < 0 ? '-' : ''}${formatMoney(value)}`;
 }

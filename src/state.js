@@ -63,6 +63,8 @@ export const initialState = {
     selectedHealthIssue: '',
     auditFilter: '',
     auditDropdown: '',
+    auditDropdownSearch: '',
+    auditFiltersOpen: false,
     filterSearch: '',
     categoryDraft: null
   }
@@ -229,6 +231,9 @@ export function setView(view) {
   state.activeView = view;
   state.settingsPage = '';
   state.ui.drawerOpen = false;
+  state.ui.auditFiltersOpen = false;
+  state.ui.auditDropdown = '';
+  state.ui.auditDropdownSearch = '';
   notify();
 }
 
@@ -236,6 +241,9 @@ export function setSettingsPage(page) {
   state.activeView = 'settings';
   state.settingsPage = page;
   state.ui.drawerOpen = false;
+  state.ui.auditFiltersOpen = false;
+  state.ui.auditDropdown = '';
+  state.ui.auditDropdownSearch = '';
   notify();
 }
 

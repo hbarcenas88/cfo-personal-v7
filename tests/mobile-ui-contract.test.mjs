@@ -6,13 +6,16 @@ const categories = await readFile(new URL('../src/screens/categories.js', import
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../styles/screens.css', import.meta.url), 'utf8');
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
+const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
 assert.match(periodPicker, /data-period-copy-dashboard/);
 assert.doesNotMatch(periodPicker, /data-period-tab="compare"/);
 assert.match(audit, /data-open-audit-period/);
+assert.match(audit, /data-toggle-audit-filters/);
 assert.match(styles, /\.period-sheet-footer\s*\{[\s\S]*?position:\s*sticky/);
+assert.match(styles, /\.audit-filter-panel\s*\{[\s\S]*?position:\s*relative/);
 
 assert.match(audit, /class="search-panel audit-search-panel"/);
 assert.match(styles, /\.audit-filter-selectors\s*\{\s*position:\s*relative;/);
@@ -21,6 +24,8 @@ assert.doesNotMatch(styles, /\.audit-selector:nth-child/);
 assert.match(styles, /\.audit-search-panel\s*\.audit-clear-button\s*\{[\s\S]*?width:\s*var\(--control-md\)/);
 assert.match(categories, /class="category-filter-controls"/);
 assert.match(categories, /data-open-category-filter/);
+assert.match(categories, /class="category-comparison-summary"/);
+assert.match(categories, /class="category-comparison-note"/);
 assert.match(styles, /\.category-filter-controls\s*\{\s*position:\s*relative;/);
 assert.match(styles, /\.category-selector\s*\{\s*position:\s*static;/);
 assert.match(summary, /operationalCategoryDistribution/);
@@ -47,6 +52,8 @@ assert.doesNotMatch(operationalBarRow, /\$\{row\.color\}/);
 assert.match(styles, /\.operational-chart-track\s*\{[\s\S]*?height:\s*8px/);
 const operationalChartFill = styles.match(/\.operational-chart-track > span\s*\{[\s\S]*?\n\}/)[0];
 assert.doesNotMatch(operationalChartFill, /min-width\s*:/);
+assert.match(styles, /\.keypad\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, 1fr\)/);
+assert.doesNotMatch(keypad, /key\('calendar'/);
 assert.match(styles, /\.operational-chart-row-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 assert.match(styles, /\.operational-category > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
 

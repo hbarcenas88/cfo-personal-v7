@@ -23,6 +23,7 @@ let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0
 let draggedAccountId = '';
 let pointerDragAccount = null;
 let auditDropdownDismissBound = false;
+let filterPersistTimer = 0;
 const APP_VERSION = '7.0.5';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 
@@ -39,6 +40,14 @@ function captureError(context, error) {
   state.debug = { ...(state.debug || {}), lastError: `${context}: ${message}` };
   console.error('[CFO V7]', context, error);
   showToast(`Error: ${message}`);
+}
+
+function renderAndPersistFilters() {
+  window.clearTimeout(filterPersistTimer);
+  render();
+  filterPersistTimer = window.setTimeout(() => {
+    persist().catch(error => captureError('filter persistence', error));
+  }, 250);
 }
 
 await initState();
@@ -210,13 +219,21 @@ async function applyPeriodDraft() {
     return;
   }
   const { scope, tab, error, compare, ...period } = draft;
+  let categoryFiltersChanged = false;
   if (scope === 'audit') state.auditPeriod = { ...period, compare: Boolean(compare && isComparisonAvailable(period)) };
   else {
     state.period = period;
-    if (state.activeView === 'categories') state.filters.categories.compare = Boolean(compare && isComparisonAvailable(period));
+    if (state.activeView === 'categories') {
+      state.filters.categories.compare = Boolean(compare && isComparisonAvailable(period));
+      categoryFiltersChanged = true;
+    }
   }
   state.ui.periodDraft = null;
   closeSheet();
+  if (categoryFiltersChanged) {
+    renderAndPersistFilters();
+    return;
+  }
   await persist();
   render();
 }
@@ -377,8 +394,7 @@ function bindRecordEvents() {
       onConfirm: value => {
         state.ui.recordFlow.amount = value;
         state.ui.recordFlow.displayAmount = Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      },
-      onCalendarOpen: () => document.querySelector('[data-record-calendar]')?.click()
+      }
     });
     document.querySelectorAll('[data-key]').forEach(button => button.addEventListener('click', () => keypad.press(button.dataset.key)));
   }
@@ -503,14 +519,15 @@ function bindFilters() {
   if (!auditDropdownDismissBound) {
     auditDropdownDismissBound = true;
     document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape' || (!state.ui.auditDropdown && !state.ui.categoryDropdown)) return;
+      if (event.key !== 'Escape' || (!state.ui.auditDropdown && !state.ui.categoryDropdown && !state.ui.auditFiltersOpen)) return;
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
+      state.ui.auditFiltersOpen = false;
       render();
     });
     document.addEventListener('click', event => {
-      if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter]')) return;
+      if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter], [data-toggle-audit-filters]')) return;
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
@@ -519,31 +536,32 @@ function bindFilters() {
   }
   document.querySelector('[data-cat-search]')?.addEventListener('input', event => {
     state.filters.categories.text = event.target.value;
-    render();
+    renderAndPersistFilters();
   });
   document.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.view = button.dataset.catView;
-    render();
+    state.ui.auditFiltersOpen = false;
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
     const list = state.filters.categories.expanded;
     const name = button.dataset.catExpand;
     state.filters.categories.expanded = list.includes(name) ? list.filter(x => x !== name) : [...list, name];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-add-cat-filter]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.categories.push(button.dataset.addCatFilter);
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-remove-cat-filter]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.categories = state.filters.categories.categories.filter(v => v !== button.dataset.removeCatFilter);
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelector('[data-clear-cat-filters]')?.addEventListener('click', () => {
     state.filters.categories.text = '';
     state.filters.categories.categories = [];
     state.ui.categoryDropdown = false;
-    render();
+    renderAndPersistFilters();
   });
   document.querySelector('[data-open-category-filter]')?.addEventListener('click', () => {
     state.ui.categoryDropdown = !state.ui.categoryDropdown;
@@ -554,11 +572,11 @@ function bindFilters() {
     const name = button.dataset.categoryFilterToggle;
     const selected = state.filters.categories.categories;
     state.filters.categories.categories = selected.includes(name) ? selected.filter(value => value !== name) : [...selected, name];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelector('[data-category-filter-clear]')?.addEventListener('click', () => {
     state.filters.categories.categories = [];
-    render();
+    renderAndPersistFilters();
   });
   document.querySelectorAll('[data-category-filter-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.categoryDropdown = false;
@@ -592,11 +610,14 @@ function bindFilters() {
   }));
   document.querySelector('[data-audit-search]')?.addEventListener('input', event => {
     state.filters.audit.text = event.target.value;
-    render();
+    renderAndPersistFilters();
   });
   document.querySelector('[data-audit-clear]')?.addEventListener('click', () => {
     state.filters.audit = { text: '', accounts: [], types: [], categories: [], subcategories: [] };
-    render();
+    state.ui.auditFiltersOpen = false;
+    state.ui.auditDropdown = '';
+    state.ui.auditDropdownSearch = '';
+    renderAndPersistFilters();
   });
   document.querySelectorAll('[data-open-audit-period]').forEach(button => button.addEventListener('click', () => {
     openPeriodSheet('audit');
@@ -604,8 +625,14 @@ function bindFilters() {
   document.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
     const [key, value] = splitPair(button.dataset.filterRemove);
     state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
-    render();
+    renderAndPersistFilters();
   }));
+  document.querySelector('[data-toggle-audit-filters]')?.addEventListener('click', () => {
+    state.ui.auditFiltersOpen = !state.ui.auditFiltersOpen;
+    state.ui.auditDropdown = '';
+    state.ui.auditDropdownSearch = '';
+    render();
+  });
   document.querySelectorAll('[data-open-filter]').forEach(button => button.addEventListener('click', () => {
     const type = button.dataset.openFilter;
     state.ui.auditDropdown = state.ui.auditDropdown === type ? '' : type;
@@ -622,12 +649,12 @@ function bindFilters() {
     if (!key || !value) return;
     const selected = state.filters.audit[key];
     state.filters.audit[key] = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-audit-dropdown-clear]').forEach(button => button.addEventListener('click', () => {
     const key = auditFilterKey(button.dataset.auditDropdownClear);
     if (key) state.filters.audit[key] = [];
-    render();
+    renderAndPersistFilters();
   }));
   document.querySelectorAll('[data-audit-dropdown-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.auditDropdown = '';
@@ -642,6 +669,7 @@ function bindFilters() {
     button.addEventListener('dblclick', () => {
       state.filters.audit.accounts = [button.dataset.auditAccount];
       setView('audit');
+      renderAndPersistFilters();
     });
   });
 }

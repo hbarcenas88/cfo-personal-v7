@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildAuditComparison } from '../src/services/financeService.js';
+import { buildAuditComparison, buildCategoryComparison } from '../src/services/financeService.js';
 
 const state = {
   categories: [{ name: 'Comida', subcategories: [] }, { name: 'Hogar', subcategories: [] }],
@@ -28,4 +28,13 @@ const noBase = buildAuditComparison(state, { mode: 'month', month: '2026-05', co
 });
 assert.equal(noBase.previousTotal, 0);
 assert.equal(noBase.percent, null);
+const categoryResult = buildCategoryComparison(state, { mode: 'month', month: '2026-05' }, {
+  text: '', categories: ['Comida'], view: 'spend'
+});
+assert.equal(categoryResult.rows.length, 1);
+assert.equal(categoryResult.rows[0].name, 'Comida');
+assert.equal(categoryResult.rows[0].spent, 80);
+assert.equal(categoryResult.rows[0].previousSpent, 120);
+assert.equal(categoryResult.rows[0].spentDelta, -40);
+assert.equal(categoryResult.rows[0].spentDeltaPercent, -33.33333333333333);
 console.log('comparison-analysis.test.mjs passed');

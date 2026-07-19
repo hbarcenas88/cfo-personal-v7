@@ -274,6 +274,38 @@ export function categoryRows(state, period = state.period) {
   return rowsForCategories(state, budgets, txs);
 }
 
+export function buildCategoryComparison(state, period, filters = {}) {
+  const visible = row => {
+    if (filters.text && !canon(row.name).includes(canon(filters.text))) return false;
+    if (filters.categories?.length && !filters.categories.some(name => canon(name) === canon(row.name))) return false;
+    if (filters.view === 'budget') return row.planned > 0;
+    if (filters.view === 'spend') return row.spent > 0;
+    return row.planned > 0 || row.spent > 0;
+  };
+  const currentRows = categoryRows(state, period).filter(visible);
+  const previousByName = new Map(categoryRows(state, comparisonPeriod(period)).map(row => [canon(row.name), row]));
+  const rows = currentRows.map(row => {
+    const previousSpent = Number(previousByName.get(canon(row.name))?.spent || 0);
+    const spentDelta = row.spent - previousSpent;
+    return {
+      ...row,
+      previousSpent,
+      spentDelta,
+      spentDeltaPercent: previousSpent === 0 ? null : (spentDelta / previousSpent) * 100
+    };
+  });
+  const currentSpent = rows.reduce((sum, row) => sum + row.spent, 0);
+  const previousSpent = rows.reduce((sum, row) => sum + row.previousSpent, 0);
+  return {
+    rows,
+    currentSpent,
+    previousSpent,
+    delta: currentSpent - previousSpent,
+    percent: previousSpent === 0 ? null : ((currentSpent - previousSpent) / previousSpent) * 100,
+    previousPeriod: comparisonPeriod(period)
+  };
+}
+
 function rowsForCategories(state, budgets, txs) {
   const names = new Set([
     ...state.categories.map(cat => cat.name),

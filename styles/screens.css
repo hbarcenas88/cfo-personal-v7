@@ -338,6 +338,36 @@
   padding: 16px;
 }
 
+.category-comparison-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--blue-soft);
+}
+
+.category-comparison-summary div {
+  display: grid;
+  gap: 3px;
+}
+
+.category-comparison-summary span,
+.category-comparison-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.category-comparison-summary strong {
+  font-size: 14px;
+}
+
+.category-comparison-note {
+  margin-top: 8px;
+}
+
 .category-card .row-card {
   border-bottom: 0;
   padding: 0;
@@ -505,6 +535,11 @@
 
 .audit-filter-selectors {
   position: relative;
+}
+
+.audit-filter-panel {
+  position: relative;
+  margin-top: 10px;
 }
 
 .audit-dropdown {
@@ -790,7 +825,7 @@
 
 .keypad {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-sm);
   margin-top: auto;
   margin-bottom: 0;
@@ -817,7 +852,8 @@
 }
 
 .keypad .confirm {
-  grid-row: span 2;
+  grid-column: span 3;
+  grid-row: auto;
   background: var(--blue);
   color: #fff;
   border-color: var(--blue);

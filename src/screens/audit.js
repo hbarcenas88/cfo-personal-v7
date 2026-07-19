@@ -38,8 +38,11 @@ function renderComparisonCard(comparison) {
 }
 
 function renderFilters(state, filters) {
+  const activeCount = ['accounts', 'types', 'categories', 'subcategories']
+    .reduce((count, key) => count + filters[key].length, 0);
+  const filterLabel = activeCount ? `Filtros (${activeCount})` : 'Filtros';
   return card(`
-    <div class="audit-filter-head"><strong>Registros</strong><small>Busca y combina filtros</small></div>
+    <div class="audit-filter-head"><strong>Registros</strong><button class="chip dense" data-toggle-audit-filters aria-expanded="${Boolean(state.ui.auditFiltersOpen)}">${filterLabel}</button></div>
     <div class="search-panel audit-search-panel">
       <input class="input" data-audit-search placeholder="Buscar movimientos..." value="${filters.text || ''}">
       <button class="filter-button audit-clear-button" data-audit-clear aria-label="Limpiar búsqueda y filtros">${icon('x')}</button>
@@ -47,12 +50,16 @@ function renderFilters(state, filters) {
     <div class="chip-row audit-active-filters">
       ${filterChips(filters)}
     </div>
-    <div class="chip-row audit-filter-selectors">
-      ${selectorChip('Cuenta', 'account', state)}
-      ${selectorChip('Tipo', 'type', state)}
-      ${selectorChip('Categoría', 'category', state)}
-      ${selectorChip('Subcategoría', 'subcategory', state)}
-    </div>
+    ${state.ui.auditFiltersOpen ? `
+      <div class="audit-filter-panel">
+        <div class="chip-row audit-filter-selectors">
+          ${selectorChip('Cuenta', 'account', state)}
+          ${selectorChip('Tipo', 'type', state)}
+          ${selectorChip('Categoría', 'category', state)}
+          ${selectorChip('Subcategoría', 'subcategory', state)}
+        </div>
+      </div>
+    ` : ''}
   `);
 }
 
