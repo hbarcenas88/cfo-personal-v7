@@ -71,7 +71,7 @@ Esta sección no autoriza publicación ni merge.
 - [ ] Confirmar que confirmar, descartar o dejar pendiente una coincidencia no altera movimientos, saldos, presupuesto, transferencias ni trazabilidad financiera.
 - [ ] Confirmar que los cierres se pueden reabrir y que un delta no explicado se conserva como `Delta detectado: revisar`.
 - [ ] Cubrir coincidencia exacta, advertencia de fecha de hasta ±2 días, candidato lejano, ambigüedad del mismo importe y diferencias solo en la app/solo en el banco.
-- [ ] Rechazar importaciones sin columnas válidas, fuera del rango declarado o repetidas sin duplicar evidencia.
+- [ ] Confirmar importación con importe firmado y con débito/crédito separados; rechazar archivos sin fecha, descripción o una forma válida de importe, fuera del rango declarado o repetidos sin duplicar evidencia.
 
 ### Revisión visual y datos reales
 

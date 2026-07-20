@@ -48,7 +48,7 @@
 **Interfaces:**
 - Consumes: `canon`, `parseAmount`, `parseDate` de `src/utils/format.js`; `state.transactions` normalizadas.
 - Produces: `normalizeStatementRows(objects, mapping)`, `statementFingerprint(rows)`, `accountBalanceAtCutoff(state, accountName, cutoffDate)`, `buildGuidedAuditReview(close, state)` y `matchStatementToTransactions(statementRows, transactions)`.
-- `NormalizedStatementRow` tiene `{ id, sourceRow, date, signedAmount, description }`.
+- `NormalizedStatementRow` tiene `{ id, sourceRow, date, signedAmount, description }`; `signedAmount` proviene de una columna firmada o de `credit - debit`.
 - `GuidedAuditReview` tiene `{ recordedBalance, realBalance, delta, exact, dateWarnings, distantCandidates, onlyInApp, onlyInBank, ambiguous, confirmed, status }`.
 
 - [ ] **Step 1: Write the failing test**
@@ -70,6 +70,9 @@ assert.deepEqual(statementRows[0], {
   id: 'statement-2', sourceRow: 2, date: '2026-07-19', signedAmount: -43.2, description: 'NETFLIX.COM'
 });
 assert.equal(statementFingerprint(statementRows), statementFingerprint([...statementRows].reverse()));
+assert.equal(normalizeStatementRows([
+  { fecha: '2026-07-17', debito: '43.20', credito: '', detalle: 'Cargo' }
+], { date: 'fecha', debit: 'debito', credit: 'credito', description: 'detalle' })[0].signedAmount, -43.2);
 
 const state = {
   accounts: [{ name: 'BAC Débito' }],
@@ -111,9 +114,17 @@ export function normalizeStatementRows(objects = [], mapping = {}) {
     id: `statement-${row.__row || index + 2}`,
     sourceRow: row.__row || index + 2,
     date: parseDate(row[mapping.date]),
-    signedAmount: parseAmount(row[mapping.amount]),
+    signedAmount: statementSignedAmount(row, mapping),
     description: String(row[mapping.description] || '').trim()
   })).filter(row => row.date && Number.isFinite(row.signedAmount));
+}
+
+function statementSignedAmount(row, mapping) {
+  if (mapping.amount) return parseAmount(row[mapping.amount]);
+  const debit = parseAmount(row[mapping.debit]);
+  const credit = parseAmount(row[mapping.credit]);
+  if (!Number.isFinite(debit) && !Number.isFinite(credit)) return NaN;
+  return (Number.isFinite(credit) ? Math.abs(credit) : 0) - (Number.isFinite(debit) ? Math.abs(debit) : 0);
 }
 
 export function statementFingerprint(rows = []) {
@@ -170,7 +181,7 @@ git commit -m "feat: add guided audit matching service"
 
 **Interfaces:**
 - Consumes: `parseCSV` y `rowsToObjects` de `src/services/importExportService.js`, `window.XLSX` de la distribución vendorizada.
-- Produces: `readStatementFile(file): Promise<{ headers: string[], objects: object[], format: 'csv' | 'xlsx' }>` y `validateStatementMapping(headers, mapping): { ok: boolean, message: string }`.
+- Produces: `readStatementFile(file): Promise<{ headers: string[], objects: object[], format: 'csv' | 'xlsx' }>` y `validateStatementMapping(headers, mapping): { ok: boolean, message: string }`, que admite importe firmado o débito/crédito.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -180,6 +191,12 @@ import { validateStatementMapping } from '../src/services/statementFileService.j
 assert.deepEqual(
   validateStatementMapping(['Fecha', 'Monto', 'Descripción'], {
     date: 'Fecha', amount: 'Monto', description: 'Descripción'
+  }),
+  { ok: true, message: '' }
+);
+assert.deepEqual(
+  validateStatementMapping(['Fecha', 'Débito', 'Crédito', 'Descripción'], {
+    date: 'Fecha', debit: 'Débito', credit: 'Crédito', description: 'Descripción'
   }),
   { ok: true, message: '' }
 );
@@ -210,9 +227,13 @@ import { parseCSV, rowsToObjects } from './importExportService.js';
 import { canon } from '../utils/format.js';
 
 export function validateStatementMapping(headers = [], mapping = {}) {
-  const required = ['date', 'amount', 'description'];
-  if (required.some(key => !headers.includes(mapping[key]))) return { ok: false, message: 'Asigna fecha, importe y descripción.' };
-  if (new Set(required.map(key => mapping[key])).size !== required.length) return { ok: false, message: 'Cada campo debe usar una columna distinta.' };
+  const required = ['date', 'description'];
+  if (required.some(key => !headers.includes(mapping[key]))) return { ok: false, message: 'Asigna fecha y descripción.' };
+  const signed = headers.includes(mapping.amount);
+  const split = headers.includes(mapping.debit) && headers.includes(mapping.credit);
+  if (!signed && !split) return { ok: false, message: 'Asigna un importe o las columnas de débito y crédito.' };
+  const selected = signed ? [...required, 'amount'] : [...required, 'debit', 'credit'];
+  if (new Set(selected.map(key => mapping[key])).size !== selected.length) return { ok: false, message: 'Cada campo debe usar una columna distinta.' };
   return { ok: true, message: '' };
 }
 
@@ -236,6 +257,8 @@ export function suggestedStatementMapping(headers = []) {
   return {
     date: find(['fecha', 'date', 'fecha transaccion', 'fecha de transaccion']),
     amount: find(['monto', 'importe', 'amount', 'valor']),
+    debit: find(['debito', 'débito', 'debit', 'cargos']),
+    credit: find(['credito', 'crédito', 'credit', 'abonos']),
     description: find(['descripcion', 'descripción', 'detalle', 'description', 'concepto'])
   };
 }
@@ -385,7 +408,7 @@ export function renderAuditCloseEntry(state) {
 }
 ```
 
-Implement the sheet in five explicit visual stages: Datos, Importar, Revisar, Resultado. Use `pickerButton`/`optionPickerSheet` for account and column choices, `input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"` only for file selection, and never a native select. Render `Solo en la app`, `Solo en el banco`, `Advertencia de fecha`, `Candidato lejano` and `Ambiguo` as separate cards. Each candidate displays both date/amount/description values and controls `Confirmar`, `No corresponde`, `Dejar pendiente`.
+Implement the sheet in five explicit visual stages: Datos, Importar, Revisar, Resultado. Use `pickerButton`/`optionPickerSheet` for account and column choices. The mapping stage offers either `Fecha + Descripción + Importe` or `Fecha + Descripción + Débito + Crédito`, with the inactive variant omitted from validation. Use `input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"` only for file selection, and never a native select. Render `Solo en la app`, `Solo en el banco`, `Advertencia de fecha`, `Candidato lejano` and `Ambiguo` as separate cards. Each candidate displays both date/amount/description values and controls `Confirmar`, `No corresponde`, `Dejar pendiente`.
 
 ```css
 /* styles/screens.css */

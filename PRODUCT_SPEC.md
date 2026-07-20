@@ -58,7 +58,7 @@ Auditoría y Categorías pueden comparar un período acotado con el período ant
 
 ### Auditoría guiada por cuenta y fecha
 
-La auditoría guiada permite abrir un cierre flexible para una cuenta y una fecha de corte, no sólo para un mes. La persona indica el saldo real y el rango que cubre su estado de cuenta, importa un CSV/XLSX previamente preparado y confirma las columnas de fecha, importe y descripción. La app conserva localmente filas normalizadas asociadas al cierre, no el archivo original.
+La auditoría guiada permite abrir un cierre flexible para una cuenta y una fecha de corte, no sólo para un mes. La persona indica el saldo real y el rango que cubre su estado de cuenta, importa un CSV/XLSX previamente preparado y confirma fecha, descripción y una de dos formas de importe: una columna firmada o columnas separadas de débito y crédito. La app normaliza débito como negativo y crédito como positivo, y conserva localmente filas normalizadas asociadas al cierre, no el archivo original.
 
 El análisis compara filas bancarias con movimientos de la cuenta. Una coincidencia sugerida combina importe, fecha y descripción parecida; el mismo importe con una diferencia de hasta ±2 días se muestra como advertencia. Si el importe coincide pero la fecha es más lejana o hay más de un candidato, se conserva como revisión humana, sin emparejamiento automático. La persona puede confirmar, descartar o dejar pendiente una pareja. Las validaciones pertenecen al cierre y pueden reabrirse; no alteran movimientos, balances, presupuesto, transferencias ni trazabilidad financiera. Un cierre termina como `Cuadrado` o `Delta detectado: revisar`.
 

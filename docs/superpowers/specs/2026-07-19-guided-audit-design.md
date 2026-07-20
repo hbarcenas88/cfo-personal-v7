@@ -20,7 +20,7 @@ Incluye:
 
 - Cierres flexibles por cuenta y fecha de corte.
 - Ingreso manual de saldo real y rango cubierto por el extracto.
-- Carga local de CSV/XLSX preparado por la persona y asignación de columnas de fecha, importe y descripción.
+- Carga local de CSV/XLSX preparado por la persona y asignación de fecha, descripción y un importe firmado o columnas separadas de débito/crédito.
 - Persistencia de filas normalizadas dentro del cierre, sin almacenar el archivo original.
 - Detección y revisión de coincidencias, diferencias y delta.
 - Confirmar, descartar o dejar pendientes relaciones dentro de un cierre; reabrir cierres anteriores.
@@ -34,7 +34,7 @@ No incluye:
 ## Recorrido guiado
 
 1. La persona selecciona una cuenta, fecha de corte, saldo real y el rango del extracto.
-2. Carga el CSV/XLSX y confirma las columnas requeridas. La app valida que haya filas utilizables y que el rango declarado sea coherente.
+2. Carga el CSV/XLSX y confirma fecha, descripción y una de estas variantes: importe firmado, o débito y crédito separados. La app normaliza débito como negativo y crédito como positivo, valida que haya filas utilizables y que el rango declarado sea coherente.
 3. La app normaliza las filas localmente y calcula el saldo registrado y delta para la misma cuenta y corte.
 4. Presenta las diferencias prioritarias y las sugerencias de coincidencia.
 5. La persona confirma, descarta o mantiene pendientes las relaciones propuestas.
@@ -43,7 +43,7 @@ No incluye:
 ## Reglas de comparación
 
 - La comparación se limita a la cuenta y rango declarados.
-- Importe, fecha y descripción similar forman una coincidencia sugerida.
+- Importe normalizado con signo, fecha y descripción similar forman una coincidencia sugerida.
 - Importe igual con fecha desplazada hasta ±2 días es una advertencia y requiere revisión humana.
 - Importe igual fuera de ese margen es un candidato lejano, no una coincidencia.
 - Varios candidatos posibles para una misma fila son ambiguos; V7 no elige por la persona.
@@ -64,7 +64,7 @@ La importación y la asignación de columnas usan sheets y controles propios; no
 
 ## Manejo de fallos
 
-- Archivo no legible o columnas requeridas ausentes: explicar qué dato falta y no crear el cierre.
+- Archivo no legible o columnas requeridas ausentes: exigir fecha, descripción y un importe firmado o débito/crédito; explicar qué dato falta y no crear el cierre.
 - Fechas o importes inválidos: mostrar filas rechazadas y permitir corregir la asignación antes de continuar.
 - Archivo fuera del rango declarado: advertir y bloquear hasta ajustar el rango o reemplazar el archivo.
 - Importación repetida: detectar la misma evidencia normalizada y evitar duplicarla.
@@ -72,7 +72,7 @@ La importación y la asignación de columnas usan sheets y controles propios; no
 
 ## Verificación requerida
 
-- Pruebas puras para normalización, huella de importación, coincidencias exactas, ±2 días, candidato lejano y ambigüedad.
+- Pruebas puras para normalización de importe firmado y de débito/crédito, huella de importación, coincidencias exactas, ±2 días, candidato lejano y ambigüedad.
 - Pruebas de persistencia, reapertura, confirmación, descarte y pendiente sin mutar datos financieros.
 - Pruebas de rechazo de importación inválida, fuera de rango o repetida.
 - Prueba de regresión que transferencias vinculadas, saldos, presupuesto y trazabilidad financiera permanecen intactos.
