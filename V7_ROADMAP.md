@@ -10,6 +10,7 @@
 
 ## Backlog posterior
 
+- Auditoría guiada por cuenta y fecha con CSV/XLSX normalizado.
 - Conciliación mensual.
 - Auditoría contra estado de cuenta PDF.
 - Alertas financieras configurables.
@@ -32,6 +33,14 @@
 - Entrega PWA: el worker actual `cfo-personal-v7-cache-37` está cubierto por regresión de precache y runtime sin HTTP cache; sólo cachea respuestas válidas completas y preserva la respuesta de red cuando falla una escritura de caché. Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación anterior con `cache-34` no confirma la versión actual. Sigue pendiente captura duradera o validación móvil del usuario.
 - Pendiente antes de considerarlo completado: captura duradera o validación móvil del usuario, y validación no destructiva con datos reales después de confirmar un respaldo JSON existente. Esta evidencia no autoriza publicación ni merge.
 - Este bloque precede a la Etapa 2 y está documentado en `docs/superpowers/specs/2026-07-18-period-scope-and-mobile-density-design.md`.
+
+## Iniciativa analítica independiente — Auditoría guiada
+
+- Diseño aprobado el 2026-07-19 y documentado en `docs/superpowers/specs/2026-07-19-guided-audit-design.md`.
+- Cierre flexible por cuenta y fecha: saldo real, rango declarado, CSV/XLSX normalizado, diferencias y delta persistente.
+- Comparación analítica y validaciones de revisión separadas de movimientos, saldos, presupuesto y transferencias.
+- No bloquea la validación real de Prioridad 0, pero requiere respaldo confirmado para probarse con datos reales.
+- PDF/imágenes, conexión bancaria, ajustes para cuadrar y conciliación automática quedan fuera de esta primera versión.
 
 ## Armonización UX gradual
 

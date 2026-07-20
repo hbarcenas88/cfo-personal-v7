@@ -56,6 +56,14 @@ Auditoría abre en Todo el historial y guarda un período independiente junto co
 
 Auditoría y Categorías pueden comparar un período acotado con el período anterior equivalente. Auditoría aplica simétricamente los filtros de texto, cuenta, tipo, categoría y subcategoría. Categorías respeta la selección de categorías y compara gasto ejecutado en las vistas Combinado y Solo gasto. La comparación sólo cambia lecturas analíticas; no modifica movimientos, presupuestos, balances, ingresos, gastos, transferencias ni trazabilidad. Si no existe base de comparación, la app indica `Sin base anterior` en lugar de presentar un porcentaje engañoso.
 
+### Auditoría guiada por cuenta y fecha
+
+La auditoría guiada permite abrir un cierre flexible para una cuenta y una fecha de corte, no sólo para un mes. La persona indica el saldo real y el rango que cubre su estado de cuenta, importa un CSV/XLSX previamente preparado y confirma las columnas de fecha, importe y descripción. La app conserva localmente filas normalizadas asociadas al cierre, no el archivo original.
+
+El análisis compara filas bancarias con movimientos de la cuenta. Una coincidencia sugerida combina importe, fecha y descripción parecida; el mismo importe con una diferencia de hasta ±2 días se muestra como advertencia. Si el importe coincide pero la fecha es más lejana o hay más de un candidato, se conserva como revisión humana, sin emparejamiento automático. La persona puede confirmar, descartar o dejar pendiente una pareja. Las validaciones pertenecen al cierre y pueden reabrirse; no alteran movimientos, balances, presupuesto, transferencias ni trazabilidad financiera. Un cierre termina como `Cuadrado` o `Delta detectado: revisar`.
+
+La primera versión no lee PDF ni imágenes, no conserva archivos bancarios originales, no crea ajustes para cuadrar y no se conecta a bancos. Las importaciones inválidas, fuera del rango declarado o repetidas se explican antes de crear o duplicar evidencia.
+
 ### Proteger los datos
 
 La app explica que los datos viven en el navegador y facilita exportar un respaldo JSON antes de acciones de riesgo o cambios de dispositivo.

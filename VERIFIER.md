@@ -62,3 +62,20 @@
 - [ ] Confirmar targets de al menos 44 px, ausencia de `<select>` nativos, overflow horizontal, contenido recortado y superposición con safe areas.
 
 Esta sección no autoriza publicación ni merge.
+
+## Auditoría guiada por cuenta y fecha — diseño aprobado, pendiente de implementación
+
+### Integridad y persistencia
+
+- [ ] Confirmar que un cierre guarda cuenta, fecha de corte, saldo real, rango declarado, filas normalizadas y validaciones sin guardar el archivo CSV/XLSX original.
+- [ ] Confirmar que confirmar, descartar o dejar pendiente una coincidencia no altera movimientos, saldos, presupuesto, transferencias ni trazabilidad financiera.
+- [ ] Confirmar que los cierres se pueden reabrir y que un delta no explicado se conserva como `Delta detectado: revisar`.
+- [ ] Cubrir coincidencia exacta, advertencia de fecha de hasta ±2 días, candidato lejano, ambigüedad del mismo importe y diferencias solo en la app/solo en el banco.
+- [ ] Rechazar importaciones sin columnas válidas, fuera del rango declarado o repetidas sin duplicar evidencia.
+
+### Revisión visual y datos reales
+
+- [ ] A 390 × 844, revisar el flujo cuenta/rango/saldo/importación/revisión/resultado sin overflow, safe-area conflict ni `<select>` nativo.
+- [ ] Con respaldo JSON confirmado, validar una cuenta real sin crear, editar ni borrar registros financieros; confirmar después que el cierre puede reabrirse.
+
+Esta sección no autoriza publicación ni merge.

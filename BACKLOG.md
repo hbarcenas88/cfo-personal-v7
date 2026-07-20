@@ -13,19 +13,20 @@ Estado: esta lista ordena el trabajo pendiente; no autoriza por sí sola cambios
 4. **Etapa 2: Balances y Auditoría.** Armonizar jerarquía, superficies, iconografía, saldo disponible, provisiones y mensajes de salud; añadir marcado masivo de extraordinarios con confirmación y trazabilidad.
 5. **Revisión asistida de importaciones masivas.** Cuando una cuenta, categoría, subcategoría o tipo de movimiento sea nuevo o dudoso, permitir corregir el texto manualmente o elegir una opción existente mediante un selector propio. Después de resolver una propuesta, ofrecer aplicar esa misma decisión a los pendientes equivalentes, indicando cantidad, efecto y confirmación explícita. Conservar siempre el valor importado original y la trazabilidad de la decisión; nunca sobrescribir en silencio.
 6. **Cobertura de obligaciones y presupuesto planeado.**
-7. **Conciliación mensual guiada.**
-8. **Auditoría contra estados de cuenta PDF.**
-9. **Decisión sobre pagos programados.** Mantenerlos como avisos o retirarlos del Resumen.
+7. **Auditoría guiada por cuenta y fecha.** Diseño aprobado: cierre flexible con saldo real, importación local de CSV/XLSX normalizado, detección analítica de diferencias y trazabilidad de revisión. No depende de la validación real para iniciar su diseño o implementación, pero requiere respaldo confirmado para validar datos reales y no altera datos financieros.
+8. **Conciliación mensual guiada.** Evolución posterior de la auditoría guiada; no restringirla a un cierre mensual.
+9. **Auditoría contra estados de cuenta PDF.** Conversión o extracción asistida posterior; la primera versión de auditoría guiada recibe CSV/XLSX, no procesa PDF ni imágenes.
+10. **Decisión sobre pagos programados.** Mantenerlos como avisos o retirarlos del Resumen.
 
 ## Prioridad 2 — Mejoras posteriores
 
-10. **Alertas PWA configurables.**
-11. **Comparativos de períodos ampliados.** Sólo después de definir correctamente el selector de período.
-12. **Exportación avanzada para Excel.**
-13. **Regresiones UX con datos reales.** Botones sólo-icono, targets táctiles y tarjetas de transferencia con nombres largos.
+11. **Alertas PWA configurables.**
+12. **Comparativos de períodos ampliados.** Sólo después de definir correctamente el selector de período.
+13. **Exportación avanzada para Excel.**
+14. **Regresiones UX con datos reales.** Botones sólo-icono, targets táctiles y tarjetas de transferencia con nombres largos.
 
 ## Último horizonte
 
-14. **Temas y apariencias configurables.**
-15. **Endurecimiento de seguridad y privacidad local.**
-16. **Sincronización cloud real.** Requiere una decisión explícita de arquitectura, cifrado, recuperación y modelo de privacidad.
+15. **Temas y apariencias configurables.**
+16. **Endurecimiento de seguridad y privacidad local.**
+17. **Sincronización cloud real.** Requiere una decisión explícita de arquitectura, cifrado, recuperación y modelo de privacidad.

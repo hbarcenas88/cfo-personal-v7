@@ -51,6 +51,12 @@ El selector global sirve a Balances, Resumen y Categorías; Auditoría usa un pe
 
 La comparación es una lectura analítica, nunca una mutación financiera. Sólo aparece dentro del selector mientras la pantalla activa es Auditoría o Categorías y compara automáticamente con el período anterior equivalente. Auditoría muestra un sello de contexto cuando difiere del dashboard; Categorías conserva el período global y no expone la comparación desde Balances ni Resumen.
 
+### Auditoría guiada de cierre
+
+El cierre guiado vive dentro de Auditoría y se expresa como un recorrido móvil: cuenta y rango, saldo real, importación, revisión y resultado. La cabecera de revisión mantiene visibles cuenta, fecha de corte, saldo registrado, saldo real y delta. La prioridad visual es la bandeja de diferencias: `Solo en la app`, `Solo en el banco` y `Advertencia de fecha`; las coincidencias confirmadas no compiten con esos pendientes.
+
+Cada diferencia usa texto, icono y color semántico; rojo para solo en la app, azul para solo en el banco y ámbar para advertencias. Confirmar, descartar o dejar pendiente son acciones explícitas y accesibles. La importación, asignación de columnas y eliminación de un cierre usan sheets y controles propios, con resumen de datos antes de confirmar; nunca `<select>` nativos. El estado `Delta detectado: revisar` comunica una tarea pendiente, no un error financiero ni una invitación a crear ajustes.
+
 ### Feedback
 
 Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmación explícita para borrar, restaurar, reiniciar o realizar una acción que pueda alterar datos.
