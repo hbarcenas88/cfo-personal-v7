@@ -33,6 +33,7 @@
     window.addEventListener('error', function (event) { cfoBootError('error', event.error || event.message); });
     window.addEventListener('unhandledrejection', function (event) { cfoBootError('promise', event.reason); });
   </script>
+  <script src="./assets/vendor/xlsx.full.min.js"></script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

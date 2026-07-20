@@ -5,6 +5,63 @@ import {
   normalizeStatementRows,
   statementFingerprint
 } from '../src/services/guidedAuditService.js';
+import {
+  readStatementFile,
+  suggestedStatementMapping,
+  validateStatementMapping
+} from '../src/services/statementFileService.js';
+
+assert.deepEqual(
+  validateStatementMapping(['Fecha', 'Monto', 'Descripción'], {
+    date: 'Fecha', amount: 'Monto', description: 'Descripción'
+  }),
+  { ok: true, message: '' }
+);
+assert.deepEqual(
+  validateStatementMapping(['Fecha', 'Débito', 'Crédito', 'Descripción'], {
+    date: 'Fecha', debit: 'Débito', credit: 'Crédito', description: 'Descripción'
+  }),
+  { ok: true, message: '' }
+);
+assert.equal(
+  validateStatementMapping(['Fecha', 'Monto'], { date: 'Fecha', amount: 'Fecha', description: 'Monto' }).ok,
+  false
+);
+
+assert.deepEqual(suggestedStatementMapping(['Fecha de transacción', 'Débito', 'Crédito', 'Detalle']), {
+  date: 'Fecha de transacción', amount: '', debit: 'Débito', credit: 'Crédito', description: 'Detalle'
+});
+
+const csvStatement = await readStatementFile({
+  name: 'estado.csv',
+  text: async () => 'Fecha,Monto,Descripción\n2026-07-19,-43.20,Netflix'
+});
+assert.deepEqual(csvStatement, {
+  headers: ['Fecha', 'Monto', 'Descripción'],
+  objects: [{ __row: 2, fecha: '2026-07-19', monto: '-43.20', descripcion: 'Netflix' }],
+  format: 'csv'
+});
+
+const originalXLSX = globalThis.XLSX;
+globalThis.XLSX = {
+  read: () => ({ SheetNames: ['Resumen'], Sheets: { Resumen: {} } }),
+  utils: { sheet_to_json: () => [['Fecha', 'Monto', 'Descripción'], ['2026-07-19', -43.2, 'Netflix']] }
+};
+const xlsxStatement = await readStatementFile({
+  name: 'estado.xlsx',
+  arrayBuffer: async () => new ArrayBuffer(0)
+});
+assert.deepEqual(xlsxStatement, {
+  headers: ['Fecha', 'Monto', 'Descripción'],
+  objects: [{ __row: 2, fecha: '2026-07-19', monto: -43.2, descripcion: 'Netflix' }],
+  format: 'xlsx'
+});
+globalThis.XLSX = originalXLSX;
+
+await assert.rejects(
+  readStatementFile({ name: 'estado.ofx' }),
+  { message: 'Selecciona un archivo CSV o XLSX.' }
+);
 
 const statementRows = normalizeStatementRows([
   { fecha: '2026-07-19', monto: '-43.20', detalle: 'NETFLIX.COM' },
