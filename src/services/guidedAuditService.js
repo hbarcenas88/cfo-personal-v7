@@ -7,9 +7,9 @@ export function normalizeStatementRows(objects = [], mapping = {}) {
   return objects.map((row, index) => ({
     id: `statement-${row.__row || index + 2}`,
     sourceRow: row.__row || index + 2,
-    date: parseDate(row[mapping.date]),
+    date: parseDate(statementValue(row, mapping.date)),
     signedAmount: statementSignedAmount(row, mapping),
-    description: String(row[mapping.description] || '').trim()
+    description: String(statementValue(row, mapping.description) || '').trim()
   })).filter(row => row.date && Number.isFinite(row.signedAmount));
 }
 
@@ -104,11 +104,15 @@ export function buildGuidedAuditReview(close = {}, state = {}) {
 }
 
 function statementSignedAmount(row, mapping) {
-  if (mapping.amount) return parseAmount(row[mapping.amount]);
-  const debit = parseAmount(row[mapping.debit]);
-  const credit = parseAmount(row[mapping.credit]);
+  if (mapping.amount) return parseAmount(statementValue(row, mapping.amount));
+  const debit = parseAmount(statementValue(row, mapping.debit));
+  const credit = parseAmount(statementValue(row, mapping.credit));
   if (!Number.isFinite(debit) && !Number.isFinite(credit)) return NaN;
   return (Number.isFinite(credit) ? Math.abs(credit) : 0) - (Number.isFinite(debit) ? Math.abs(debit) : 0);
+}
+
+function statementValue(row, key) {
+  return row[key] ?? row[canon(key)];
 }
 
 function signedTransactionAmount(transaction) {

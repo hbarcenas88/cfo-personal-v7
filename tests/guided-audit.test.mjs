@@ -41,6 +41,12 @@ assert.deepEqual(csvStatement, {
   objects: [{ __row: 2, fecha: '2026-07-19', monto: '-43.20', descripcion: 'Netflix' }],
   format: 'csv'
 });
+assert.deepEqual(
+  normalizeStatementRows(csvStatement.objects, {
+    date: 'Fecha', amount: 'Monto', description: 'Descripción'
+  }),
+  [{ id: 'statement-2', sourceRow: 2, date: '2026-07-19', signedAmount: -43.2, description: 'Netflix' }]
+);
 
 const originalXLSX = globalThis.XLSX;
 globalThis.XLSX = {
