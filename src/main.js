@@ -7,12 +7,15 @@ import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
 import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
+import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
+import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateRowsAgainstRange } from './services/guidedAuditService.js';
 import { dataHealth } from './services/healthService.js';
+import { readStatementFile, suggestedStatementMapping, validateStatementMapping } from './services/statementFileService.js';
 import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
 import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
@@ -190,6 +193,8 @@ function renderActiveSheet() {
   if (sheet === 'confirm-reset') return confirmResetSheet();
   if (sheet === 'summary-analysis') return renderSummaryAnalysisSheet(state);
   if (sheet === 'capacity-calculation') return renderCapacityCalculationSheet(state);
+  if (sheet === 'guided-audit-close') return renderAuditCloseSheet(state);
+  if (sheet === 'confirm-delete-audit-close') return renderAuditCloseDeleteSheet(state);
   return '';
 }
 
@@ -778,6 +783,77 @@ function bindTools() {
 }
 
 function bindSheetActions() {
+  document.querySelectorAll('[data-open-audit-close]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditCloseId = '';
+    state.ui.auditCloseDraft = newAuditCloseDraft();
+    openSheet('guided-audit-close');
+  }));
+  document.querySelectorAll('[data-open-audit-close-id]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditCloseId = button.dataset.openAuditCloseId;
+    state.ui.auditCloseDraft = { step: 'review' };
+    openSheet('guided-audit-close');
+  }));
+  document.querySelectorAll('[data-audit-close-field]').forEach(input => {
+    const update = () => setAuditCloseDraftField(input.dataset.auditCloseField, input.value);
+    input.addEventListener('input', update);
+    input.addEventListener('change', update);
+  });
+  document.querySelector('[data-audit-close-file]')?.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    importAuditCloseStatement(file).catch(error => captureError('guided audit statement', error));
+  });
+  document.querySelectorAll('[data-audit-close-map]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    const target = button.dataset.auditCloseMap || '';
+    if (target.startsWith('amountSchema:')) {
+      const amountSchema = target.slice('amountSchema:'.length);
+      const draft = ensureAuditCloseDraft();
+      draft.amountSchema = amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
+      draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
+      render();
+      return;
+    }
+    if (target === 'accountName') {
+      const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
+      openOptionPicker({
+        title: 'Cuenta',
+        target: 'auditClose.accountName',
+        options,
+        value: ensureAuditCloseDraft().accountName || '',
+        returnSheet: 'guided-audit-close'
+      });
+      return;
+    }
+    if (!target.startsWith('mapping.')) return;
+    const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
+    const field = target.slice('mapping.'.length);
+    openOptionPicker({
+      title: `Columna: ${field === 'date' ? 'fecha' : field === 'description' ? 'descripciÃ³n' : field === 'amount' ? 'importe' : field === 'debit' ? 'dÃ©bito' : 'crÃ©dito'}`,
+      target: `auditClose.mapping.${field}`,
+      options,
+      value: ensureAuditCloseDraft().mapping?.[field] || '',
+      returnSheet: 'guided-audit-close'
+    });
+  }));
+  document.querySelectorAll('[data-audit-close-create]').forEach(button => button.addEventListener('click', () => {
+    advanceAuditClose().catch(error => captureError('guided audit close', error));
+  }));
+  document.querySelectorAll('[data-audit-close-decision]').forEach(button => button.addEventListener('click', () => {
+    saveAuditCloseReviewDecision(button.dataset.auditCloseDecision).catch(error => captureError('guided audit decision', error));
+  }));
+  document.querySelectorAll('[data-audit-close-delete]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditCloseId = button.dataset.auditCloseDelete;
+    state.ui.activeSheet = 'confirm-delete-audit-close';
+    render();
+  }));
+  document.querySelectorAll('[data-confirm-delete-audit-close]').forEach(button => button.addEventListener('click', async () => {
+    await deleteAuditClose(button.dataset.confirmDeleteAuditClose);
+    state.ui.auditCloseId = '';
+    state.ui.auditCloseDraft = null;
+    closeSheet();
+    render();
+  }));
   document.querySelectorAll('[data-open-option]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const target = button.dataset.openOption;
@@ -1165,6 +1241,146 @@ async function handleTool(action) {
   showToast('Función en preparación');
 }
 
+function newAuditCloseDraft() {
+  return {
+    step: 'data',
+    accountName: '',
+    cutoffDate: '',
+    realBalance: '',
+    range: { from: '', to: '' },
+    headers: [],
+    objects: [],
+    mapping: {},
+    statementRows: [],
+    amountSchema: 'amount',
+    fileReady: false
+  };
+}
+
+function ensureAuditCloseDraft() {
+  if (!state.ui.auditCloseDraft) state.ui.auditCloseDraft = newAuditCloseDraft();
+  return state.ui.auditCloseDraft;
+}
+
+function setAuditCloseDraftField(path, value) {
+  const draft = ensureAuditCloseDraft();
+  if (path.startsWith('range.')) {
+    const key = path.slice('range.'.length);
+    draft.range = { ...(draft.range || {}), [key]: value };
+    return;
+  }
+  draft[path] = value;
+}
+
+function activeAuditCloseMapping(mapping = {}, amountSchema = 'amount', headers = []) {
+  const suggested = suggestedStatementMapping(headers);
+  const shared = {
+    date: mapping.date || suggested.date,
+    description: mapping.description || suggested.description
+  };
+  return amountSchema === 'debitCredit'
+    ? { ...shared, debit: mapping.debit || suggested.debit, credit: mapping.credit || suggested.credit }
+    : { ...shared, amount: mapping.amount || suggested.amount };
+}
+
+async function importAuditCloseStatement(file) {
+  const fileData = await readStatementFile(file);
+  const draft = ensureAuditCloseDraft();
+  const amountSchema = draft.amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
+  state.ui.auditCloseDraft = {
+    ...draft,
+    step: 'mapping',
+    headers: fileData.headers,
+    objects: fileData.objects,
+    mapping: activeAuditCloseMapping(suggestedStatementMapping(fileData.headers), amountSchema, fileData.headers),
+    statementRows: [],
+    amountSchema,
+    fileReady: true
+  };
+  render();
+}
+
+function auditCloseDetailsAreValid(draft) {
+  const range = draft.range || {};
+  return Boolean(
+    draft.accountName
+    && Number.isFinite(parseAmount(draft.realBalance))
+    && range.from
+    && range.to
+    && range.from <= range.to
+    && draft.cutoffDate >= range.to
+  );
+}
+
+async function advanceAuditClose() {
+  const draft = ensureAuditCloseDraft();
+  if (draft.step === 'data') {
+    if (!auditCloseDetailsAreValid(draft)) {
+      showToast('Completa cuenta, corte, saldo y rango antes de continuar.');
+      return;
+    }
+    draft.step = 'import';
+    render();
+    return;
+  }
+  if (draft.step === 'import') {
+    if (!draft.fileReady || !draft.headers?.length) {
+      showToast('Selecciona un archivo CSV o XLSX antes de continuar.');
+      return;
+    }
+    draft.step = 'mapping';
+    render();
+    return;
+  }
+  if (draft.step === 'mapping') {
+    draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
+    const mapping = validateStatementMapping(draft.headers, draft.mapping);
+    const rows = normalizeStatementRows(draft.objects, draft.mapping);
+    const range = validateRowsAgainstRange(rows, draft.range);
+    if (!auditCloseDetailsAreValid(draft) || !mapping.ok || !range.ok) {
+      showToast(!mapping.ok ? mapping.message : !range.ok ? range.message : 'Completa cuenta, corte, saldo y rango antes de continuar.');
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const close = {
+      id: uid('audit-close'),
+      accountName: draft.accountName,
+      cutoffDate: draft.cutoffDate,
+      realBalance: parseAmount(draft.realBalance),
+      range: { from: draft.range.from, to: draft.range.to },
+      statementRows: rows,
+      fingerprint: statementFingerprint(rows),
+      decisions: [],
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+    close.status = buildGuidedAuditReview(close, state).status;
+    const created = await createAuditClose(close);
+    if (!created) return;
+    state.ui.auditCloseId = close.id;
+    state.ui.auditCloseDraft = { step: 'review' };
+    openSheet('guided-audit-close');
+    return;
+  }
+  if (draft.step === 'review') {
+    draft.step = 'result';
+    render();
+  }
+}
+
+async function saveAuditCloseReviewDecision(value = '') {
+  const [statementRowId, transactionId, action] = value.split(':');
+  if (action === 'pending') return;
+  if (!['confirm', 'dismiss'].includes(action) || !state.ui.auditCloseId) return;
+  await saveAuditCloseDecision(state.ui.auditCloseId, {
+    id: uid('audit-decision'),
+    statementRowId,
+    transactionId,
+    status: action === 'confirm' ? 'confirmed' : 'dismissed',
+    createdAt: new Date().toISOString()
+  });
+}
+
 function openOptionPicker(config) {
   state.ui.optionPicker = {
     title: config.title || 'Seleccionar',
@@ -1225,6 +1441,12 @@ function applyOptionSelection(value) {
         if (key === 'category') state.ui.recordFlow.subcategory = '';
       }
     }
+  } else if (picker.target.startsWith('auditClose.mapping.')) {
+    const draft = ensureAuditCloseDraft();
+    const key = picker.target.slice('auditClose.mapping.'.length);
+    draft.mapping = activeAuditCloseMapping({ ...(draft.mapping || {}), [key]: value }, draft.amountSchema, draft.headers);
+  } else if (picker.target === 'auditClose.accountName') {
+    ensureAuditCloseDraft().accountName = value;
   }
   state.ui.activeSheet = picker.returnSheet || '';
   state.ui.optionPicker = null;

@@ -4,7 +4,8 @@ import {
   buildGuidedAuditReview,
   matchStatementToTransactions,
   normalizeStatementRows,
-  statementFingerprint
+  statementFingerprint,
+  validateRowsAgainstRange
 } from '../src/services/guidedAuditService.js';
 import {
   readStatementFile,
@@ -92,6 +93,15 @@ const statementRows = normalizeStatementRows([
   { fecha: '2026-07-19', monto: '-43.20', detalle: 'NETFLIX.COM' },
   { fecha: '2026-07-17', monto: '100.00', detalle: 'TRANSFERENCIA RECIBIDA' }
 ], { date: 'fecha', amount: 'monto', description: 'detalle' });
+
+const outOfRange = normalizeStatementRows([
+  { fecha: '2026-06-30', monto: '-10', detalle: 'Antes del rango' }
+], { date: 'fecha', amount: 'monto', description: 'detalle' });
+assert.equal(validateRowsAgainstRange(outOfRange, { from: '2026-07-01', to: '2026-07-19' }).ok, false);
+assert.equal(
+  validateRowsAgainstRange(statementRows, { from: '2026-07-01', to: '2026-07-19' }).ok,
+  true
+);
 
 assert.deepEqual(statementRows[0], {
   id: 'statement-2', sourceRow: 2, date: '2026-07-19', signedAmount: -43.2, description: 'NETFLIX.COM'

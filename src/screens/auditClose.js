@@ -63,6 +63,27 @@ export function renderAuditCloseSheet(state) {
   `;
 }
 
+export function renderAuditCloseDeleteSheet(state) {
+  const close = selectedClose(state);
+  if (!close) return '';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close>
+      <section class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-head-row">
+          <button class="ghost-icon" data-sheet-close aria-label="Cerrar">${icon('x')}</button>
+          <h2 class="sheet-title">Eliminar cierre</h2>
+          <span></span>
+        </div>
+        <p>EliminarÃ¡s la evidencia de este cierre. Los movimientos, saldos, presupuestos y transferencias no cambiarÃ¡n.</p>
+        <div class="sheet-actions">
+          <button class="secondary-button" data-sheet-close>Cancelar</button>
+          <button class="danger-button" data-confirm-delete-audit-close="${html(close.id)}">Eliminar cierre</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function auditCloseDraft(state) {
   return {
     step: 'data',
@@ -77,7 +98,7 @@ function auditCloseDraft(state) {
 }
 
 function selectedClose(state, draft) {
-  const id = draft.closeId || state.ui?.selectedAuditCloseId;
+  const id = state.ui?.auditCloseId;
   return (state.auditClosures || []).find(close => close.id === id) || null;
 }
 
@@ -101,7 +122,7 @@ function renderDataStep(draft, state) {
     <div class="guided-audit-intro"><strong>Define qué vas a comparar</strong><p>Este cierre es analítico: nunca crea ajustes ni altera tus movimientos.</p></div>
     <div class="guided-audit-fields">
       ${pickerButton(draft.accountName, 'Elige una cuenta', 'accountName', accountOptions)}
-      <label class="field"><span>Desde (opcional)</span><input class="input" type="date" value="${html(draft.range?.from || '')}" data-audit-close-field="range.from"></label>
+      <label class="field"><span>Desde</span><input class="input" type="date" value="${html(draft.range?.from || '')}" data-audit-close-field="range.from"></label>
       <label class="field"><span>Hasta</span><input class="input" type="date" value="${html(draft.range?.to || '')}" data-audit-close-field="range.to"></label>
       <label class="field"><span>Fecha de corte</span><input class="input" type="date" value="${html(draft.cutoffDate || '')}" data-audit-close-field="cutoffDate"></label>
       <label class="field"><span>Saldo real del extracto</span><input class="input" inputmode="decimal" value="${html(draft.realBalance || '')}" placeholder="0.00" data-audit-close-field="realBalance"></label>
@@ -111,7 +132,7 @@ function renderDataStep(draft, state) {
 }
 
 function renderImportStep(draft) {
-  const fileName = draft.fileName || 'Selecciona el CSV o XLSX de la cuenta';
+  const fileName = draft.fileReady ? 'Archivo listo para mapear' : 'Selecciona el CSV o XLSX de la cuenta';
   return `
     <div class="guided-audit-intro"><strong>Importa el estado de cuenta</strong><p>Solo se normalizan las filas necesarias para esta revisión; no se conserva el archivo original.</p></div>
     <label class="guided-audit-file">
@@ -126,7 +147,7 @@ function renderImportStep(draft) {
 
 function renderMappingStep(draft) {
   const schema = draft.amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
-  const columns = (draft.columns || []).map(column => ({ value: column, label: column }));
+  const columns = (draft.headers || []).map(column => ({ value: column, label: column }));
   return `
     <div class="guided-audit-intro"><strong>Relaciona las columnas</strong><p>Activa un solo esquema de monto. Los campos del otro esquema no se validan.</p></div>
     <div class="guided-audit-schema" role="radiogroup" aria-label="Esquema de importe">

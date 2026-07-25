@@ -18,6 +18,15 @@ export function statementFingerprint(rows = []) {
     .sort().join('\n');
 }
 
+export function validateRowsAgainstRange(rows = [], range = {}) {
+  const from = parseDate(range.from);
+  const to = parseDate(range.to);
+  const outsideRange = rows.some(row => row.date < from || row.date > to);
+  return outsideRange
+    ? { ok: false, message: 'El extracto contiene filas fuera del rango seleccionado.' }
+    : { ok: true, message: '' };
+}
+
 export function applyAuditCloseDecision(close = {}, decision = {}) {
   const decisions = Array.isArray(close.decisions) ? close.decisions : [];
   if (decisions.some(item => item.statementRowId === decision.statementRowId)) {

@@ -62,6 +62,8 @@ export const initialState = {
     selectedCategoryId: '',
     selectedSubcategory: '',
     selectedTransactionId: '',
+    auditCloseId: '',
+    auditCloseDraft: null,
     selectedHealthIssue: '',
     auditFilter: '',
     auditDropdown: '',
