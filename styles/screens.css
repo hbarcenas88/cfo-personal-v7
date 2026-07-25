@@ -2321,6 +2321,332 @@
   background: #fff;
 }
 
+.guided-audit-entry,
+.guided-audit-close-row,
+.guided-audit-row,
+.guided-audit-pair,
+.guided-audit-decisions,
+.guided-audit-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.guided-audit-entry,
+.guided-audit-close-row {
+  justify-content: space-between;
+}
+
+.guided-audit-entry > div,
+.guided-audit-close-row > span:first-child,
+.guided-audit-row > div,
+.guided-audit-result > div {
+  min-width: 0;
+}
+
+.guided-audit-entry small,
+.guided-audit-list-head small,
+.guided-audit-close-row small,
+.guided-audit-intro p,
+.guided-audit-result p {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.guided-audit-list-head {
+  margin-bottom: var(--space-sm);
+}
+
+.guided-audit-close-list,
+.guided-audit-fields,
+.guided-audit-group {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.guided-audit-close-row {
+  width: 100%;
+  min-height: var(--control-md);
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.guided-audit-close-row > svg {
+  flex: 0 0 auto;
+}
+
+.guided-audit-delta {
+  text-align: right;
+}
+
+.guided-audit-delta.pending {
+  color: var(--amber);
+}
+
+.guided-audit-delta.balanced {
+  color: var(--green);
+}
+
+.guided-audit-sheet {
+  padding-bottom: calc(20px + var(--safe-bottom));
+}
+
+.guided-audit-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  list-style: none;
+}
+
+.guided-audit-steps li {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 760;
+  text-align: center;
+}
+
+.guided-audit-steps span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  margin: 0 auto 4px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.guided-audit-steps li.complete span {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.guided-audit-steps li.active {
+  color: var(--blue);
+}
+
+.guided-audit-intro {
+  margin-bottom: var(--space-md);
+}
+
+.guided-audit-intro p {
+  margin-bottom: 0;
+}
+
+.guided-audit-fields .field {
+  margin: 0;
+}
+
+.guided-audit-fields .field > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.guided-audit-picker {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.guided-audit-file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+  min-height: 82px;
+  padding: var(--space-md);
+  border: 1px dashed var(--blue);
+  border-radius: var(--radius-md);
+  background: var(--blue-soft);
+}
+
+.guided-audit-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.guided-audit-file small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+}
+
+.guided-audit-schema {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: var(--space-md);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.guided-audit-schema button {
+  min-height: var(--control-md);
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.guided-audit-schema button.active {
+  background: #fff;
+  color: var(--blue);
+  box-shadow: var(--shadow-soft);
+}
+
+.guided-audit-action {
+  width: 100%;
+  min-height: var(--control-md);
+  margin-top: var(--space-md);
+}
+
+.guided-audit-entry .guided-audit-action {
+  width: auto;
+  margin-top: 0;
+}
+
+.guided-audit-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.guided-audit-summary > div {
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.guided-audit-summary small,
+.guided-audit-summary strong {
+  display: block;
+}
+
+.guided-audit-summary small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.guided-audit-summary strong {
+  margin-top: 4px;
+}
+
+.guided-audit-group {
+  margin-top: var(--space-lg);
+}
+
+.guided-audit-group h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.guided-audit-group h3 small {
+  color: var(--text-muted);
+}
+
+.guided-audit-exception.app-only {
+  border-left: 4px solid var(--red);
+}
+
+.guided-audit-exception.bank-only {
+  border-left: 4px solid var(--blue);
+}
+
+.guided-audit-exception.date-warning {
+  border-left: 4px solid var(--amber);
+}
+
+.guided-audit-exception.distant-candidate {
+  border-left: 4px solid var(--purple);
+}
+
+.guided-audit-exception.ambiguous {
+  border-left: 4px solid var(--text-muted);
+}
+
+.guided-audit-row {
+  justify-content: space-between;
+}
+
+.guided-audit-row small,
+.guided-audit-pair span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.guided-audit-candidate + .guided-audit-candidate {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--line);
+}
+
+.guided-audit-pair {
+  align-items: stretch;
+}
+
+.guided-audit-pair > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.guided-audit-pair small,
+.guided-audit-pair strong {
+  display: block;
+}
+
+.guided-audit-pair small {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.guided-audit-decisions {
+  flex-wrap: wrap;
+  margin-top: var(--space-sm);
+}
+
+.guided-audit-decisions .text-button {
+  min-height: var(--control-md);
+}
+
+.guided-audit-result {
+  align-items: flex-start;
+}
+
+.guided-audit-result .row-icon {
+  flex: 0 0 auto;
+}
+
+.guided-audit-result p {
+  margin-bottom: 0;
+}
+
+.guided-audit-result.balanced strong {
+  color: var(--green);
+}
+
+.guided-audit-result.pending strong {
+  color: var(--amber);
+}
+
 @media (max-width: 420px) {
   .two-col {
     grid-template-columns: 1fr;
@@ -2342,6 +2668,14 @@
   .inline-picker-head small {
     max-width: none;
     text-align: left;
+  }
+
+  .guided-audit-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .guided-audit-schema {
+    grid-template-columns: 1fr;
   }
 }
 

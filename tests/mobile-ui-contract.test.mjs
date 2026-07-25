@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
+const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
 const componentStyles = await readFile(new URL('../styles/components.css', import.meta.url), 'utf8');
@@ -14,6 +15,16 @@ const progress = await readFile(new URL('../PROGRESS.md', import.meta.url), 'utf
 const verifier = await readFile(new URL('../VERIFIER.md', import.meta.url), 'utf8');
 const backlog = await readFile(new URL('../BACKLOG.md', import.meta.url), 'utf8');
 const roadmap = await readFile(new URL('../V7_ROADMAP.md', import.meta.url), 'utf8');
+
+assert.match(auditClose, /data-open-audit-close/);
+assert.match(auditClose, /data-audit-close-file/);
+assert.match(auditClose, /data-audit-close-map/);
+assert.match(auditClose, /Solo en la app/);
+assert.match(auditClose, /Solo en el banco/);
+assert.match(auditClose, /Advertencia de fecha/);
+assert.doesNotMatch(auditClose, /<select\b/i);
+assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
+assert.match(styles, /\.guided-audit-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);

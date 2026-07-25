@@ -2,6 +2,7 @@ import { icon } from '../icons.js';
 import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
 import { canon, formatDate, formatMoney, html, periodLabel } from '../utils/format.js';
+import { renderAuditCloseEntry, renderAuditCloseList } from './auditClose.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
@@ -15,6 +16,8 @@ export function renderAudit(state) {
       <div><strong>Contexto de Auditoría: ${auditPeriodLabel}</strong><small>${auditPeriodLabel === dashboardPeriodLabel ? 'Coincide con el dashboard' : `Dashboard: ${dashboardPeriodLabel}`}</small></div>
       <button class="text-button audit-period-change" data-open-audit-period>Cambiar</button>
     </div>
+    ${renderAuditCloseEntry(state)}
+    ${renderAuditCloseList(state)}
     ${renderFilters(state, filters)}
     ${state.auditPeriod?.compare ? renderComparisonCard(comparison) : ''}
     ${card(`<div class="metric-grid audit-summary-grid"><div><div class="metric-title">Total registros</div><div class="metric-value metric-value-sm">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value metric-value-sm ${subtotal < 0 ? 'danger' : 'success'}">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
