@@ -5,6 +5,7 @@ import {
   matchStatementToTransactions,
   normalizeStatementRows,
   statementFingerprint,
+  validateStatementRows,
   validateRowsAgainstRange
 } from '../src/services/guidedAuditService.js';
 import {
@@ -102,6 +103,16 @@ assert.equal(
   validateRowsAgainstRange(statementRows, { from: '2026-07-01', to: '2026-07-19' }).ok,
   true
 );
+assert.deepEqual(
+  validateStatementRows([], { date: 'fecha', amount: 'monto', description: 'detalle' }),
+  { ok: true, message: '' }
+);
+assert.equal(validateStatementRows([
+  { __row: 2, fecha: 'fecha inválida', monto: '-10', detalle: 'Fecha rota' }
+], { date: 'fecha', amount: 'monto', description: 'detalle' }).ok, false);
+assert.equal(validateStatementRows([
+  { __row: 2, fecha: '2026-07-19', monto: 'importe inválido', detalle: 'Monto roto' }
+], { date: 'fecha', amount: 'monto', description: 'detalle' }).ok, false);
 
 assert.deepEqual(statementRows[0], {
   id: 'statement-2', sourceRow: 2, date: '2026-07-19', signedAmount: -43.2, description: 'NETFLIX.COM'

@@ -4,13 +4,14 @@ export const DATE_WARNING_DAYS = 2;
 export const AMOUNT_EPSILON = 0.005;
 
 export function normalizeStatementRows(objects = [], mapping = {}) {
-  return objects.map((row, index) => ({
-    id: `statement-${row.__row || index + 2}`,
-    sourceRow: row.__row || index + 2,
-    date: parseDate(statementValue(row, mapping.date)),
-    signedAmount: statementSignedAmount(row, mapping),
-    description: String(statementValue(row, mapping.description) || '').trim()
-  })).filter(row => row.date && Number.isFinite(row.signedAmount));
+  return objects.map((row, index) => normalizeStatementRow(row, index, mapping)).filter(Boolean);
+}
+
+export function validateStatementRows(objects = [], mapping = {}) {
+  const hasInvalidRow = objects.some((row, index) => hasStatementContent(row) && !normalizeStatementRow(row, index, mapping));
+  return hasInvalidRow
+    ? { ok: false, message: 'Hay filas inválidas en el extracto. Revisa fecha e importe antes de continuar.' }
+    : { ok: true, message: '' };
 }
 
 export function statementFingerprint(rows = []) {
@@ -126,6 +127,23 @@ function statementSignedAmount(row, mapping) {
   const credit = parseAmount(statementValue(row, mapping.credit));
   if (!Number.isFinite(debit) && !Number.isFinite(credit)) return NaN;
   return (Number.isFinite(credit) ? Math.abs(credit) : 0) - (Number.isFinite(debit) ? Math.abs(debit) : 0);
+}
+
+function normalizeStatementRow(row, index, mapping) {
+  const date = parseDate(statementValue(row, mapping.date));
+  const signedAmount = statementSignedAmount(row, mapping);
+  if (!date || !Number.isFinite(signedAmount)) return null;
+  return {
+    id: `statement-${row.__row || index + 2}`,
+    sourceRow: row.__row || index + 2,
+    date,
+    signedAmount,
+    description: String(statementValue(row, mapping.description) || '').trim()
+  };
+}
+
+function hasStatementContent(row = {}) {
+  return Object.entries(row).some(([key, value]) => key !== '__row' && String(value ?? '').trim());
 }
 
 function statementValue(row, key) {

@@ -13,7 +13,7 @@ import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
 import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
-import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateRowsAgainstRange } from './services/guidedAuditService.js';
+import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateStatementRows, validateRowsAgainstRange } from './services/guidedAuditService.js';
 import { dataHealth } from './services/healthService.js';
 import { readStatementFile, suggestedStatementMapping, validateStatementMapping } from './services/statementFileService.js';
 import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
@@ -1335,10 +1335,11 @@ async function advanceAuditClose() {
   if (draft.step === 'mapping') {
     draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
     const mapping = validateStatementMapping(draft.headers, draft.mapping);
+    const statement = validateStatementRows(draft.objects, draft.mapping);
     const rows = normalizeStatementRows(draft.objects, draft.mapping);
     const range = validateRowsAgainstRange(rows, draft.range);
-    if (!auditCloseDetailsAreValid(draft) || !mapping.ok || !range.ok) {
-      showToast(!mapping.ok ? mapping.message : !range.ok ? range.message : 'Completa cuenta, corte, saldo y rango antes de continuar.');
+    if (!auditCloseDetailsAreValid(draft) || !mapping.ok || !statement.ok || !range.ok) {
+      showToast(!mapping.ok ? mapping.message : !statement.ok ? statement.message : !range.ok ? range.message : 'Completa cuenta, corte, saldo y rango antes de continuar.');
       return;
     }
     const timestamp = new Date().toISOString();
