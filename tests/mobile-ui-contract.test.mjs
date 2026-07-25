@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
+import { renderAuditCloseEntry } from '../src/screens/auditClose.js';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
 const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
@@ -25,6 +26,21 @@ assert.match(auditClose, /Advertencia de fecha/);
 assert.doesNotMatch(auditClose, /<select\b/i);
 assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
 assert.match(styles, /\.guided-audit-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
+
+const balancedAuditCloseEntry = renderAuditCloseEntry({
+  auditClosures: [{
+    id: 'balanced-close',
+    accountName: 'BAC',
+    cutoffDate: '2026-07-31',
+    realBalance: 0,
+    range: {},
+    statementRows: [],
+    decisions: []
+  }],
+  transactions: []
+});
+assert.doesNotMatch(balancedAuditCloseEntry, /1 cierres por revisar/);
+assert.match(balancedAuditCloseEntry, /Compara una cuenta con su estado de cuenta/);
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);

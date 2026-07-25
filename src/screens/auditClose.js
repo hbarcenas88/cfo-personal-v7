@@ -6,7 +6,7 @@ import { formatDate, formatMoney, html } from '../utils/format.js';
 const FILE_ACCEPT = '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export function renderAuditCloseEntry(state) {
-  const openCount = (state.auditClosures || []).filter(close => close.status !== 'balanced').length;
+  const openCount = (state.auditClosures || []).filter(close => buildGuidedAuditReview(close, state).status !== 'balanced').length;
   return card(`
     <div class="guided-audit-entry">
       <div>
