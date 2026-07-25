@@ -6,7 +6,7 @@ export function validateStatementMapping(headers = [], mapping = {}) {
   if (required.some(key => !headers.includes(mapping[key]))) return { ok: false, message: 'Asigna fecha y descripción.' };
   const signed = headers.includes(mapping.amount);
   const split = headers.includes(mapping.debit) && headers.includes(mapping.credit);
-  if (signed && split) return { ok: false, message: 'Elige un importe firmado o débito y crédito, no ambos.' };
+  if (signed && (headers.includes(mapping.debit) || headers.includes(mapping.credit))) return { ok: false, message: 'Elige un importe firmado o débito y crédito, no ambos.' };
   if (!signed && !split) return { ok: false, message: 'Asigna un importe o las columnas de débito y crédito.' };
   const selected = signed ? [...required, 'amount'] : [...required, 'debit', 'credit'];
   if (new Set(selected.map(key => mapping[key])).size !== selected.length) return { ok: false, message: 'Cada campo debe usar una columna distinta.' };

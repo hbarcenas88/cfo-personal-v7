@@ -29,6 +29,18 @@ assert.deepEqual(
   }),
   { ok: false, message: 'Elige un importe firmado o débito y crédito, no ambos.' }
 );
+assert.deepEqual(
+  validateStatementMapping(['Fecha', 'Monto', 'Débito', 'Descripción'], {
+    date: 'Fecha', amount: 'Monto', debit: 'Débito', description: 'Descripción'
+  }),
+  { ok: false, message: 'Elige un importe firmado o débito y crédito, no ambos.' }
+);
+assert.deepEqual(
+  validateStatementMapping(['Fecha', 'Monto', 'Crédito', 'Descripción'], {
+    date: 'Fecha', amount: 'Monto', credit: 'Crédito', description: 'Descripción'
+  }),
+  { ok: false, message: 'Elige un importe firmado o débito y crédito, no ambos.' }
+);
 assert.equal(
   validateStatementMapping(['Fecha', 'Monto'], { date: 'Fecha', amount: 'Fecha', description: 'Monto' }).ok,
   false
