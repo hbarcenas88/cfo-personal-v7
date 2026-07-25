@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  applyAuditCloseDecision,
   buildGuidedAuditReview,
   matchStatementToTransactions,
   normalizeStatementRows,
@@ -99,6 +100,20 @@ assert.equal(statementFingerprint(statementRows), statementFingerprint([...state
 assert.equal(normalizeStatementRows([
   { fecha: '2026-07-17', debito: '43.20', credito: '', detalle: 'Cargo' }
 ], { date: 'fecha', debit: 'debito', credit: 'credito', description: 'detalle' })[0].signedAmount, -43.2);
+
+const auditClose = {
+  id: 'close-1', accountName: 'BAC Débito', cutoffDate: '2026-07-19', realBalance: 56.8,
+  range: { from: '2026-07-01', to: '2026-07-19' }, statementRows,
+  fingerprint: statementFingerprint(statementRows), decisions: []
+};
+const closeWithDecision = applyAuditCloseDecision(auditClose, {
+  id: 'decision-1', statementRowId: 'statement-2', transactionId: 'app-netflix', status: 'confirmed'
+});
+assert.equal(closeWithDecision.decisions.length, 1);
+assert.equal(auditClose.decisions.length, 0);
+assert.throws(() => applyAuditCloseDecision(closeWithDecision, {
+  id: 'decision-2', statementRowId: 'statement-2', transactionId: 'app-transfer', status: 'confirmed'
+}), /ya tiene una decisión/);
 
 const state = {
   accounts: [{ name: 'BAC Débito' }],

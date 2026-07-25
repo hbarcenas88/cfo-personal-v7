@@ -18,6 +18,14 @@ export function statementFingerprint(rows = []) {
     .sort().join('\n');
 }
 
+export function applyAuditCloseDecision(close = {}, decision = {}) {
+  const decisions = Array.isArray(close.decisions) ? close.decisions : [];
+  if (decisions.some(item => item.statementRowId === decision.statementRowId)) {
+    throw new Error('Esta fila del extracto ya tiene una decisión.');
+  }
+  return { ...close, decisions: [...decisions, { ...decision }] };
+}
+
 export function accountBalanceAtCutoff(state, accountName, cutoffDate) {
   const cutoff = parseDate(cutoffDate);
   return (state.transactions || []).reduce((sum, transaction) => {
