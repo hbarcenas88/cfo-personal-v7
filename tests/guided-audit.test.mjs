@@ -23,6 +23,12 @@ assert.deepEqual(
   }),
   { ok: true, message: '' }
 );
+assert.deepEqual(
+  validateStatementMapping(['Fecha', 'Monto', 'Débito', 'Crédito', 'Descripción'], {
+    date: 'Fecha', amount: 'Monto', debit: 'Débito', credit: 'Crédito', description: 'Descripción'
+  }),
+  { ok: false, message: 'Elige un importe firmado o débito y crédito, no ambos.' }
+);
 assert.equal(
   validateStatementMapping(['Fecha', 'Monto'], { date: 'Fecha', amount: 'Fecha', description: 'Monto' }).ok,
   false
