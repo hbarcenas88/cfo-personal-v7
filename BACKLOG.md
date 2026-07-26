@@ -7,6 +7,9 @@ Estado: esta lista ordena el trabajo pendiente; no autoriza por sí sola cambios
 1. **Validación integral con datos reales respaldados.** Recorrer Balances, Resumen, Categorías, Auditoría, Registro y Ajustes; validar capacidad de pago, extraordinarios, ritmo presupuestario, edición y persistencia tras recargar.
 2. **Validación con datos reales respaldados — períodos por contexto y comparación analítica.** La separación global/Auditoría, borradores confirmados, navegación por modo y comparación local en Auditoría/Categorías están implementadas y cubiertas por pruebas automatizadas. Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró el scope de Auditoría y la comparación, pero aún requiere captura duradera o validación móvil del usuario. Falta validación no destructiva con un respaldo JSON confirmado; no se considera completado hasta entonces y no autoriza publicación ni merge.
 3. **Validación con datos reales respaldados — densidad y ritmo móvil.** Las correcciones de selector, filtros de Auditoría/Categorías y calculadora de ingreso están implementadas y cubiertas por pruebas automatizadas. Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró el sheet, los controles y el keypad; no confirma targets ni overflow de la versión actual sin captura duradera o validación móvil del usuario. No adelanta el rediseño integral de Etapa 2 y 3 ni autoriza publicación ni merge.
+4. **Urgente — continuidad de escritura en formularios.** Investigar y corregir el re-render que pierde foco/cierra el teclado al escribir en notas, descripciones y cualquier campo editable de Registro y Auditoría; validar teclado móvil y foco en todos los formularios.
+5. **Urgente — calculadoras coherentes y visibles.** Centralizar el modelo y la grilla de los keypads de gasto, ingreso, presupuesto y provisión; corregir orden de teclas, jerarquía de confirmar y posición segura dentro del sheet.
+6. **Urgente — recorrido completo del sheet de Registro.** Garantizar scroll, safe-area y acciones accesibles con el control de extraordinario visible, sin dejar contenido bajo el borde inferior o la navegación.
 
 ## Prioridad 1 — Siguiente bloque funcional
 
@@ -17,16 +20,17 @@ Estado: esta lista ordena el trabajo pendiente; no autoriza por sí sola cambios
 8. **Conciliación mensual guiada.** Evolución posterior de la auditoría guiada; no restringirla a un cierre mensual.
 9. **Auditoría contra estados de cuenta PDF.** Conversión o extracción asistida posterior; la primera versión de auditoría guiada recibe CSV/XLSX, no procesa PDF ni imágenes.
 10. **Decisión sobre pagos programados.** Mantenerlos como avisos o retirarlos del Resumen.
+11. **Provisiones con objetivo y liberación opcionales.** Por cada provisión, permitir activar meta monetaria, fecha de liberación o ambas, sin alterar por defecto su naturaleza conceptual ni la capacidad de pago; requiere diseño de estados, indicadores y reglas de vencimiento.
 
 ## Prioridad 2 — Mejoras posteriores
 
-11. **Alertas PWA configurables.**
-12. **Comparativos de períodos ampliados.** Sólo después de definir correctamente el selector de período.
-13. **Exportación avanzada para Excel.**
-14. **Regresiones UX con datos reales.** Botones sólo-icono, targets táctiles y tarjetas de transferencia con nombres largos.
+12. **Alertas PWA configurables.**
+13. **Comparativos de períodos ampliados.** Sólo después de definir correctamente el selector de período.
+14. **Exportación avanzada para Excel.**
+15. **Regresiones UX con datos reales.** Botones sólo-icono, targets táctiles y tarjetas de transferencia con nombres largos.
 
 ## Último horizonte
 
-15. **Temas y apariencias configurables.**
-16. **Endurecimiento de seguridad y privacidad local.**
-17. **Sincronización cloud real.** Requiere una decisión explícita de arquitectura, cifrado, recuperación y modelo de privacidad.
+16. **Temas y apariencias configurables.**
+17. **Endurecimiento de seguridad y privacidad local.**
+18. **Sincronización cloud real.** Requiere una decisión explícita de arquitectura, cifrado, recuperación y modelo de privacidad.
