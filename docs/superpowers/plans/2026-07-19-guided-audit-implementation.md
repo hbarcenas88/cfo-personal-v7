@@ -6,7 +6,9 @@
 
 **Architecture:** El dominio de conciliación vive en un servicio puro que normaliza filas, calcula saldo al corte y propone relaciones; no conoce DOM ni IndexedDB. El estado persiste cierres y relaciones por separado de las transacciones. Una pantalla y sheets propios de Auditoría presentan el recorrido; `main.js` solo coordina eventos, borradores y persistencia.
 
-**Tech Stack:** HTML/CSS/ES modules nativos, IndexedDB por medio de `src/services/storageService.js`, tests Node `node:assert/strict`, SheetJS 0.18.5 vendorizado localmente para `.xlsx` y APIs `File`/`TextDecoder` del navegador.
+**Tech Stack:** HTML/CSS/ES modules nativos, IndexedDB por medio de `src/services/storageService.js`, tests Node `node:assert/strict`, SheetJS 0.20.3 vendorizado localmente para `.xlsx` y APIs `File`/`TextDecoder` del navegador.
+
+**Security override — 2026-07-26:** La autorización final sustituye el pin original 0.18.5 por el build oficial 0.20.3, con licencia y procedencia verificables. El cambio del asset precacheado eleva la carcasa final a `cfo-personal-v7-cache-39`.
 
 ## Global Constraints
 
@@ -17,7 +19,7 @@
 - La auditoría se limita a una cuenta y a un rango declarado; `Delta detectado: revisar` es válido.
 - Coincidencias requieren el mismo importe con signo; fecha igual es sugerencia, ±2 días advertencia y más de ±2 días candidato lejano. Nunca confirmar una coincidencia automáticamente.
 - Usar controles propios y sheets; no introducir `<select>` nativos. Todos los objetivos táctiles primarios miden al menos 44 px y la revisión objetivo es 390 × 844.
-- Si cambian activos precacheados, incrementar `CACHE_NAME` de `cfo-personal-v7-cache-37` a `cfo-personal-v7-cache-38` y enumerar cada activo nuevo en `APP_SHELL`.
+- Si cambian activos precacheados, incrementar `CACHE_NAME`; la ola final autorizada reemplaza el parser y usa `cfo-personal-v7-cache-39`, con cada activo nuevo enumerado en `APP_SHELL`.
 - Mantener `BACKLOG.md`, `PROGRESS.md`, `VERIFIER.md`, `PRODUCT_SPEC.md`, `DESIGN_SYSTEM.md` y `V7_ROADMAP.md` alineados con el estado real.
 
 ---
@@ -26,7 +28,7 @@
 
 | Archivo | Responsabilidad |
 | --- | --- |
-| `assets/vendor/xlsx.full.min.js` | Distribución local y sin red de SheetJS 0.18.5; debe incluir su licencia junto al asset. |
+| `assets/vendor/xlsx.full.min.js` | Distribución local y sin red de SheetJS 0.20.3; debe incluir licencia y procedencia junto al asset. |
 | `src/services/statementFileService.js` | Lee CSV/XLSX desde `File` y devuelve encabezados y objetos sin persistir el archivo. |
 | `src/services/guidedAuditService.js` | Normaliza filas, calcula huellas, saldo al corte, candidatos y resumen del cierre. |
 | `src/state.js` | Migra/persiste `auditClosures` y expone mutaciones limitadas a evidencia y decisiones del cierre. |
@@ -34,9 +36,9 @@
 | `src/screens/audit.js` | Añade el punto de entrada de Auditoría guiada sin degradar filtros, período ni comparación existentes. |
 | `src/main.js` | Abre el flujo, lee archivos, asigna columnas, confirma cierres y enlaza/desenlaza revisiones. |
 | `styles/screens.css` | Define layout móvil del cierre, cabecera de delta, bandejas de diferencias y sheets. |
-| `service-worker.js` | Precachea módulos y el parser local, con cache-38. |
+| `service-worker.js` | Precachea módulos y el parser local, con cache-39. |
 | `tests/guided-audit.test.mjs` | Pruebas puras de normalización, matching, deltas, duplicados y no mutación. |
-| `tests/mobile-ui-contract.test.mjs` | Extiende el contrato para los nuevos controles, asset precacheado y cache-38. |
+| `tests/mobile-ui-contract.test.mjs` | Extiende el contrato para los nuevos controles, asset precacheado y cache-39. |
 
 ### Task 1: Contrato puro de filas y coincidencias
 
@@ -213,7 +215,7 @@ Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `statementFileService.js`.
 
 - [ ] **Step 3: Write the minimal implementation**
 
-Add the exact SheetJS Community Edition 0.18.5 browser distribution and its license as static local files. Load it before the app module so no network request is required:
+Add the exact SheetJS Community Edition 0.20.3 browser distribution, license and provenance as static local files. Load it before the app module so no network request is required:
 
 ```html
 <!-- index.html, immediately before src/main.js -->
@@ -526,7 +528,7 @@ git commit -m "feat: persist guided audit review actions"
 - [ ] **Step 1: Write the failing contract assertions**
 
 ```js
-assert.match(worker, /cfo-personal-v7-cache-38/);
+assert.match(worker, /cfo-personal-v7-cache-39/);
 assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
 assert.match(worker, /'\.\/src\/services\/statementFileService\.js'/);
 assert.match(worker, /'\.\/src\/screens\/auditClose\.js'/);
@@ -536,13 +538,13 @@ assert.match(worker, /'\.\/assets\/vendor\/xlsx\.full\.min\.js'/);
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `node tests/mobile-ui-contract.test.mjs`  
-Expected: FAIL because cache-38 and guided-audit assets are absent.
+Expected: FAIL because cache-39 and guided-audit assets are absent.
 
 - [ ] **Step 3: Write the minimal implementation**
 
 ```js
 // service-worker.js
-const CACHE_NAME = 'cfo-personal-v7-cache-38';
+const CACHE_NAME = 'cfo-personal-v7-cache-39';
 // add these APP_SHELL entries
 './src/services/guidedAuditService.js',
 './src/services/statementFileService.js',

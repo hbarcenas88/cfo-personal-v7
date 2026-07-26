@@ -12,6 +12,7 @@ const styles = await readFile(new URL('../styles/screens.css', import.meta.url),
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
 const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+const xlsxBundle = await readFile(new URL('../assets/vendor/xlsx.full.min.js', import.meta.url), 'utf8');
 const progress = await readFile(new URL('../PROGRESS.md', import.meta.url), 'utf8');
 const verifier = await readFile(new URL('../VERIFIER.md', import.meta.url), 'utf8');
 const backlog = await readFile(new URL('../BACKLOG.md', import.meta.url), 'utf8');
@@ -22,6 +23,7 @@ assert.match(auditClose, /data-audit-close-file/);
 assert.match(auditClose, /data-audit-close-map/);
 assert.match(auditClose, /Solo en la app/);
 assert.match(auditClose, /Solo en el banco/);
+assert.match(auditClose, /Coincidencia exacta/);
 assert.match(auditClose, /Advertencia de fecha/);
 assert.doesNotMatch(auditClose, /<select\b/i);
 assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
@@ -51,6 +53,55 @@ const reopenedAuditClose = renderAuditCloseSheet({
   transactions: []
 });
 assert.match(reopenedAuditClose, /data-audit-close-delete="close-canonical"/);
+
+const exactCandidateAuditClose = renderAuditCloseSheet({
+  ui: { auditCloseId: 'close-exact', auditCloseDraft: { step: 'review' } },
+  auditClosures: [{
+    id: 'close-exact', accountName: 'Cuenta sintética', cutoffDate: '2026-07-19', realBalance: -12,
+    range: { from: '2026-07-01', to: '2026-07-19' },
+    statementRows: [{
+      id: 'statement-exact', sourceRow: 2, date: '2026-07-19',
+      signedAmount: -12, description: 'Compra sintética'
+    }],
+    decisions: []
+  }],
+  transactions: [{
+    id: 'transaction-exact', account: 'Cuenta sintética', date: '2026-07-19',
+    movement: 'Gasto', amount: 12, description: 'Compra sintética', affectsBalance: true
+  }]
+});
+assert.match(exactCandidateAuditClose, /Coincidencia exacta/);
+assert.match(exactCandidateAuditClose, /Confirmar/);
+assert.match(exactCandidateAuditClose, /No corresponde/);
+assert.match(exactCandidateAuditClose, /Dejar pendiente/);
+
+const xlsxContext = {};
+runInNewContext(xlsxBundle, xlsxContext);
+assert.equal(xlsxContext.XLSX.version, '0.20.3');
+const syntheticWorkbook = xlsxContext.XLSX.utils.book_new();
+xlsxContext.XLSX.utils.book_append_sheet(
+  syntheticWorkbook,
+  xlsxContext.XLSX.utils.aoa_to_sheet([
+    ['Fecha', 'Monto', 'Descripción'],
+    ['2026-07-19', -12, 'Compra sintética']
+  ]),
+  'Extracto'
+);
+const syntheticXlsx = xlsxContext.XLSX.write(syntheticWorkbook, {
+  bookType: 'xlsx',
+  type: 'array'
+});
+const parsedSyntheticWorkbook = xlsxContext.XLSX.read(syntheticXlsx, { type: 'array' });
+assert.deepEqual(
+  Array.from(xlsxContext.XLSX.utils.sheet_to_json(
+    parsedSyntheticWorkbook.Sheets.Extracto,
+    { header: 1, defval: '' }
+  ), row => Array.from(row)),
+  [
+    ['Fecha', 'Monto', 'Descripción'],
+    ['2026-07-19', -12, 'Compra sintética']
+  ]
+);
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
@@ -354,7 +405,7 @@ assert.strictEqual(
 );
 assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 
-assert.match(worker, /cfo-personal-v7-cache-38/);
+assert.match(worker, /cfo-personal-v7-cache-39/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
 assert.match(worker, /'\.\/src\/services\/statementFileService\.js'/);

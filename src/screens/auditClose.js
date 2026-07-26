@@ -172,6 +172,7 @@ function renderReviewStep(close, review) {
     <div class="guided-audit-intro"><strong>Revisa antes de cerrar</strong><p>Las confirmaciones quedan como evidencia y no cambian los movimientos financieros.</p></div>
     ${exceptionGroup('Solo en la app', 'app-only', review.onlyInApp, transactionOnlyCard)}
     ${exceptionGroup('Solo en el banco', 'bank-only', review.onlyInBank, statementOnlyCard)}
+    ${exceptionGroup('Coincidencia exacta', 'exact-candidate', review.exact, candidateCard)}
     ${exceptionGroup('Advertencia de fecha', 'date-warning', review.dateWarnings, candidateCard)}
     ${exceptionGroup('Candidato lejano', 'distant-candidate', review.distantCandidates, candidateCard)}
     ${exceptionGroup('Ambiguo', 'ambiguous', review.ambiguous, ambiguousCard)}
@@ -245,7 +246,7 @@ function candidatePair(candidate, statement, transaction) {
 }
 
 function mappingPicker(label, field, value, options) {
-  return `<div class="field"><span>${label}</span>${pickerButton(value, `Elige ${label.toLowerCase()}`, `mapping.${field}`, options, `map:${field}`)}</div>`;
+  return `<div class="field"><span>${label}</span>${pickerButton(value, `Elige ${label.toLowerCase()}`, `mapping.${field}`, options)}</div>`;
 }
 
 function pickerButton(value, placeholder, field, options) {

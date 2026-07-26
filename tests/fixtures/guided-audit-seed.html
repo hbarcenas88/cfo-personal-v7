@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Datos sintéticos — Auditoría guiada</title>
+</head>
+<body>
+  <main>
+    <h1>Datos sintéticos de Auditoría guiada</h1>
+    <p>Este fixture usa una cuenta y movimientos ficticios en el origen local aislado.</p>
+    <button type="button" data-seed-guided-audit>Cargar datos sintéticos</button>
+    <p data-seed-status role="status"></p>
+  </main>
+  <script type="module">
+    import { initialState } from '../../src/state.js';
+    import { saveState } from '../../src/services/storageService.js';
+
+    document.querySelector('[data-seed-guided-audit]').addEventListener('click', async () => {
+      const state = structuredClone(initialState);
+      state.onboarded = true;
+      state.accounts = [{
+        id: 'synthetic-account',
+        name: 'Cuenta sintética',
+        type: 'Cuenta Corriente',
+        icon: 'landmark',
+        color: '#0A8FE8',
+        order: 0
+      }];
+      state.transactions = [
+        transaction('synthetic-exact', '2026-07-01', 10, 'Café exacto sintético'),
+        transaction('synthetic-warning', '2026-07-03', 20, 'Mercado advertencia sintético'),
+        transaction('synthetic-distant', '2026-07-05', 30, 'Compra lejana sintética'),
+        transaction('synthetic-ambiguous-a', '2026-07-11', 40, 'Pago ambiguo sintético'),
+        transaction('synthetic-ambiguous-b', '2026-07-11', 40, 'Pago ambiguo sintético'),
+        transaction('synthetic-only-app', '2026-07-12', 60, 'Solo app sintético')
+      ];
+      await saveState(state);
+      document.querySelector('[data-seed-status]').textContent = 'Datos sintéticos listos.';
+      window.location.replace('/?guided-audit-synthetic=1');
+    });
+
+    function transaction(id, date, amount, description) {
+      return {
+        id,
+        account: 'Cuenta sintética',
+        date,
+        movement: 'Gasto',
+        amount,
+        description,
+        source: 'Sintético',
+        affectsIncome: false,
+        affectsExpense: true,
+        affectsBudget: true,
+        affectsBalance: true,
+        createdAt: '2026-07-19T12:00:00.000Z',
+        updatedAt: '2026-07-19T12:00:00.000Z'
+      };
+    }
+  </script>
+</body>
+</html>

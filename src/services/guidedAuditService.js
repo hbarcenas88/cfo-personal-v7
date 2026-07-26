@@ -30,8 +30,18 @@ export function validateRowsAgainstRange(rows = [], range = {}) {
 
 export function applyAuditCloseDecision(close = {}, decision = {}) {
   const decisions = Array.isArray(close.decisions) ? close.decisions : [];
-  if (decisions.some(item => item.statementRowId === decision.statementRowId)) {
-    throw new Error('Esta fila del extracto ya tiene una decisión.');
+  if (!isConfirmation(decision) && !isDismissal(decision)) {
+    throw new Error('La decisión del cierre no es válida.');
+  }
+  if (decisions.some(item => decisionEdge(item) === decisionEdge(decision))) {
+    throw new Error('Esta relación ya tiene una decisión.');
+  }
+  const reserved = decisions.filter(isConfirmation);
+  if (reserved.some(item =>
+    item.statementRowId === decision.statementRowId
+    || item.transactionId === decision.transactionId
+  )) {
+    throw new Error('Esta fila o movimiento ya tiene una decisión confirmada.');
   }
   return { ...close, decisions: [...decisions, { ...decision }] };
 }
@@ -45,16 +55,24 @@ export function accountBalanceAtCutoff(state, accountName, cutoffDate) {
   }, 0);
 }
 
-export function matchStatementToTransactions(statementRows = [], transactions = []) {
+export function matchStatementToTransactions(statementRows = [], transactions = [], options = {}) {
   const matches = emptyMatches();
   const matchableTransactions = transactions.filter(transaction => transaction.affectsBalance !== false);
   const available = new Set(matchableTransactions.map(transaction => transaction.id));
+  const excludedEdges = new Set(options.excludedEdges || []);
   const ambiguousTransactionIds = new Set();
   const orderedRows = [...statementRows].sort(compareStatementRows);
 
   orderedRows.forEach(statementRow => {
     const candidates = matchableTransactions
-      .filter(transaction => available.has(transaction.id) && amountsMatch(statementRow.signedAmount, signedTransactionAmount(transaction)))
+      .filter(transaction =>
+        available.has(transaction.id)
+        && !excludedEdges.has(decisionEdge({
+          statementRowId: statementRow.id,
+          transactionId: transaction.id
+        }))
+        && amountsMatch(statementRow.signedAmount, signedTransactionAmount(transaction))
+      )
       .map(transaction => candidateFor(statementRow, transaction))
       .sort(compareCandidates);
 
@@ -100,21 +118,24 @@ export function buildGuidedAuditReview(close = {}, state = {}) {
       && (!range.to || date <= parseDate(range.to));
   });
   const statementRows = close.statementRows || [];
-  const matches = matchStatementToTransactions(statementRows, transactions);
   const decisions = appliedDecisions(close.decisions, statementRows, transactions);
-  const confirmed = decisions.filter(match => isConfirmation(match.decision));
-  const decidedStatementIds = new Set(decisions.map(match => match.statementRow.id));
-  const decidedTransactionIds = new Set(decisions.map(match => match.transaction.id));
+  const confirmedStatementIds = new Set(decisions.confirmed.map(match => match.statementRow.id));
+  const confirmedTransactionIds = new Set(decisions.confirmed.map(match => match.transaction.id));
+  const matches = matchStatementToTransactions(
+    statementRows.filter(row => !confirmedStatementIds.has(row.id)),
+    transactions.filter(transaction => !confirmedTransactionIds.has(transaction.id)),
+    { excludedEdges: decisions.dismissed.map(match => decisionEdge(match.decision)) }
+  );
   const review = {
     recordedBalance: accountBalanceAtCutoff(state, close.accountName, cutoffDate),
     realBalance: Number(close.realBalance) || 0,
-    exact: withoutDecisions(matches.exact, decidedStatementIds, decidedTransactionIds),
-    dateWarnings: withoutDecisions(matches.dateWarning, decidedStatementIds, decidedTransactionIds),
-    distantCandidates: withoutDecisions(matches.distantCandidate, decidedStatementIds, decidedTransactionIds),
-    onlyInApp: matches.onlyInApp.filter(transaction => !decidedTransactionIds.has(transaction.id)),
-    onlyInBank: matches.onlyInBank.filter(statementRow => !decidedStatementIds.has(statementRow.id)),
-    ambiguous: withoutDecisions(matches.ambiguous, decidedStatementIds, decidedTransactionIds),
-    confirmed
+    exact: matches.exact,
+    dateWarnings: matches.dateWarning,
+    distantCandidates: matches.distantCandidate,
+    onlyInApp: matches.onlyInApp,
+    onlyInBank: matches.onlyInBank,
+    ambiguous: matches.ambiguous,
+    confirmed: decisions.confirmed
   };
   review.delta = review.realBalance - review.recordedBalance;
   review.status = reviewIsBalanced(review) ? 'balanced' : 'needsReview';
@@ -221,15 +242,24 @@ function tokenOverlap(a, b) {
 }
 
 function appliedDecisions(decisions = [], statementRows, transactions) {
-  return decisions.reduce((matches, decision) => {
-    if (!isConfirmation(decision) && !isDismissal(decision)) return matches;
+  const resolve = decision => {
     const statementRow = statementRows.find(row => row.id === decision.statementRowId);
     const transaction = transactions.find(row => row.id === decision.transactionId);
-    if (!statementRow || !transaction || !amountsMatch(statementRow.signedAmount, signedTransactionAmount(transaction))) return matches;
-    if (matches.some(match => match.statementRow.id === statementRow.id || match.transaction.id === transaction.id)) return matches;
-    matches.push({ statement: statementRow, statementRow, transaction, decision });
+    if (!statementRow || !transaction || !amountsMatch(statementRow.signedAmount, signedTransactionAmount(transaction))) return null;
+    return { statement: statementRow, statementRow, transaction, decision };
+  };
+  const confirmed = decisions.filter(isConfirmation).reduce((matches, decision) => {
+    const match = resolve(decision);
+    if (!match) return matches;
+    if (matches.some(item =>
+      item.statementRow.id === match.statementRow.id
+      || item.transaction.id === match.transaction.id
+    )) return matches;
+    matches.push(match);
     return matches;
   }, []);
+  const dismissed = decisions.filter(isDismissal).map(resolve).filter(Boolean);
+  return { confirmed, dismissed };
 }
 
 function isConfirmation(decision = {}) {
@@ -245,17 +275,13 @@ function isDismissal(decision = {}) {
     || decision.action === 'dismiss';
 }
 
-function withoutDecisions(items, statementIds, transactionIds) {
-  return items.filter(item => {
-    const statementRow = item.statementRow || item;
-    if (statementIds.has(statementRow.id)) return false;
-    if (item.transaction && transactionIds.has(item.transaction.id)) return false;
-    return !item.candidates?.some(candidate => transactionIds.has(candidate.transaction.id));
-  });
+function decisionEdge(decision = {}) {
+  return `${decision.statementRowId || ''}\u0000${decision.transactionId || ''}`;
 }
 
 function reviewIsBalanced(review) {
   return Math.abs(review.delta) < AMOUNT_EPSILON
+    && !review.exact.length
     && !review.dateWarnings.length
     && !review.distantCandidates.length
     && !review.onlyInApp.length

@@ -37,7 +37,7 @@
 - [x] Ejecutados con código 0 los `node --check` de `periodService.js`, `state.js`, `periodPicker.js`, `ui.js`, `keypad.js`, `financeService.js`, `audit.js`, `categories.js`, `recordFlow.js`, `main.js` y `service-worker.js`.
 - [x] Ejecutados con código 0 `storage-scope.test.mjs`, `transaction-edit.test.mjs`, `capacity-summary.test.mjs`, `period-scope.test.mjs`, `comparison-analysis.test.mjs` y `mobile-ui-contract.test.mjs`.
 - [x] En la ejecución de 2026-07-19, la regresión de `mobile-ui-contract.test.mjs` confirmó que la carcasa PWA usaba `cfo-personal-v7-cache-37`, incluía `./src/services/periodService.js`, hacía el fetch same-origin de la carcasa con `cache: 'no-store'`, sólo cacheaba respuestas válidas completas y conservaba una respuesta de red utilizable si fallaba `cache.put`.
-- Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación local anterior con `cfo-personal-v7-cache-34` no prueba la versión actual. `cache-38` requiere captura duradera o validación móvil del usuario antes de usarse como evidencia de entrega.
+- Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación local anterior con `cfo-personal-v7-cache-34` no prueba la versión actual. `cache-39` requiere captura duradera o validación móvil del usuario antes de usarse como evidencia de entrega.
 - [x] Ejecutado `git diff --check` sin errores de espacios.
 
 ### Lógica y persistencia
@@ -67,8 +67,9 @@ Esta sección no autoriza publicación ni merge.
 
 ### Integridad y persistencia
 
-- [x] Ejecutadas con código 0 las comprobaciones sintácticas de `main.js`, `state.js`, `guidedAuditService.js`, `statementFileService.js` y `auditClose.js`, junto con `storage-scope`, `transaction-edit`, `capacity-summary`, `period-scope`, `comparison-analysis`, `guided-audit` y `mobile-ui-contract`.
-- [x] Confirmado por `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-38` y precarga `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y el parser local `xlsx.full.min.js`.
+- [x] Ejecutadas con código 0 las comprobaciones sintácticas de `main.js`, `state.js`, `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y `service-worker.js`, junto con `storage-scope`, `transaction-edit`, `capacity-summary`, `period-scope`, `comparison-analysis`, `guided-audit`, `guided-audit-state` y `mobile-ui-contract`.
+- [x] Confirmado por `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-39`, precarga `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y el parser local `xlsx.full.min.js`, y ejecuta el build oficial SheetJS 0.20.3 en una lectura XLSX sintética.
+- [x] `guided-audit-state.test.mjs` cubre directamente crear, rechazar duplicado, persistir, guardar decisión, recargar y eliminar un cierre sin mutar cuentas, movimientos, presupuestos, provisiones ni reglas financieras.
 - [ ] Confirmar que un cierre guarda cuenta, fecha de corte, saldo real, rango declarado, filas normalizadas y validaciones sin guardar el archivo CSV/XLSX original.
 - [ ] Confirmar que confirmar, descartar o dejar pendiente una coincidencia no altera movimientos, saldos, presupuesto, transferencias ni trazabilidad financiera.
 - [ ] Confirmar que los cierres se pueden reabrir y que un delta no explicado se conserva como `Delta detectado: revisar`.
@@ -78,6 +79,7 @@ Esta sección no autoriza publicación ni merge.
 ### Revisión visual y datos reales
 
 - [ ] A 390 × 844, revisar el flujo cuenta/rango/saldo/importación/revisión/resultado sin overflow, safe-area conflict ni `<select>` nativo.
+- Evidencia sintética parcial — 2026-07-26: en origen aislado `http://127.0.0.1:8797/`, Chrome a 390 × 844 cargó seis movimientos ficticios, abrió Auditoría y Nuevo cierre, seleccionó la cuenta sintética, completó rango/corte/saldo y alcanzó Importar sin errores ni advertencias de consola. El selector de archivo quedó bloqueado en la automatización y la ejecución fue interrumpida; por tanto Mapear → Revisar → decisiones → Resultado → reapertura → eliminación no cuenta como E2E observado. Esas etapas conservan prueba determinista de DOM, lógica y persistencia, pero la casilla visual permanece sin marcar.
 - [ ] Con respaldo JSON confirmado, validar una cuenta real sin crear, editar ni borrar registros financieros; confirmar después que el cierre puede reabrirse.
 
 Esta sección no autoriza publicación ni merge.

@@ -107,6 +107,18 @@ assert.deepEqual(
   validateStatementRows([], { date: 'fecha', amount: 'monto', description: 'detalle' }),
   { ok: true, message: '' }
 );
+assert.deepEqual(
+  validateStatementRows([
+    { __row: 2, fecha: '', monto: '', detalle: '' }
+  ], { date: 'fecha', amount: 'monto', description: 'detalle' }),
+  { ok: true, message: '' }
+);
+assert.deepEqual(
+  normalizeStatementRows([
+    { __row: 2, fecha: '', monto: '', detalle: '' }
+  ], { date: 'fecha', amount: 'monto', description: 'detalle' }),
+  []
+);
 assert.equal(validateStatementRows([
   { __row: 2, fecha: 'fecha inválida', monto: '-10', detalle: 'Fecha rota' }
 ], { date: 'fecha', amount: 'monto', description: 'detalle' }).ok, false);
@@ -213,6 +225,8 @@ const pendingReview = (date, transactionDate) => buildGuidedAuditReview({
 
 assert.equal(pendingReview('2026-07-19', '2026-07-17').status, 'needsReview');
 assert.equal(pendingReview('2026-07-19', '2026-07-15').status, 'needsReview');
+assert.equal(pendingReview('2026-07-19', '2026-07-19').exact.length, 1);
+assert.equal(pendingReview('2026-07-19', '2026-07-19').status, 'needsReview');
 
 const decidedRows = normalizeStatementRows([
   { fecha: '2026-07-19', monto: '-10.00', detalle: 'Confirmada' },
@@ -235,5 +249,73 @@ const decidedReview = buildGuidedAuditReview({
 assert.equal(decidedReview.confirmed.length, 1);
 assert.equal(decidedReview.confirmed[0].statementRow.id, decidedRows[0].id);
 assert.equal(decidedReview.exact.length, 0);
+assert.equal(decidedReview.onlyInBank.length, 1);
+assert.equal(decidedReview.onlyInApp.length, 1);
+
+const ambiguousRows = normalizeStatementRows([
+  { fecha: '2026-07-19', monto: '-40.00', detalle: 'Compra repetida' }
+], { date: 'fecha', amount: 'monto', description: 'detalle' });
+const ambiguousTransactions = [
+  { id: 'candidate-a', account: 'Ambigua', date: '2026-07-19', movement: 'Gasto', amount: 40, description: 'Compra repetida', affectsBalance: true },
+  { id: 'candidate-b', account: 'Ambigua', date: '2026-07-19', movement: 'Gasto', amount: 40, description: 'Compra repetida', affectsBalance: true }
+];
+const ambiguousAfterDismissal = buildGuidedAuditReview({
+  accountName: 'Ambigua', cutoffDate: '2026-07-19', realBalance: -80,
+  range: { from: '2026-07-01', to: '2026-07-19' },
+  statementRows: ambiguousRows,
+  decisions: [{
+    statementRowId: ambiguousRows[0].id,
+    transactionId: 'candidate-a',
+    status: 'dismissed'
+  }]
+}, { transactions: ambiguousTransactions });
+
+assert.equal(ambiguousAfterDismissal.ambiguous.length, 0);
+assert.equal(ambiguousAfterDismissal.exact.length, 1);
+assert.equal(ambiguousAfterDismissal.exact[0].transaction.id, 'candidate-b');
+assert.deepEqual(ambiguousAfterDismissal.onlyInApp.map(transaction => transaction.id), ['candidate-a']);
+assert.equal(ambiguousAfterDismissal.onlyInBank.length, 0);
+
+const twoRows = normalizeStatementRows([
+  { fecha: '2026-07-19', monto: '-25.00', detalle: 'Pago repetido' },
+  { fecha: '2026-07-19', monto: '-25.00', detalle: 'Pago repetido' }
+], { date: 'fecha', amount: 'monto', description: 'detalle' });
+const afterPartialConfirmation = buildGuidedAuditReview({
+  accountName: 'Reserva', cutoffDate: '2026-07-19', realBalance: -50,
+  range: { from: '2026-07-01', to: '2026-07-19' },
+  statementRows: twoRows,
+  decisions: [{
+    statementRowId: twoRows[0].id,
+    transactionId: 'reserved-a',
+    status: 'confirmed'
+  }]
+}, {
+  transactions: [
+    { id: 'reserved-a', account: 'Reserva', date: '2026-07-19', movement: 'Gasto', amount: 25, description: 'Pago repetido', affectsBalance: true },
+    { id: 'reserved-b', account: 'Reserva', date: '2026-07-19', movement: 'Gasto', amount: 25, description: 'Pago repetido', affectsBalance: true }
+  ]
+});
+
+assert.equal(afterPartialConfirmation.confirmed.length, 1);
+assert.equal(afterPartialConfirmation.exact.length, 1);
+assert.equal(afterPartialConfirmation.exact[0].statementRow.id, twoRows[1].id);
+assert.equal(afterPartialConfirmation.exact[0].transaction.id, 'reserved-b');
+
+const dismissalOne = applyAuditCloseDecision({
+  ...auditClose,
+  decisions: []
+}, {
+  id: 'dismiss-a',
+  statementRowId: 'statement-2',
+  transactionId: 'candidate-a',
+  status: 'dismissed'
+});
+const dismissalTwo = applyAuditCloseDecision(dismissalOne, {
+  id: 'dismiss-b',
+  statementRowId: 'statement-2',
+  transactionId: 'candidate-b',
+  status: 'dismissed'
+});
+assert.equal(dismissalTwo.decisions.length, 2);
 
 console.log('guided-audit.test.mjs passed');
