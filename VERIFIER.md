@@ -49,7 +49,8 @@
 - [ ] Confirmar que comparación sólo aparece en Auditoría y Categorías, usa el período anterior equivalente y no muta datos financieros.
 - [ ] Probar comparación con filtros de Auditoría, categorías seleccionadas, Solo gasto, Combinado, Solo presupuesto y referencia vacía (`Sin base anterior`).
 - Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró la independencia de Auditoría y la comparación de Categorías; no confirma el comportamiento actual sin captura duradera o validación móvil del usuario.
-- [ ] Con datos reales, confirmar primero que existe un respaldo JSON y realizar la validación sin crear, editar ni borrar registros reales.
+- [x] Respaldo JSON confirmado por la persona usuaria el 2026-07-26 antes de la validación real.
+- [ ] Con datos reales, realizar la validación sin crear, editar ni borrar registros reales.
 
 ### Revisión visual a 390 × 844
 
@@ -70,6 +71,7 @@ Esta sección no autoriza publicación ni merge.
 - [x] Ejecutadas con código 0 las comprobaciones sintácticas de `main.js`, `state.js`, `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y `service-worker.js`, junto con `storage-scope`, `transaction-edit`, `capacity-summary`, `period-scope`, `comparison-analysis`, `guided-audit`, `guided-audit-state` y `mobile-ui-contract`.
 - [x] Confirmado por `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-39`, precarga `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y el parser local `xlsx.full.min.js`, y ejecuta el build oficial SheetJS 0.20.3 en una lectura XLSX sintética.
 - [x] `guided-audit-state.test.mjs` cubre directamente crear, rechazar duplicado, persistir, guardar decisión, recargar y eliminar un cierre sin mutar cuentas, movimientos, presupuestos, provisiones ni reglas financieras.
+- [x] Respaldo JSON confirmado por la persona usuaria el 2026-07-26 antes de la validación de una cuenta real.
 - [ ] Confirmar que un cierre guarda cuenta, fecha de corte, saldo real, rango declarado, filas normalizadas y validaciones sin guardar el archivo CSV/XLSX original.
 - [ ] Confirmar que confirmar, descartar o dejar pendiente una coincidencia no altera movimientos, saldos, presupuesto, transferencias ni trazabilidad financiera.
 - [ ] Confirmar que los cierres se pueden reabrir y que un delta no explicado se conserva como `Delta detectado: revisar`.

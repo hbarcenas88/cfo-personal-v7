@@ -38,6 +38,7 @@
 | `styles/screens.css` | Define layout móvil del cierre, cabecera de delta, bandejas de diferencias y sheets. |
 | `service-worker.js` | Precachea módulos y el parser local, con cache-39. |
 | `tests/guided-audit.test.mjs` | Pruebas puras de normalización, matching, deltas, duplicados y no mutación. |
+| `tests/guided-audit-state.test.mjs` | Pruebas directas de persistencia, decisiones y eliminación de cierres sin mutar datos financieros. |
 | `tests/mobile-ui-contract.test.mjs` | Extiende el contrato para los nuevos controles, asset precacheado y cache-39. |
 
 ### Task 1: Contrato puro de filas y coincidencias
@@ -552,7 +553,7 @@ const CACHE_NAME = 'cfo-personal-v7-cache-39';
 './assets/vendor/xlsx.full.min.js',
 ```
 
-In `VERIFIER.md`, leave all guided-audit entries unchecked until execution evidence exists. In `PROGRESS.md`, replace “plan técnico pendiente” with the implementation status only after the task actually starts; retain the statement that real-data validation needs a confirmed JSON backup.
+Durante la ejecución, dejar en `VERIFIER.md` los puntos de auditoría guiada sin marcar hasta reunir evidencia. Al terminar, registrar únicamente la evidencia observada y mantener pendiente la validación real no destructiva; el respaldo JSON fue confirmado el 2026-07-26.
 
 - [ ] **Step 4: Run verification suite**
 
