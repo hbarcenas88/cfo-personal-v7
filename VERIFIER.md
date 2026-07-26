@@ -63,10 +63,12 @@
 
 Esta sección no autoriza publicación ni merge.
 
-## Auditoría guiada por cuenta y fecha — diseño aprobado, pendiente de implementación
+## Auditoría guiada por cuenta y fecha — implementación local, evidencia operativa pendiente
 
 ### Integridad y persistencia
 
+- [x] Ejecutadas con código 0 las comprobaciones sintácticas de `main.js`, `state.js`, `guidedAuditService.js`, `statementFileService.js` y `auditClose.js`, junto con `storage-scope`, `transaction-edit`, `capacity-summary`, `period-scope`, `comparison-analysis`, `guided-audit` y `mobile-ui-contract`.
+- [x] Confirmado por `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-38` y precarga `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y el parser local `xlsx.full.min.js`.
 - [ ] Confirmar que un cierre guarda cuenta, fecha de corte, saldo real, rango declarado, filas normalizadas y validaciones sin guardar el archivo CSV/XLSX original.
 - [ ] Confirmar que confirmar, descartar o dejar pendiente una coincidencia no altera movimientos, saldos, presupuesto, transferencias ni trazabilidad financiera.
 - [ ] Confirmar que los cierres se pueden reabrir y que un delta no explicado se conserva como `Delta detectado: revisar`.

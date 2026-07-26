@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-37';
+const CACHE_NAME = 'cfo-personal-v7-cache-38';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -19,6 +19,8 @@ const APP_SHELL = [
   './src/services/backupService.js',
   './src/services/healthService.js',
   './src/services/periodService.js',
+  './src/services/guidedAuditService.js',
+  './src/services/statementFileService.js',
   './src/components/ui.js',
   './src/components/keypad.js',
   './src/components/calendar.js',
@@ -28,10 +30,12 @@ const APP_SHELL = [
   './src/screens/summary.js',
   './src/screens/categories.js',
   './src/screens/audit.js',
+  './src/screens/auditClose.js',
   './src/screens/settings.js',
   './src/screens/recordFlow.js',
   './assets/icon-192.svg',
-  './assets/icon-512.svg'
+  './assets/icon-512.svg',
+  './assets/vendor/xlsx.full.min.js'
 ].map(appUrl);
 
 self.addEventListener('install', event => {

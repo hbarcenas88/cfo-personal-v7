@@ -354,8 +354,12 @@ assert.strictEqual(
 );
 assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 
-assert.match(worker, /cfo-personal-v7-cache-37/);
+assert.match(worker, /cfo-personal-v7-cache-38/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
+assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
+assert.match(worker, /'\.\/src\/services\/statementFileService\.js'/);
+assert.match(worker, /'\.\/src\/screens\/auditClose\.js'/);
+assert.match(worker, /'\.\/assets\/vendor\/xlsx\.full\.min\.js'/);
 assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
 assert.match(worker, /!response\.ok\s*\|\|\s*response\.status\s*===\s*206/);
 assert.match(worker, /await cache\.put\(event\.request, copy\)/);
