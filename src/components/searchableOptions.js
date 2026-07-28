@@ -1,4 +1,5 @@
 import { canon, html } from '../utils/format.js';
+import { icon } from '../icons.js';
 
 export function filterSearchableOptions(options, query) {
   const needle = canon(query);
@@ -15,6 +16,7 @@ export function renderSearchableOptionRows(options, selectedValues = []) {
   return (options || []).map(option => `
     <button class="option-row ${selectedValues.includes(option.value) ? 'selected' : ''}" data-option-value="${html(option.value)}">
       <span>${html(option.label || option.value)}</span>
+      ${selectedValues.includes(option.value) ? icon('check') : ''}
     </button>
   `).join('') || '<div class="empty-state" data-option-empty>Sin opciones</div>';
 }

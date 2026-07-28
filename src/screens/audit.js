@@ -88,8 +88,7 @@ function renderAuditDropdown(state) {
   const type = state.ui.auditDropdown;
   if (!type) return '';
   const key = { account: 'accounts', type: 'types', category: 'categories', subcategory: 'subcategories' }[type];
-  const options = auditDropdownOptions(state, type)
-    .slice(0, 80);
+  const options = auditDropdownOptions(state, type);
   const searchable = options.length > 8;
   return `
     <div class="audit-dropdown" role="dialog" aria-label="Opciones de filtro">
