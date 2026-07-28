@@ -29,7 +29,7 @@
 - Comparación automática con período anterior equivalente sólo en Auditoría y Categorías, sin cambiar reglas financieras: implementada.
 - Densidad de selector, filtros y calculadora de ingresos: implementada y cubierta por la batería automatizada. Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró el sheet, los controles y el keypad; no confirma la versión actual sin captura duradera o validación móvil del usuario.
 - Alcance analítico: la implementación mantiene el período independiente de Auditoría y la comparación de Categorías. Observación sintética no adjunta (narrativa, no evidencia de entrega): una sesión anterior exploró esos flujos, pero no sustituye la captura duradera o validación móvil del usuario.
-- Entrega PWA: el worker actual `cfo-personal-v7-cache-39` está cubierto por regresión de precache y runtime sin HTTP cache; sólo cachea respuestas válidas completas y preserva la respuesta de red cuando falla una escritura de caché. Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación anterior con `cache-34` no confirma la versión actual. Sigue pendiente captura duradera o validación móvil del usuario.
+- Entrega PWA: el worker actual `cfo-personal-v7-cache-40` está cubierto por regresión de precache y runtime sin HTTP cache; incluye `searchableOptions.js`, sólo cachea respuestas válidas completas y preserva la respuesta de red cuando falla una escritura de caché. Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación anterior con `cache-34` no confirma la versión actual. Sigue pendiente captura duradera o validación móvil del usuario.
 - Pendiente antes de considerarlo completado: captura duradera o validación móvil del usuario, y validación no destructiva con datos reales. El respaldo JSON fue confirmado el 2026-07-26. Esta evidencia no autoriza publicación ni merge.
 - Este bloque precede a la Etapa 2 y está documentado en `docs/superpowers/specs/2026-07-18-period-scope-and-mobile-density-design.md`.
 
@@ -38,7 +38,7 @@
 - Diseño aprobado el 2026-07-19 e implementación local terminada, con evidencia operativa pendiente, documentados en `docs/superpowers/specs/2026-07-19-guided-audit-design.md` y `docs/superpowers/plans/2026-07-19-guided-audit-implementation.md`.
 - Cierre flexible por cuenta y fecha: saldo real, rango declarado, CSV/XLSX normalizado, diferencias y delta persistente.
 - Coincidencias exactas y candidatas requieren decisión humana; un descarte excluye sólo esa relación y una confirmación reserva sus filas.
-- El lector XLSX usa SheetJS 0.20.3 vendorizado localmente, con licencia y procedencia verificables, dentro de `cfo-personal-v7-cache-39`.
+- El lector XLSX usa SheetJS 0.20.3 vendorizado localmente, con licencia y procedencia verificables, dentro de `cfo-personal-v7-cache-40`.
 - Comparación analítica y validaciones de revisión separadas de movimientos, saldos, presupuesto y transferencias.
 - No bloqueó su diseño ni implementación; el respaldo JSON ya fue confirmado y falta una validación no destructiva con una cuenta real.
 - PDF/imágenes, conexión bancaria, ajustes para cuadrar y conciliación automática quedan fuera de esta primera versión.
@@ -61,5 +61,6 @@
 
 ### Etapa 3 — Registro, menú, planeación y ajustes
 
+- Registro: entrada estable, selector buscable por intención y keypad clásico compartido implementados y cubiertos por pruebas automatizadas. Falta QA renderizado 390 × 844 y dispositivo real sin mutar datos; Browser no pudo adquirir un navegador local durante la comprobación del 2026-07-27.
 - Unificar sheets, formularios, selectores, estados vacíos y acciones de configuración.
 - Conservar reglas financieras existentes mientras se mejora la expresión visual.

@@ -44,6 +44,8 @@ El onboarding ofrece crear datos base o importar información. La persona puede 
 
 La persona abre el flujo de registro, elige tipo, fecha, cuentas, monto y detalle relevante. La validación debe impedir guardar información incompleta o financieramente incoherente.
 
+La escritura de notas y descripción conserva el borrador y el foco durante la entrada; la validación de campos requeridos ocurre al guardar. Los catálogos se abren como listas propias sin activar el teclado hasta que la persona elige `Buscar o escribir`; no se usan `<select>` nativos. Las calculadoras comparten una cuadrícula clásica de cuatro columnas, con borrado disponible y sin una confirmación que reemplace el guardado validado.
+
 ### Auditar y editar
 
 Auditoría permite buscar, combinar filtros y abrir acciones de un movimiento. La edición debe persistir al recargar y conservar las reglas de cada tipo de movimiento.

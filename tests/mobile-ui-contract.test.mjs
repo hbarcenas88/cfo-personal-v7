@@ -199,6 +199,11 @@ assert.match(styles, /\.operational-chart-track\s*\{[\s\S]*?height:\s*8px/);
 const operationalChartFill = styles.match(/\.operational-chart-track > span\s*\{[\s\S]*?\n\}/)[0];
 assert.doesNotMatch(operationalChartFill, /min-width\s*:/);
 assert.match(styles, /\.keypad\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, 1fr\)/);
+assert.match(keypad, /CLASSIC_KEYPAD_ROWS/);
+assert.doesNotMatch(keypad, /data-key="confirm"/);
+assert.match(keypad, /data-key="back"/);
+assert.match(main, /data-option-search-open/);
+assert.doesNotMatch(audit, /autofocus/);
 assert.doesNotMatch(keypad, /key\('calendar'/);
 assert.match(styles, /\.operational-chart-row-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 assert.match(styles, /\.operational-category > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
@@ -405,7 +410,8 @@ assert.strictEqual(
 );
 assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 
-assert.match(worker, /cfo-personal-v7-cache-39/);
+assert.match(worker, /cfo-personal-v7-cache-40/);
+assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
 assert.match(worker, /'\.\/src\/services\/statementFileService\.js'/);

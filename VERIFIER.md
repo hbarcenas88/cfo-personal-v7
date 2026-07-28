@@ -37,7 +37,7 @@
 - [x] Ejecutados con código 0 los `node --check` de `periodService.js`, `state.js`, `periodPicker.js`, `ui.js`, `keypad.js`, `financeService.js`, `audit.js`, `categories.js`, `recordFlow.js`, `main.js` y `service-worker.js`.
 - [x] Ejecutados con código 0 `storage-scope.test.mjs`, `transaction-edit.test.mjs`, `capacity-summary.test.mjs`, `period-scope.test.mjs`, `comparison-analysis.test.mjs` y `mobile-ui-contract.test.mjs`.
 - [x] En la ejecución de 2026-07-19, la regresión de `mobile-ui-contract.test.mjs` confirmó que la carcasa PWA usaba `cfo-personal-v7-cache-37`, incluía `./src/services/periodService.js`, hacía el fetch same-origin de la carcasa con `cache: 'no-store'`, sólo cacheaba respuestas válidas completas y conservaba una respuesta de red utilizable si fallaba `cache.put`.
-- Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación local anterior con `cfo-personal-v7-cache-34` no prueba la versión actual. `cache-39` requiere captura duradera o validación móvil del usuario antes de usarse como evidencia de entrega.
+- Observación sintética no adjunta (narrativa, no evidencia de entrega): la comprobación local anterior con `cfo-personal-v7-cache-34` no prueba la versión actual. `cache-40` requiere captura duradera o validación móvil del usuario antes de usarse como evidencia de entrega.
 - [x] Ejecutado `git diff --check` sin errores de espacios.
 
 ### Lógica y persistencia
@@ -69,7 +69,7 @@ Esta sección no autoriza publicación ni merge.
 ### Integridad y persistencia
 
 - [x] Ejecutadas con código 0 las comprobaciones sintácticas de `main.js`, `state.js`, `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y `service-worker.js`, junto con `storage-scope`, `transaction-edit`, `capacity-summary`, `period-scope`, `comparison-analysis`, `guided-audit`, `guided-audit-state` y `mobile-ui-contract`.
-- [x] Confirmado por `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-39`, precarga `guidedAuditService.js`, `statementFileService.js`, `auditClose.js` y el parser local `xlsx.full.min.js`, y ejecuta el build oficial SheetJS 0.20.3 en una lectura XLSX sintética.
+- [x] Confirmado por `mobile-ui-contract.test.mjs` que la carcasa PWA usa `cfo-personal-v7-cache-40`, precarga `guidedAuditService.js`, `statementFileService.js`, `auditClose.js`, `searchableOptions.js` y el parser local `xlsx.full.min.js`, y ejecuta el build oficial SheetJS 0.20.3 en una lectura XLSX sintética.
 - [x] `guided-audit-state.test.mjs` cubre directamente crear, rechazar duplicado, persistir, guardar decisión, recargar y eliminar un cierre sin mutar cuentas, movimientos, presupuestos, provisiones ni reglas financieras.
 - [x] Respaldo JSON confirmado por la persona usuaria el 2026-07-26 antes de la validación de una cuenta real.
 - [ ] Confirmar que un cierre guarda cuenta, fecha de corte, saldo real, rango declarado, filas normalizadas y validaciones sin guardar el archivo CSV/XLSX original.
@@ -83,5 +83,14 @@ Esta sección no autoriza publicación ni merge.
 - [ ] A 390 × 844, revisar el flujo cuenta/rango/saldo/importación/revisión/resultado sin overflow, safe-area conflict ni `<select>` nativo.
 - Evidencia sintética parcial — 2026-07-26: en origen aislado `http://127.0.0.1:8797/`, Chrome a 390 × 844 cargó seis movimientos ficticios, abrió Auditoría y Nuevo cierre, seleccionó la cuenta sintética, completó rango/corte/saldo y alcanzó Importar sin errores ni advertencias de consola. El selector de archivo quedó bloqueado en la automatización y la ejecución fue interrumpida; por tanto Mapear → Revisar → decisiones → Resultado → reapertura → eliminación no cuenta como E2E observado. Esas etapas conservan prueba determinista de DOM, lógica y persistencia, pero la casilla visual permanece sin marcar.
 - [ ] Con respaldo JSON confirmado, validar una cuenta real sin crear, editar ni borrar registros financieros; confirmar después que el cierre puede reabrirse.
+
+Esta sección no autoriza publicación ni merge.
+
+## Estabilidad móvil de Registro — automatizada, QA renderizado pendiente
+
+- [x] Ejecutados con código 0 los `node --check` de `keypad.js`, `searchableOptions.js`, `recordFlow.js`, `audit.js`, `categories.js`, `main.js` y `service-worker.js`; también `keypad`, `record-flow`, `searchable-options`, `storage-scope`, `transaction-edit`, `capacity-summary`, `period-scope`, `comparison-analysis`, `guided-audit`, `guided-audit-state` y `mobile-ui-contract`.
+- [x] `mobile-ui-contract.test.mjs` confirma keypad clásico compartido sin acción `confirm`, acción `back`, selector buscable bajo apertura intencional, ausencia de `autofocus` en Auditoría y carcasa PWA `cfo-personal-v7-cache-40` que precarga `searchableOptions.js`.
+- [ ] QA renderizado a 390 × 844 pendiente: Browser no pudo adquirir un navegador local durante esta ejecución; no se observó el recorrido de Registro, teclado/cursor, overlays, safe areas ni overflow.
+- [ ] En un dispositivo real y sin crear ni modificar datos financieros, recorrer Registro extraordinario, notas/descripción, calculadoras, selectores de lista y validación de guardado; confirmar ausencia de `<select>` nativo, overflow y colisión con safe areas.
 
 Esta sección no autoriza publicación ni merge.
