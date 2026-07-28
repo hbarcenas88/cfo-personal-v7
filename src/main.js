@@ -5,8 +5,8 @@ import { renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
 import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
-import { renderCategories } from './screens/categories.js';
-import { renderAudit } from './screens/audit.js';
+import { renderCategories, renderCategoriesResults } from './screens/categories.js';
+import { renderAudit, renderAuditResults } from './screens/audit.js';
 import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
 import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
@@ -19,6 +19,7 @@ import { readStatementFile, suggestedStatementMapping, validateStatementMapping 
 import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
 import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
+import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows } from './components/searchableOptions.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
 let keypad;
@@ -51,6 +52,56 @@ function renderAndPersistFilters() {
   filterPersistTimer = window.setTimeout(() => {
     persist().catch(error => captureError('filter persistence', error));
   }, 250);
+}
+
+function persistFiltersSoon() {
+  window.clearTimeout(filterPersistTimer);
+  filterPersistTimer = window.setTimeout(() => {
+    persist().catch(error => captureError('filter persistence', error));
+  }, 250);
+}
+
+function replaceSearchResults(selector, markup) {
+  const target = document.querySelector(selector);
+  if (target) target.innerHTML = markup;
+  if (target?.matches('[data-global-search-results]')) bindGlobalSearchResults(target);
+  if (target?.matches('[data-audit-results]')) bindAuditSearchResults(target);
+  if (target?.matches('[data-categories-results]')) bindCategoriesSearchResults(target);
+}
+
+function bindGlobalSearchResults(target) {
+  target.querySelectorAll('[data-open-tx]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedTransactionId = button.dataset.openTx;
+    openSheet('transaction-menu');
+  }));
+}
+
+function auditDropdownOptionObjects() {
+  return [...document.querySelectorAll('[data-audit-dropdown-option]')].map(button => ({
+    value: button.dataset.auditDropdownOption || '',
+    label: button.dataset.auditDropdownOption || ''
+  }));
+}
+
+function bindAuditSearchResults(target) {
+  target.querySelectorAll('[data-tx-menu]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedTransactionId = button.dataset.txMenu;
+    openSheet('transaction-menu');
+  }));
+}
+
+function bindCategoriesSearchResults(target) {
+  target.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
+    state.filters.categories.view = button.dataset.catView;
+    state.ui.auditFiltersOpen = false;
+    renderAndPersistFilters();
+  }));
+  target.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
+    const list = state.filters.categories.expanded;
+    const name = button.dataset.catExpand;
+    state.filters.categories.expanded = list.includes(name) ? list.filter(value => value !== name) : [...list, name];
+    renderAndPersistFilters();
+  }));
 }
 
 await initState();
@@ -547,6 +598,7 @@ function bindFilters() {
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
+      state.ui.auditDropdownSearchActive = false;
       state.ui.auditFiltersOpen = false;
       render();
     });
@@ -555,12 +607,14 @@ function bindFilters() {
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
+      state.ui.auditDropdownSearchActive = false;
       render();
     });
   }
   document.querySelector('[data-cat-search]')?.addEventListener('input', event => {
     state.filters.categories.text = event.target.value;
-    renderAndPersistFilters();
+    persistFiltersSoon();
+    replaceSearchResults('[data-categories-results]', renderCategoriesResults(state));
   });
   document.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.view = button.dataset.catView;
@@ -634,13 +688,15 @@ function bindFilters() {
   }));
   document.querySelector('[data-audit-search]')?.addEventListener('input', event => {
     state.filters.audit.text = event.target.value;
-    renderAndPersistFilters();
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
   });
   document.querySelector('[data-audit-clear]')?.addEventListener('click', () => {
     state.filters.audit = { text: '', accounts: [], types: [], categories: [], subcategories: [] };
     state.ui.auditFiltersOpen = false;
     state.ui.auditDropdown = '';
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     renderAndPersistFilters();
   });
   document.querySelectorAll('[data-open-audit-period]').forEach(button => button.addEventListener('click', () => {
@@ -655,17 +711,30 @@ function bindFilters() {
     state.ui.auditFiltersOpen = !state.ui.auditFiltersOpen;
     state.ui.auditDropdown = '';
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     render();
   });
   document.querySelectorAll('[data-open-filter]').forEach(button => button.addEventListener('click', () => {
     const type = button.dataset.openFilter;
     state.ui.auditDropdown = state.ui.auditDropdown === type ? '' : type;
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     render();
   }));
+  document.querySelector('[data-audit-dropdown-search-open]')?.addEventListener('click', () => {
+    state.ui.auditDropdownSearchActive = true;
+    render();
+    window.requestAnimationFrame(() => document.querySelector('[data-audit-dropdown-search]')?.focus());
+  });
   document.querySelector('[data-audit-dropdown-search]')?.addEventListener('input', event => {
     state.ui.auditDropdownSearch = event.target.value;
-    render();
+    const visibleValues = new Set(filterSearchableOptions(
+      auditDropdownOptionObjects(),
+      state.ui.auditDropdownSearch
+    ).map(option => String(option.value)));
+    document.querySelectorAll('[data-audit-dropdown-option]').forEach(button => {
+      button.hidden = !visibleValues.has(button.dataset.auditDropdownOption);
+    });
   });
   document.querySelectorAll('[data-audit-dropdown-toggle]').forEach(button => button.addEventListener('click', () => {
     const [type, value] = splitPair(button.dataset.auditDropdownToggle);
@@ -683,6 +752,7 @@ function bindFilters() {
   document.querySelectorAll('[data-audit-dropdown-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.auditDropdown = '';
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     render();
   }));
   document.querySelector('[data-audit-excess]')?.addEventListener('dblclick', () => {
@@ -892,10 +962,22 @@ function bindSheetActions() {
     });
   }));
   document.querySelectorAll('[data-option-value]').forEach(button => button.addEventListener('click', () => applyOptionSelection(button.dataset.optionValue || '')));
+  document.querySelector('[data-option-search-open]')?.addEventListener('click', () => {
+    if (!state.ui.optionPicker) return;
+    state.ui.optionPicker.searchActive = true;
+    render();
+    window.requestAnimationFrame(() => document.querySelector('[data-option-search]')?.focus());
+  });
   document.querySelector('[data-option-search]')?.addEventListener('input', event => {
     if (!state.ui.optionPicker) return;
     state.ui.optionPicker.search = event.target.value;
-    render();
+    const visibleValues = new Set(filterSearchableOptions(
+      state.ui.optionPicker.options,
+      state.ui.optionPicker.search
+    ).map(option => String(option.value)));
+    document.querySelectorAll('.option-list [data-option-value]').forEach(button => {
+      button.hidden = !visibleValues.has(button.dataset.optionValue);
+    });
   });
   document.querySelectorAll('[data-record-pick]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
@@ -1414,7 +1496,8 @@ function openOptionPicker(config) {
     value: config.value || '',
     target: config.target,
     returnSheet: config.returnSheet || state.ui.activeSheet,
-    search: ''
+    search: '',
+    searchActive: false
   };
   state.ui.activeSheet = 'option-picker';
   render();
@@ -1423,21 +1506,14 @@ function openOptionPicker(config) {
 function optionPickerSheet() {
   const picker = state.ui.optionPicker || {};
   const searchable = (picker.options || []).length > 8;
-  const search = picker.search || '';
-  const options = (picker.options || []).filter(option => !search || canon(option.label || option.value).includes(canon(search)));
   return `
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet picker-sheet ${searchable ? 'has-search' : ''}" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">${html(picker.title || 'Seleccionar')}</h2>
-        ${searchable ? `<input class="input" data-option-search placeholder="Buscar..." value="${html(search)}" autofocus>` : ''}
+        ${searchable ? renderSearchActivator(picker.searchActive) : ''}
         <div class="option-list">
-          ${options.map(option => `
-            <button class="option-row ${option.value === picker.value ? 'selected' : ''}" data-option-value="${html(option.value)}">
-              <span>${html(option.label || option.value)}</span>
-              ${option.value === picker.value ? icon('check') : ''}
-            </button>
-          `).join('') || '<div class="empty-state">Sin opciones</div>'}
+          ${renderSearchableOptionRows(picker.options, [picker.value])}
         </div>
         <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
@@ -1992,15 +2068,23 @@ function simpleCreateSheet(title, fields, button, action) {
 
 function searchSheet() {
   const q = state.ui.searchText || '';
-  const rows = q ? state.transactions.filter(tx => canon([tx.description, tx.account, tx.category, tx.subcategory].join(' ')).includes(canon(q))).slice(0, 20) : [];
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Búsqueda global</h2>
       <input class="input" data-global-search-input placeholder="Cuenta, categoría, descripción..." value="${q}">
-      <div class="search-results-list">${q ? rows.map(tx => `<button class="settings-row" data-open-tx="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('receipt')}</span><span><strong>${tx.description || tx.movement}</strong><small>${tx.account} · ${tx.category || tx.movement} · ${formatMoney(tx.amount)}</small></span>${icon('chevronRight')}</button>`).join('') || '<div class="empty-state">Sin resultados</div>' : '<div class="empty-state">Escribe para buscar</div>'}</div>
+      <div class="search-results-list" data-global-search-results>${renderGlobalSearchResults(q)}</div>
       <button class="secondary-button" data-sheet-close>Cerrar</button>
     </section></div>
   `;
+}
+
+function renderGlobalSearchResults(query) {
+  const rows = query
+    ? state.transactions.filter(tx => canon([tx.description, tx.account, tx.category, tx.subcategory].join(' ')).includes(canon(query))).slice(0, 20)
+    : [];
+  return query
+    ? rows.map(tx => `<button class="settings-row" data-open-tx="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('receipt')}</span><span><strong>${tx.description || tx.movement}</strong><small>${tx.account} · ${tx.category || tx.movement} · ${formatMoney(tx.amount)}</small></span>${icon('chevronRight')}</button>`).join('') || '<div class="empty-state">Sin resultados</div>'
+    : '<div class="empty-state">Escribe para buscar</div>';
 }
 
 function healthDetailSheet() {
@@ -2177,7 +2261,7 @@ async function clearAppServiceWorkerAndCaches() {
 document.addEventListener('input', event => {
   if (event.target.matches('[data-global-search-input]')) {
     state.ui.searchText = event.target.value;
-    render();
+    replaceSearchResults('[data-global-search-results]', renderGlobalSearchResults(state.ui.searchText));
   }
   if (event.target.matches('[data-import-edit]')) {
     const [index, field] = event.target.dataset.importEdit.split(':');

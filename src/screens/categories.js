@@ -5,6 +5,14 @@ import { canon, formatMoney, html, periodLabel } from '../utils/format.js';
 
 export function renderCategories(state) {
   const filters = state.filters.categories;
+  return `
+    ${renderFilterPanel(filters, state)}
+    <div data-categories-results>${renderCategoriesResults(state)}</div>
+  `;
+}
+
+export function renderCategoriesResults(state) {
+  const filters = state.filters.categories;
   const comparison = filters.compare && filters.view !== 'budget'
     ? buildCategoryComparison(state, state.period, filters)
     : null;
@@ -16,7 +24,6 @@ export function renderCategories(state) {
     rows = rows.filter(row => filters.view === 'budget' ? row.planned > 0 : filters.view === 'spend' ? row.spent > 0 : row.planned > 0 || row.spent > 0);
   }
   return `
-    ${renderFilterPanel(filters, state)}
     <div class="segmented category-view-segmented">
       <button class="${filters.view === 'combined' ? 'active' : ''}" data-cat-view="combined">Combinado</button>
       <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget">Solo presupuesto</button>
