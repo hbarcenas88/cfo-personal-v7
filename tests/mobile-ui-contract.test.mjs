@@ -71,6 +71,8 @@ const exactCandidateAuditClose = renderAuditCloseSheet({
   }]
 });
 assert.match(exactCandidateAuditClose, /Coincidencia exacta/);
+assert.match(exactCandidateAuditClose, /Cuenta sintética/);
+assert.match(exactCandidateAuditClose, /Fecha de corte/);
 assert.match(exactCandidateAuditClose, /Confirmar/);
 assert.match(exactCandidateAuditClose, /No corresponde/);
 assert.match(exactCandidateAuditClose, /Dejar pendiente/);

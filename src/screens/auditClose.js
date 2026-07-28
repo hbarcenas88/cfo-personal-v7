@@ -168,12 +168,14 @@ function renderMappingStep(draft) {
 function renderReviewStep(close, review) {
   if (!close || !review) return card('<strong>Falta información del cierre</strong><p class="muted">Completa los datos e importa un extracto para revisar diferencias.</p>');
   return `
-    ${summary(review)}
+    ${summary(close, review)}
     <div class="guided-audit-intro"><strong>Revisa antes de cerrar</strong><p>Las confirmaciones quedan como evidencia y no cambian los movimientos financieros.</p></div>
     ${exceptionGroup('Solo en la app', 'app-only', review.onlyInApp, transactionOnlyCard)}
     ${exceptionGroup('Solo en el banco', 'bank-only', review.onlyInBank, statementOnlyCard)}
+    ${exceptionGroup('Pendiente humano', 'human-pending', review.pending, candidateCard)}
     ${exceptionGroup('Coincidencia exacta', 'exact-candidate', review.exact, candidateCard)}
     ${exceptionGroup('Advertencia de fecha', 'date-warning', review.dateWarnings, candidateCard)}
+    ${exceptionGroup('Advertencia de descripción', 'description-warning', review.descriptionWarnings, candidateCard)}
     ${exceptionGroup('Candidato lejano', 'distant-candidate', review.distantCandidates, candidateCard)}
     ${exceptionGroup('Ambiguo', 'ambiguous', review.ambiguous, ambiguousCard)}
     <button class="primary-button guided-audit-action" data-audit-close-create>Ver resultado</button>
@@ -184,7 +186,7 @@ function renderResultStep(close, review) {
   if (!close || !review) return '';
   const balanced = review.status === 'balanced';
   return `
-    ${summary(review)}
+    ${summary(close, review)}
     ${card(`
       <div class="guided-audit-result ${balanced ? 'balanced' : 'pending'}">
         <span class="row-icon">${icon(balanced ? 'check' : 'alert')}</span>
@@ -194,9 +196,11 @@ function renderResultStep(close, review) {
   `;
 }
 
-function summary(review) {
+function summary(close, review) {
   return card(`
     <div class="guided-audit-summary">
+      <div><small>Cuenta</small><strong>${html(close.accountName || 'Cuenta')}</strong></div>
+      <div><small>Fecha de corte</small><strong>${close.cutoffDate ? formatDate(close.cutoffDate) : 'Sin fecha de corte'}</strong></div>
       <div><small>Saldo registrado</small><strong>${formatSignedMoney(review.recordedBalance)}</strong></div>
       <div><small>Saldo real</small><strong>${formatSignedMoney(review.realBalance)}</strong></div>
       <div><small>Diferencia</small><strong class="guided-audit-delta ${review.status === 'balanced' ? 'balanced' : 'pending'}">${formatSignedMoney(review.delta)}</strong></div>

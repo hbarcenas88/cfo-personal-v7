@@ -1478,13 +1478,12 @@ async function advanceAuditClose() {
 
 async function saveAuditCloseReviewDecision(value = '') {
   const [statementRowId, transactionId, action] = value.split(':');
-  if (action === 'pending') return;
-  if (!['confirm', 'dismiss'].includes(action) || !state.ui.auditCloseId) return;
+  if (!['confirm', 'dismiss', 'pending'].includes(action) || !state.ui.auditCloseId) return;
   await saveAuditCloseDecision(state.ui.auditCloseId, {
     id: uid('audit-decision'),
     statementRowId,
     transactionId,
-    status: action === 'confirm' ? 'confirmed' : 'dismissed',
+    status: action === 'confirm' ? 'confirmed' : action === 'dismiss' ? 'dismissed' : 'pending',
     createdAt: new Date().toISOString()
   });
 }

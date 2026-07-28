@@ -120,17 +120,29 @@ assert.equal(persistedFinancial.budgets[0].amount, financialBefore.budgets[0].am
 assert.equal(persistedFinancial.provisions[0].balance, financialBefore.provisions[0].balance);
 
 await stateModule.saveAuditCloseDecision(close.id, {
-  id: 'decision-state-1',
+  id: 'decision-pending-1',
   statementRowId: 'statement-2',
   transactionId: 'transaction-1',
-  status: 'confirmed',
+  status: 'pending',
   createdAt: '2026-07-19T12:05:00.000Z'
 });
 assert.equal(stateModule.state.auditClosures[0].decisions.length, 1);
+assert.equal(stateModule.state.auditClosures[0].decisions[0].status, 'pending');
 assert.deepEqual(financialSnapshot(stateModule.state), persistedFinancial);
 
 stateModule.state.auditClosures[0].decisions = [];
 await stateModule.initState();
+assert.equal(stateModule.state.auditClosures[0].decisions.length, 1);
+assert.equal(stateModule.state.auditClosures[0].decisions[0].status, 'pending');
+assert.deepEqual(financialSnapshot(stateModule.state), persistedFinancial);
+
+await stateModule.saveAuditCloseDecision(close.id, {
+  id: 'decision-confirmed-1',
+  statementRowId: 'statement-2',
+  transactionId: 'transaction-1',
+  status: 'confirmed',
+  createdAt: '2026-07-19T12:06:00.000Z'
+});
 assert.equal(stateModule.state.auditClosures[0].decisions.length, 1);
 assert.equal(stateModule.state.auditClosures[0].decisions[0].status, 'confirmed');
 assert.deepEqual(financialSnapshot(stateModule.state), persistedFinancial);

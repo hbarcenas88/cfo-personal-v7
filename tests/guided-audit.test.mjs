@@ -105,13 +105,13 @@ assert.equal(
 );
 assert.deepEqual(
   validateStatementRows([], { date: 'fecha', amount: 'monto', description: 'detalle' }),
-  { ok: true, message: '' }
+  { ok: false, message: 'El extracto no contiene filas utilizables.' }
 );
 assert.deepEqual(
   validateStatementRows([
     { __row: 2, fecha: '', monto: '', detalle: '' }
   ], { date: 'fecha', amount: 'monto', description: 'detalle' }),
-  { ok: true, message: '' }
+  { ok: false, message: 'El extracto no contiene filas utilizables.' }
 );
 assert.deepEqual(
   normalizeStatementRows([
@@ -191,6 +191,16 @@ assert.equal(matching.onlyInBank.length, 1);
 assert.equal(matching.onlyInApp.length, 1);
 assert.equal(matching.exact[0].transaction.id, 'exact');
 
+const descriptionWarning = matchStatementToTransactions(normalizeStatementRows([
+  { fecha: '2026-07-19', monto: '-12.00', detalle: 'Cargo bancario' }
+], { date: 'fecha', amount: 'monto', description: 'detalle' }), [
+  { id: 'different-description', date: '2026-07-19', movement: 'Gasto', amount: 12, description: 'Pago tarjeta', affectsBalance: true }
+]);
+
+assert.equal(descriptionWarning.exact.length, 0);
+assert.equal(descriptionWarning.descriptionWarning.length, 1);
+assert.equal(descriptionWarning.descriptionWarning[0].transaction.id, 'different-description');
+
 const balanceExcluded = matchStatementToTransactions(normalizeStatementRows([
   { fecha: '2026-07-19', monto: '-15.00', detalle: 'Ignorada' }
 ], { date: 'fecha', amount: 'monto', description: 'detalle' }), [
@@ -225,7 +235,7 @@ const pendingReview = (date, transactionDate) => buildGuidedAuditReview({
 
 assert.equal(pendingReview('2026-07-19', '2026-07-17').status, 'needsReview');
 assert.equal(pendingReview('2026-07-19', '2026-07-15').status, 'needsReview');
-assert.equal(pendingReview('2026-07-19', '2026-07-19').exact.length, 1);
+assert.equal(pendingReview('2026-07-19', '2026-07-19').descriptionWarnings.length, 1);
 assert.equal(pendingReview('2026-07-19', '2026-07-19').status, 'needsReview');
 
 const decidedRows = normalizeStatementRows([
@@ -317,5 +327,47 @@ const dismissalTwo = applyAuditCloseDecision(dismissalOne, {
   status: 'dismissed'
 });
 assert.equal(dismissalTwo.decisions.length, 2);
+
+const pendingClose = applyAuditCloseDecision({
+  ...auditClose,
+  decisions: []
+}, {
+  id: 'pending-a',
+  statementRowId: 'statement-2',
+  transactionId: 'app-netflix',
+  status: 'pending'
+});
+assert.equal(pendingClose.decisions[0].status, 'pending');
+const pendingCloseReview = buildGuidedAuditReview(pendingClose, state);
+assert.equal(pendingCloseReview.pending.length, 1);
+assert.equal(pendingCloseReview.exact.length, 1);
+const confirmedAfterPending = applyAuditCloseDecision(pendingClose, {
+  id: 'confirmed-after-pending',
+  statementRowId: 'statement-2',
+  transactionId: 'app-netflix',
+  status: 'confirmed'
+});
+assert.equal(confirmedAfterPending.decisions.length, 1);
+assert.equal(confirmedAfterPending.decisions[0].status, 'confirmed');
+
+const conflictingConfirmation = applyAuditCloseDecision(pendingClose, {
+  id: 'confirmed-other-candidate',
+  statementRowId: 'statement-2',
+  transactionId: 'app-transfer',
+  status: 'confirmed'
+});
+assert.throws(() => applyAuditCloseDecision(conflictingConfirmation, {
+  id: 'confirmed-pending-conflict',
+  statementRowId: 'statement-2',
+  transactionId: 'app-netflix',
+  status: 'confirmed'
+}), /ya tiene una decisión confirmada/);
+const dismissedPendingConflict = applyAuditCloseDecision(conflictingConfirmation, {
+  id: 'dismissed-pending-conflict',
+  statementRowId: 'statement-2',
+  transactionId: 'app-netflix',
+  status: 'dismissed'
+});
+assert.equal(dismissedPendingConflict.decisions.find(item => item.transactionId === 'app-netflix').status, 'dismissed');
 
 console.log('guided-audit.test.mjs passed');

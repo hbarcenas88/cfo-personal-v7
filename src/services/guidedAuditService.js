@@ -8,10 +8,11 @@ export function normalizeStatementRows(objects = [], mapping = {}) {
 }
 
 export function validateStatementRows(objects = [], mapping = {}) {
+  const normalizedRows = normalizeStatementRows(objects, mapping);
   const hasInvalidRow = objects.some((row, index) => hasStatementContent(row) && !normalizeStatementRow(row, index, mapping));
-  return hasInvalidRow
-    ? { ok: false, message: 'Hay filas inválidas en el extracto. Revisa fecha e importe antes de continuar.' }
-    : { ok: true, message: '' };
+  if (hasInvalidRow) return { ok: false, message: 'Hay filas inválidas en el extracto. Revisa fecha e importe antes de continuar.' };
+  if (!normalizedRows.length) return { ok: false, message: 'El extracto no contiene filas utilizables.' };
+  return { ok: true, message: '' };
 }
 
 export function statementFingerprint(rows = []) {
@@ -30,10 +31,26 @@ export function validateRowsAgainstRange(rows = [], range = {}) {
 
 export function applyAuditCloseDecision(close = {}, decision = {}) {
   const decisions = Array.isArray(close.decisions) ? close.decisions : [];
-  if (!isConfirmation(decision) && !isDismissal(decision)) {
+  if (!isConfirmation(decision) && !isDismissal(decision) && !isPending(decision)) {
     throw new Error('La decisión del cierre no es válida.');
   }
-  if (decisions.some(item => decisionEdge(item) === decisionEdge(decision))) {
+  const existingIndex = decisions.findIndex(item => decisionEdge(item) === decisionEdge(decision));
+  if (existingIndex >= 0) {
+    if (isPending(decisions[existingIndex])) {
+      if (isConfirmation(decision)) {
+        const reserved = decisions.filter(isConfirmation);
+        if (reserved.some(item =>
+          item.statementRowId === decision.statementRowId
+          || item.transactionId === decision.transactionId
+        )) {
+          throw new Error('Esta fila o movimiento ya tiene una decisión confirmada.');
+        }
+      }
+      return {
+        ...close,
+        decisions: decisions.map((item, index) => index === existingIndex ? { ...decision } : item)
+      };
+    }
     throw new Error('Esta relación ya tiene una decisión.');
   }
   const reserved = decisions.filter(isConfirmation);
@@ -95,7 +112,8 @@ export function matchStatementToTransactions(statementRows = [], transactions = 
     }
 
     available.delete(best.transaction.id);
-    if (best.dayDifference === 0) matches.exact.push(best);
+    if (best.dayDifference === 0 && best.tokenOverlap > 0) matches.exact.push(best);
+    else if (best.dayDifference === 0) matches.descriptionWarning.push(best);
     else if (best.dayDifference <= DATE_WARNING_DAYS) matches.dateWarning.push(best);
     else matches.distantCandidate.push(best);
   });
@@ -131,11 +149,13 @@ export function buildGuidedAuditReview(close = {}, state = {}) {
     realBalance: Number(close.realBalance) || 0,
     exact: matches.exact,
     dateWarnings: matches.dateWarning,
+    descriptionWarnings: matches.descriptionWarning,
     distantCandidates: matches.distantCandidate,
     onlyInApp: matches.onlyInApp,
     onlyInBank: matches.onlyInBank,
     ambiguous: matches.ambiguous,
-    confirmed: decisions.confirmed
+    confirmed: decisions.confirmed,
+    pending: decisions.pending
   };
   review.delta = review.realBalance - review.recordedBalance;
   review.status = reviewIsBalanced(review) ? 'balanced' : 'needsReview';
@@ -182,6 +202,7 @@ function emptyMatches() {
   return {
     exact: [],
     dateWarning: [],
+    descriptionWarning: [],
     distantCandidate: [],
     ambiguous: [],
     onlyInApp: [],
@@ -259,7 +280,8 @@ function appliedDecisions(decisions = [], statementRows, transactions) {
     return matches;
   }, []);
   const dismissed = decisions.filter(isDismissal).map(resolve).filter(Boolean);
-  return { confirmed, dismissed };
+  const pending = decisions.filter(isPending).map(resolve).filter(Boolean);
+  return { confirmed, dismissed, pending };
 }
 
 function isConfirmation(decision = {}) {
@@ -275,6 +297,12 @@ function isDismissal(decision = {}) {
     || decision.action === 'dismiss';
 }
 
+function isPending(decision = {}) {
+  return decision.status === 'pending'
+    || decision.type === 'pending'
+    || decision.action === 'pending';
+}
+
 function decisionEdge(decision = {}) {
   return `${decision.statementRowId || ''}\u0000${decision.transactionId || ''}`;
 }
@@ -283,8 +311,10 @@ function reviewIsBalanced(review) {
   return Math.abs(review.delta) < AMOUNT_EPSILON
     && !review.exact.length
     && !review.dateWarnings.length
+    && !review.descriptionWarnings.length
     && !review.distantCandidates.length
     && !review.onlyInApp.length
     && !review.onlyInBank.length
-    && !review.ambiguous.length;
+    && !review.ambiguous.length
+    && !review.pending.length;
 }
