@@ -159,3 +159,11 @@ export function validateRecordFlow(flow, keypadState) {
   }
   return { ok: true };
 }
+
+export function clearRecordValidation(flow, changedField) {
+  const validationField = flow?.validation?.field;
+  const clearsTransferPair = validationField === 'accountTo' && ['account', 'accountTo'].includes(changedField);
+  if (!validationField || (validationField !== changedField && !clearsTransferPair)) return false;
+  delete flow.validation;
+  return true;
+}

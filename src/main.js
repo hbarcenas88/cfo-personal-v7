@@ -9,7 +9,7 @@ import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
-import { recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
+import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
 import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
@@ -355,6 +355,7 @@ function bindRecordEvents() {
     const update = () => {
       if (!state.ui.recordFlow) return;
       state.ui.recordFlow[input.dataset.recordField] = input.value;
+      clearRecordValidation(state.ui.recordFlow, input.dataset.recordField);
     };
     input.addEventListener('input', update);
   });
@@ -385,7 +386,7 @@ function bindRecordEvents() {
         flow.displayAmount = keypadState.display;
         flow.keypadError = keypadState.error || '';
         flow.keypadState = keypadState;
-        flow.validation = null;
+        clearRecordValidation(flow, 'amount');
         if (Number.isFinite(keypadState.value)) flow.amount = keypadState.value;
         const amount = document.querySelector('[data-record-amount]');
         const error = document.querySelector('[data-record-amount-error]');
@@ -527,7 +528,10 @@ function bindCalendarEvents() {
       render();
       return;
     }
-    if (target === 'record-date') state.ui.recordFlow.date = calendarDraft.selectedDate;
+    if (target === 'record-date') {
+      state.ui.recordFlow.date = calendarDraft.selectedDate;
+      clearRecordValidation(state.ui.recordFlow, 'date');
+    }
     state.ui.calendarTarget = null;
     closeSheet();
     await persist();
@@ -1462,6 +1466,7 @@ function applyOptionSelection(value) {
         state.ui.recordFlow[key] = value;
         if (key === 'category') state.ui.recordFlow.subcategory = '';
       }
+      clearRecordValidation(state.ui.recordFlow, key);
     }
   } else if (picker.target.startsWith('auditClose.mapping.')) {
     const draft = ensureAuditCloseDraft();
