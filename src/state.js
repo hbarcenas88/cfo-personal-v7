@@ -1,6 +1,7 @@
 import { loadState, saveState, clearState, clearFinanceLocalStorage } from './services/storageService.js';
 import { applyTransactionEdit, canDuplicateTransaction, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
 import { migrateAuditPeriod } from './services/periodService.js';
+import { applyAuditCloseDecision, statementFingerprint } from './services/guidedAuditService.js';
 import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
@@ -18,6 +19,7 @@ export const initialState = {
   accounts: [],
   categories: [],
   transactions: [],
+  auditClosures: [],
   budgets: [],
   provisions: [],
   capacityRules: { accountRoles: {}, provisionIds: null },
@@ -60,6 +62,8 @@ export const initialState = {
     selectedCategoryId: '',
     selectedSubcategory: '',
     selectedTransactionId: '',
+    auditCloseId: '',
+    auditCloseDraft: null,
     selectedHealthIssue: '',
     auditFilter: '',
     auditDropdown: '',
@@ -110,6 +114,9 @@ function mergeState(saved) {
   merged.transactions = (Array.isArray(saved.transactions) ? saved.transactions : [])
     .filter(tx => parseDate(tx.date || tx.fecha) || !(tx.date || tx.fecha))
     .map(tx => normalizeTransaction(tx, merged));
+  merged.auditClosures = Array.isArray(saved.auditClosures)
+    ? saved.auditClosures.map(close => ({ ...close, decisions: Array.isArray(close.decisions) ? close.decisions : [] }))
+    : [];
   merged.budgets = (Array.isArray(saved.budgets) ? saved.budgets : [])
     .filter(row => parseMonth(row.month || row.mes || row.date || row.fecha) || !(row.month || row.mes || row.date || row.fecha))
     .map(row => normalizeBudget(row, merged));
@@ -204,6 +211,39 @@ export async function mutate(updater, options = {}) {
   }
   await persist();
   notify();
+}
+
+export async function createAuditClose(close) {
+  const fingerprint = statementFingerprint(close.statementRows);
+  const duplicate = state.auditClosures.some(item =>
+    item.accountName === close.accountName &&
+    item.range?.from === close.range?.from &&
+    item.range?.to === close.range?.to &&
+    item.fingerprint === fingerprint
+  );
+  if (duplicate) {
+    showToast('Ese extracto ya está asociado a un cierre de esta cuenta.');
+    return false;
+  }
+  await mutate(s => {
+    s.auditClosures.push({ ...close, fingerprint });
+  }, { undo: 'Cierre de auditoría creado' });
+  return true;
+}
+
+export async function saveAuditCloseDecision(closeId, decision) {
+  await mutate(s => {
+    const close = s.auditClosures.find(item => item.id === closeId);
+    if (!close) return;
+    close.decisions = applyAuditCloseDecision(close, decision).decisions;
+    close.updatedAt = new Date().toISOString();
+  }, { undo: 'Revisión de cierre actualizada' });
+}
+
+export async function deleteAuditClose(closeId) {
+  await mutate(s => {
+    s.auditClosures = s.auditClosures.filter(close => close.id !== closeId);
+  }, { undo: 'Cierre de auditoría eliminado' });
 }
 
 function snapshot() {

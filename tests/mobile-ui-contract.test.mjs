@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
+import { renderAuditCloseEntry, renderAuditCloseSheet } from '../src/screens/auditClose.js';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
+const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
 const componentStyles = await readFile(new URL('../styles/components.css', import.meta.url), 'utf8');
@@ -10,10 +12,98 @@ const styles = await readFile(new URL('../styles/screens.css', import.meta.url),
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
 const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+const xlsxBundle = await readFile(new URL('../assets/vendor/xlsx.full.min.js', import.meta.url), 'utf8');
 const progress = await readFile(new URL('../PROGRESS.md', import.meta.url), 'utf8');
 const verifier = await readFile(new URL('../VERIFIER.md', import.meta.url), 'utf8');
 const backlog = await readFile(new URL('../BACKLOG.md', import.meta.url), 'utf8');
 const roadmap = await readFile(new URL('../V7_ROADMAP.md', import.meta.url), 'utf8');
+
+assert.match(auditClose, /data-open-audit-close/);
+assert.match(auditClose, /data-audit-close-file/);
+assert.match(auditClose, /data-audit-close-map/);
+assert.match(auditClose, /Solo en la app/);
+assert.match(auditClose, /Solo en el banco/);
+assert.match(auditClose, /Coincidencia exacta/);
+assert.match(auditClose, /Advertencia de fecha/);
+assert.doesNotMatch(auditClose, /<select\b/i);
+assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
+assert.match(styles, /\.guided-audit-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
+
+const balancedAuditCloseEntry = renderAuditCloseEntry({
+  auditClosures: [{
+    id: 'balanced-close',
+    accountName: 'BAC',
+    cutoffDate: '2026-07-31',
+    realBalance: 0,
+    range: {},
+    statementRows: [],
+    decisions: []
+  }],
+  transactions: []
+});
+assert.doesNotMatch(balancedAuditCloseEntry, /1 cierres por revisar/);
+assert.match(balancedAuditCloseEntry, /Compara una cuenta con su estado de cuenta/);
+
+const reopenedAuditClose = renderAuditCloseSheet({
+  ui: { auditCloseId: 'close-canonical', auditCloseDraft: { step: 'result' } },
+  auditClosures: [{
+    id: 'close-canonical', accountName: 'Cuenta principal', cutoffDate: '2026-07-19', realBalance: 0,
+    range: { from: '2026-07-01', to: '2026-07-19' }, statementRows: [], decisions: []
+  }],
+  transactions: []
+});
+assert.match(reopenedAuditClose, /data-audit-close-delete="close-canonical"/);
+
+const exactCandidateAuditClose = renderAuditCloseSheet({
+  ui: { auditCloseId: 'close-exact', auditCloseDraft: { step: 'review' } },
+  auditClosures: [{
+    id: 'close-exact', accountName: 'Cuenta sintética', cutoffDate: '2026-07-19', realBalance: -12,
+    range: { from: '2026-07-01', to: '2026-07-19' },
+    statementRows: [{
+      id: 'statement-exact', sourceRow: 2, date: '2026-07-19',
+      signedAmount: -12, description: 'Compra sintética'
+    }],
+    decisions: []
+  }],
+  transactions: [{
+    id: 'transaction-exact', account: 'Cuenta sintética', date: '2026-07-19',
+    movement: 'Gasto', amount: 12, description: 'Compra sintética', affectsBalance: true
+  }]
+});
+assert.match(exactCandidateAuditClose, /Coincidencia exacta/);
+assert.match(exactCandidateAuditClose, /Cuenta sintética/);
+assert.match(exactCandidateAuditClose, /Fecha de corte/);
+assert.match(exactCandidateAuditClose, /Confirmar/);
+assert.match(exactCandidateAuditClose, /No corresponde/);
+assert.match(exactCandidateAuditClose, /Dejar pendiente/);
+
+const xlsxContext = {};
+runInNewContext(xlsxBundle, xlsxContext);
+assert.equal(xlsxContext.XLSX.version, '0.20.3');
+const syntheticWorkbook = xlsxContext.XLSX.utils.book_new();
+xlsxContext.XLSX.utils.book_append_sheet(
+  syntheticWorkbook,
+  xlsxContext.XLSX.utils.aoa_to_sheet([
+    ['Fecha', 'Monto', 'Descripción'],
+    ['2026-07-19', -12, 'Compra sintética']
+  ]),
+  'Extracto'
+);
+const syntheticXlsx = xlsxContext.XLSX.write(syntheticWorkbook, {
+  bookType: 'xlsx',
+  type: 'array'
+});
+const parsedSyntheticWorkbook = xlsxContext.XLSX.read(syntheticXlsx, { type: 'array' });
+assert.deepEqual(
+  Array.from(xlsxContext.XLSX.utils.sheet_to_json(
+    parsedSyntheticWorkbook.Sheets.Extracto,
+    { header: 1, defval: '' }
+  ), row => Array.from(row)),
+  [
+    ['Fecha', 'Monto', 'Descripción'],
+    ['2026-07-19', -12, 'Compra sintética']
+  ]
+);
 
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
@@ -111,6 +201,11 @@ assert.match(styles, /\.operational-chart-track\s*\{[\s\S]*?height:\s*8px/);
 const operationalChartFill = styles.match(/\.operational-chart-track > span\s*\{[\s\S]*?\n\}/)[0];
 assert.doesNotMatch(operationalChartFill, /min-width\s*:/);
 assert.match(styles, /\.keypad\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, 1fr\)/);
+assert.match(keypad, /CLASSIC_KEYPAD_ROWS/);
+assert.doesNotMatch(keypad, /data-key="confirm"/);
+assert.match(keypad, /data-key="back"/);
+assert.match(main, /data-option-search-open/);
+assert.doesNotMatch(audit, /autofocus/);
 assert.doesNotMatch(keypad, /key\('calendar'/);
 assert.match(styles, /\.operational-chart-row-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 assert.match(styles, /\.operational-category > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
@@ -317,8 +412,13 @@ assert.strictEqual(
 );
 assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 
-assert.match(worker, /cfo-personal-v7-cache-37/);
+assert.match(worker, /cfo-personal-v7-cache-40/);
+assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
+assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
+assert.match(worker, /'\.\/src\/services\/statementFileService\.js'/);
+assert.match(worker, /'\.\/src\/screens\/auditClose\.js'/);
+assert.match(worker, /'\.\/assets\/vendor\/xlsx\.full\.min\.js'/);
 assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
 assert.match(worker, /!response\.ok\s*\|\|\s*response\.status\s*===\s*206/);
 assert.match(worker, /await cache\.put\(event\.request, copy\)/);

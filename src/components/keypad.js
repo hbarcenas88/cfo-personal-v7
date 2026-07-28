@@ -1,27 +1,32 @@
 import { icon } from '../icons.js';
 
-export function renderKeypad({ value = '', variant = 'expense', currency = 'USD' } = {}) {
+export const CLASSIC_KEYPAD_ROWS = [
+  ['7', '8', '9', 'divide'],
+  ['4', '5', '6', 'multiply'],
+  ['1', '2', '3', 'minus'],
+  ['group', '0', 'decimal', 'plus']
+];
+
+const keySymbols = {
+  divide: '÷',
+  multiply: '×',
+  minus: '−',
+  group: ',',
+  decimal: '.',
+  plus: '+'
+};
+
+export function renderKeypad({ variant = 'expense' } = {}) {
   const cls = variant === 'income' ? 'income' : '';
   return `
-    <div class="keypad ${cls}" data-keypad>
-      ${key('÷', 'op')}
-      ${key('7')}
-      ${key('8')}
-      ${key('9')}
-      ${key('back', 'op', icon('backspace'))}
-      ${key('×', 'op')}
-      ${key('4')}
-      ${key('5')}
-      ${key('6')}
-      ${key('−', 'op')}
-      ${key('1')}
-      ${key('2')}
-      ${key('3')}
-      ${key('confirm', 'confirm', '=')}
-      ${key('+', 'op')}
-      ${key('currency', 'op', currency)}
-      ${key('0')}
-      ${key('.')}
+    <div class="keypad-control ${cls}">
+      <button type="button" class="keypad-back" data-key="back" aria-label="Borrar último dígito">${icon('backspace')}</button>
+      <div class="keypad" data-keypad>
+        ${CLASSIC_KEYPAD_ROWS.flat().map(keyName => {
+          const value = keySymbols[keyName] || keyName;
+          return key(value, keySymbols[keyName] ? 'op' : '');
+        }).join('')}
+      </div>
     </div>
   `;
 }
@@ -30,62 +35,72 @@ function key(value, cls = '', label = value) {
   return `<button type="button" class="${cls}" data-key="${value}">${label}</button>`;
 }
 
-export function createKeypadController({ initial = '', onChange, onConfirm, allowOperations = true, preventNegative = true }) {
+export function createKeypadController({ initial = '', onChange, allowOperations = true, preventNegative = true } = {}) {
   let expression = String(initial || '');
-  const operators = ['+', '−', '×', '÷'];
-  const api = {
+
+  const emit = () => {
+    const result = evaluateExpression(expression);
+    const error = result.error || (preventNegative && result.value < 0 ? 'El monto no puede ser negativo' : '');
+    onChange?.({
+      expression,
+      display: formatKeypadDisplay(expression),
+      value: error ? null : result.value,
+      error
+    });
+  };
+
+  return {
     value: () => expression,
     set: value => {
       expression = String(value || '');
-      onChange?.(formatDisplay(expression), expression);
+      emit();
     },
-    press: key => {
-      if (/^\d$/.test(key)) expression = appendDigit(expression, key);
-      else if (key === '.') expression = appendDecimal(expression);
-      else if (key === 'back') expression = expression.slice(0, -1);
-      else if (key === 'currency') return;
-      else if (key === 'confirm') {
-        const result = evaluateExpression(expression);
-        if (result.error) {
-          onChange?.(formatDisplay(expression), expression, result.error);
-          return;
-        }
-        if (preventNegative && result.value < 0) {
-          onChange?.(formatDisplay(expression), expression, 'El monto no puede ser negativo');
-          return;
-        }
-        expression = trimNumber(result.value);
-        onChange?.(formatDisplay(expression), expression);
-        onConfirm?.(result.value);
-        return;
-      } else if (allowOperations && operators.includes(key)) {
-        if (!expression) return;
-        if (/[+\-−×÷]$/.test(expression)) expression = expression.slice(0, -1) + key;
-        else expression += key;
+    press: keyName => {
+      const value = keySymbols[keyName] || keyName;
+      if (/^\d$/.test(value)) expression = appendDigit(expression, value);
+      else if (value === '.') expression = appendDecimal(expression);
+      else if (value === ',') expression = appendGroup(expression);
+      else if (value === 'back') expression = expression.slice(0, -1);
+      else if (allowOperations && ['+', '−', '×', '÷'].includes(value)) {
+        if (expression && !/[+\-−×÷]$/.test(expression)) expression += value;
+        else if (expression) expression = expression.slice(0, -1) + value;
       }
-      onChange?.(formatDisplay(expression), expression);
+      emit();
     }
   };
-  return api;
 }
 
 function appendDigit(expression, digit) {
-  const parts = expression.split(/[+−×÷]/);
-  const current = parts[parts.length - 1] || '';
+  const current = currentOperand(expression);
   if (current === '0') return expression.slice(0, -1) + digit;
   return expression + digit;
 }
 
 function appendDecimal(expression) {
-  const parts = expression.split(/[+−×÷]/);
-  const current = parts[parts.length - 1] || '';
+  const current = currentOperand(expression);
   if (current.includes('.')) return expression;
   return expression + (current ? '.' : '0.');
 }
 
+function appendGroup(expression) {
+  const current = currentOperand(expression);
+  if (!current || current.includes('.') || current.endsWith(',')) return expression;
+  return expression + ',';
+}
+
+function currentOperand(expression) {
+  return expression.split(/[+\-−×÷]/).at(-1) || '';
+}
+
 export function evaluateExpression(expression) {
-  const text = String(expression || '').replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
-  if (!text || /[^0-9+\-*/.() ]/.test(text) || /[+\-*/.]$/.test(text)) return { error: 'Cálculo incompleto' };
+  const raw = String(expression || '');
+  if (!raw || /[+\-−×÷,.]$/.test(raw)) return { error: 'Cálculo incompleto' };
+  const text = raw
+    .replaceAll(',', '')
+    .replaceAll('×', '*')
+    .replaceAll('÷', '/')
+    .replaceAll('−', '-');
+  if (/[^0-9+\-*/.() ]/.test(text)) return { error: 'Cálculo incompleto' };
   try {
     const tokens = tokenize(text);
     const rpn = toRPN(tokens);
@@ -95,6 +110,18 @@ export function evaluateExpression(expression) {
   } catch {
     return { error: 'Cálculo inválido' };
   }
+}
+
+export function formatKeypadDisplay(expression) {
+  return String(expression || '0').replace(/\d[\d,]*(?:\.\d*)?/g, formatOperand);
+}
+
+function formatOperand(operand) {
+  const [integer, decimal] = operand.split('.');
+  const trailingGroup = integer.endsWith(',');
+  const digits = integer.replaceAll(',', '');
+  const grouped = Number(digits || '0').toLocaleString('en-US');
+  return `${grouped}${trailingGroup ? ',' : ''}${decimal === undefined ? '' : `.${decimal}`}`;
 }
 
 function tokenize(text) {
@@ -146,12 +173,4 @@ function evalRPN(tokens) {
     }
   });
   return stack[0];
-}
-
-function trimNumber(value) {
-  return String(Math.round(Number(value) * 100) / 100);
-}
-
-function formatDisplay(expression) {
-  return String(expression || '0');
 }

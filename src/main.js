@@ -1,21 +1,25 @@
 import { renderShell, setScreenActive, toastRoot } from './components/ui.js';
-import { createKeypadController } from './components/keypad.js';
+import { createKeypadController, evaluateExpression } from './components/keypad.js';
 import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './components/calendar.js';
 import { renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
 import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
-import { renderCategories } from './screens/categories.js';
-import { renderAudit } from './screens/audit.js';
+import { renderCategories, renderCategoriesResults } from './screens/categories.js';
+import { renderAudit, renderAuditResults } from './screens/audit.js';
+import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
-import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
+import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
+import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateStatementRows, validateRowsAgainstRange } from './services/guidedAuditService.js';
 import { dataHealth } from './services/healthService.js';
+import { readStatementFile, suggestedStatementMapping, validateStatementMapping } from './services/statementFileService.js';
 import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
 import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
+import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows } from './components/searchableOptions.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
 let keypad;
@@ -48,6 +52,56 @@ function renderAndPersistFilters() {
   filterPersistTimer = window.setTimeout(() => {
     persist().catch(error => captureError('filter persistence', error));
   }, 250);
+}
+
+function persistFiltersSoon() {
+  window.clearTimeout(filterPersistTimer);
+  filterPersistTimer = window.setTimeout(() => {
+    persist().catch(error => captureError('filter persistence', error));
+  }, 250);
+}
+
+function replaceSearchResults(selector, markup) {
+  const target = document.querySelector(selector);
+  if (target) target.innerHTML = markup;
+  if (target?.matches('[data-global-search-results]')) bindGlobalSearchResults(target);
+  if (target?.matches('[data-audit-results]')) bindAuditSearchResults(target);
+  if (target?.matches('[data-categories-results]')) bindCategoriesSearchResults(target);
+}
+
+function bindGlobalSearchResults(target) {
+  target.querySelectorAll('[data-open-tx]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedTransactionId = button.dataset.openTx;
+    openSheet('transaction-menu');
+  }));
+}
+
+function auditDropdownOptionObjects() {
+  return [...document.querySelectorAll('[data-audit-dropdown-option]')].map(button => ({
+    value: button.dataset.auditDropdownOption || '',
+    label: button.dataset.auditDropdownOption || ''
+  }));
+}
+
+function bindAuditSearchResults(target) {
+  target.querySelectorAll('[data-tx-menu]').forEach(button => button.addEventListener('click', () => {
+    state.ui.selectedTransactionId = button.dataset.txMenu;
+    openSheet('transaction-menu');
+  }));
+}
+
+function bindCategoriesSearchResults(target) {
+  target.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
+    state.filters.categories.view = button.dataset.catView;
+    state.ui.auditFiltersOpen = false;
+    renderAndPersistFilters();
+  }));
+  target.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
+    const list = state.filters.categories.expanded;
+    const name = button.dataset.catExpand;
+    state.filters.categories.expanded = list.includes(name) ? list.filter(value => value !== name) : [...list, name];
+    renderAndPersistFilters();
+  }));
 }
 
 await initState();
@@ -190,6 +244,8 @@ function renderActiveSheet() {
   if (sheet === 'confirm-reset') return confirmResetSheet();
   if (sheet === 'summary-analysis') return renderSummaryAnalysisSheet(state);
   if (sheet === 'capacity-calculation') return renderCapacityCalculationSheet(state);
+  if (sheet === 'guided-audit-close') return renderAuditCloseSheet(state);
+  if (sheet === 'confirm-delete-audit-close') return renderAuditCloseDeleteSheet(state);
   return '';
 }
 
@@ -350,12 +406,9 @@ function bindRecordEvents() {
     const update = () => {
       if (!state.ui.recordFlow) return;
       state.ui.recordFlow[input.dataset.recordField] = input.value;
-      if (input.dataset.recordField === 'category') state.ui.recordFlow.subcategory = '';
-      debugLog('record field changed', { field: input.dataset.recordField, value: input.value });
-      render();
+      clearRecordValidation(state.ui.recordFlow, input.dataset.recordField);
     };
     input.addEventListener('input', update);
-    input.addEventListener('change', update);
   });
   document.querySelectorAll('[data-record-sub]').forEach(button => button.addEventListener('click', () => {
     state.ui.recordFlow.subcategory = button.dataset.recordSub;
@@ -377,26 +430,51 @@ function bindRecordEvents() {
   if (state.ui.recordFlow?.step === 'form') {
     keypad = createKeypadController({
       initial: state.ui.recordFlow.amountExpression || '',
-      onChange: (display, expression, error) => {
-        state.ui.recordFlow.amountExpression = expression;
-        state.ui.recordFlow.displayAmount = display;
-        state.ui.recordFlow.keypadError = error || '';
-        const parsed = Number(expression);
-        if (!Number.isNaN(parsed)) state.ui.recordFlow.amount = parsed;
-        render();
-      },
-      onConfirm: value => {
-        state.ui.recordFlow.amount = value;
-        state.ui.recordFlow.displayAmount = Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      onChange: keypadState => {
+        const flow = state.ui.recordFlow;
+        if (!flow) return;
+        flow.amountExpression = keypadState.expression;
+        flow.displayAmount = keypadState.display;
+        flow.keypadError = keypadState.error || '';
+        flow.keypadState = keypadState;
+        clearRecordValidation(flow, 'amount');
+        if (Number.isFinite(keypadState.value)) flow.amount = keypadState.value;
+        const amount = document.querySelector('[data-record-amount]');
+        const error = document.querySelector('[data-record-amount-error]');
+        const backspace = document.querySelector('[data-record-backspace]');
+        if (amount) amount.textContent = `USD ${keypadState.display}`;
+        if (error) {
+          error.textContent = keypadState.error || '';
+          error.hidden = !keypadState.error;
+        }
+        if (backspace) backspace.disabled = !keypadState.expression;
       }
     });
     document.querySelectorAll('[data-key]').forEach(button => button.addEventListener('click', () => keypad.press(button.dataset.key)));
   }
   document.querySelector('[data-record-save]')?.addEventListener('click', async () => {
-    const payload = recordPayload(state.ui.recordFlow);
+    const flow = state.ui.recordFlow;
+    if (!flow) return;
+    const evaluated = evaluateExpression(flow.amountExpression);
+    const keypadState = {
+      value: evaluated.error ? null : evaluated.value,
+      error: evaluated.error || (evaluated.value < 0 ? 'El monto no puede ser negativo' : '')
+    };
+    const validation = validateRecordFlow(flow, keypadState);
+    if (!validation.ok) {
+      flow.validation = { field: validation.field, message: validation.message };
+      render();
+      queueMicrotask(() => document.querySelector(`[data-record-focus="${validation.field}"]`)?.focus());
+      return;
+    }
+    flow.amount = keypadState.value;
+    flow.keypadState = keypadState;
+    flow.keypadError = '';
+    flow.validation = null;
+    const payload = recordPayload(flow);
     debugLog('record save validation', payload);
-    const saved = state.ui.recordFlow.editTransactionId
-      ? await updateTransaction(state.ui.recordFlow.editTransactionId, payload)
+    const saved = flow.editTransactionId
+      ? await updateTransaction(flow.editTransactionId, payload)
       : await saveTransaction(payload);
     debugLog('record save result', { saved, transactions: state.transactions.length, budgets: state.budgets.length });
     if (saved) state.ui.recordFlow = null;
@@ -501,7 +579,10 @@ function bindCalendarEvents() {
       render();
       return;
     }
-    if (target === 'record-date') state.ui.recordFlow.date = calendarDraft.selectedDate;
+    if (target === 'record-date') {
+      state.ui.recordFlow.date = calendarDraft.selectedDate;
+      clearRecordValidation(state.ui.recordFlow, 'date');
+    }
     state.ui.calendarTarget = null;
     closeSheet();
     await persist();
@@ -517,6 +598,7 @@ function bindFilters() {
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
+      state.ui.auditDropdownSearchActive = false;
       state.ui.auditFiltersOpen = false;
       render();
     });
@@ -525,12 +607,14 @@ function bindFilters() {
       state.ui.auditDropdown = '';
       state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
+      state.ui.auditDropdownSearchActive = false;
       render();
     });
   }
   document.querySelector('[data-cat-search]')?.addEventListener('input', event => {
     state.filters.categories.text = event.target.value;
-    renderAndPersistFilters();
+    persistFiltersSoon();
+    replaceSearchResults('[data-categories-results]', renderCategoriesResults(state));
   });
   document.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.view = button.dataset.catView;
@@ -604,13 +688,15 @@ function bindFilters() {
   }));
   document.querySelector('[data-audit-search]')?.addEventListener('input', event => {
     state.filters.audit.text = event.target.value;
-    renderAndPersistFilters();
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
   });
   document.querySelector('[data-audit-clear]')?.addEventListener('click', () => {
     state.filters.audit = { text: '', accounts: [], types: [], categories: [], subcategories: [] };
     state.ui.auditFiltersOpen = false;
     state.ui.auditDropdown = '';
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     renderAndPersistFilters();
   });
   document.querySelectorAll('[data-open-audit-period]').forEach(button => button.addEventListener('click', () => {
@@ -625,17 +711,30 @@ function bindFilters() {
     state.ui.auditFiltersOpen = !state.ui.auditFiltersOpen;
     state.ui.auditDropdown = '';
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     render();
   });
   document.querySelectorAll('[data-open-filter]').forEach(button => button.addEventListener('click', () => {
     const type = button.dataset.openFilter;
     state.ui.auditDropdown = state.ui.auditDropdown === type ? '' : type;
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     render();
   }));
+  document.querySelector('[data-audit-dropdown-search-open]')?.addEventListener('click', () => {
+    state.ui.auditDropdownSearchActive = true;
+    render();
+    window.requestAnimationFrame(() => document.querySelector('[data-audit-dropdown-search]')?.focus());
+  });
   document.querySelector('[data-audit-dropdown-search]')?.addEventListener('input', event => {
     state.ui.auditDropdownSearch = event.target.value;
-    render();
+    const visibleValues = new Set(filterSearchableOptions(
+      auditDropdownOptionObjects(),
+      state.ui.auditDropdownSearch
+    ).map(option => String(option.value)));
+    document.querySelectorAll('[data-audit-dropdown-option]').forEach(button => {
+      button.hidden = !visibleValues.has(button.dataset.auditDropdownOption);
+    });
   });
   document.querySelectorAll('[data-audit-dropdown-toggle]').forEach(button => button.addEventListener('click', () => {
     const [type, value] = splitPair(button.dataset.auditDropdownToggle);
@@ -653,6 +752,7 @@ function bindFilters() {
   document.querySelectorAll('[data-audit-dropdown-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.auditDropdown = '';
     state.ui.auditDropdownSearch = '';
+    state.ui.auditDropdownSearchActive = false;
     render();
   }));
   document.querySelector('[data-audit-excess]')?.addEventListener('dblclick', () => {
@@ -778,6 +878,77 @@ function bindTools() {
 }
 
 function bindSheetActions() {
+  document.querySelectorAll('[data-open-audit-close]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditCloseId = '';
+    state.ui.auditCloseDraft = newAuditCloseDraft();
+    openSheet('guided-audit-close');
+  }));
+  document.querySelectorAll('[data-open-audit-close-id]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditCloseId = button.dataset.openAuditCloseId;
+    state.ui.auditCloseDraft = { step: 'review' };
+    openSheet('guided-audit-close');
+  }));
+  document.querySelectorAll('[data-audit-close-field]').forEach(input => {
+    const update = () => setAuditCloseDraftField(input.dataset.auditCloseField, input.value);
+    input.addEventListener('input', update);
+    input.addEventListener('change', update);
+  });
+  document.querySelector('[data-audit-close-file]')?.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    importAuditCloseStatement(file).catch(error => captureError('guided audit statement', error));
+  });
+  document.querySelectorAll('[data-audit-close-map]').forEach(button => button.addEventListener('click', event => {
+    event.preventDefault();
+    const target = button.dataset.auditCloseMap || '';
+    if (target.startsWith('amountSchema:')) {
+      const amountSchema = target.slice('amountSchema:'.length);
+      const draft = ensureAuditCloseDraft();
+      draft.amountSchema = amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
+      draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
+      render();
+      return;
+    }
+    if (target === 'accountName') {
+      const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
+      openOptionPicker({
+        title: 'Cuenta',
+        target: 'auditClose.accountName',
+        options,
+        value: ensureAuditCloseDraft().accountName || '',
+        returnSheet: 'guided-audit-close'
+      });
+      return;
+    }
+    if (!target.startsWith('mapping.')) return;
+    const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
+    const field = target.slice('mapping.'.length);
+    openOptionPicker({
+      title: `Columna: ${field === 'date' ? 'fecha' : field === 'description' ? 'descripciÃ³n' : field === 'amount' ? 'importe' : field === 'debit' ? 'dÃ©bito' : 'crÃ©dito'}`,
+      target: `auditClose.mapping.${field}`,
+      options,
+      value: ensureAuditCloseDraft().mapping?.[field] || '',
+      returnSheet: 'guided-audit-close'
+    });
+  }));
+  document.querySelectorAll('[data-audit-close-create]').forEach(button => button.addEventListener('click', () => {
+    advanceAuditClose().catch(error => captureError('guided audit close', error));
+  }));
+  document.querySelectorAll('[data-audit-close-decision]').forEach(button => button.addEventListener('click', () => {
+    saveAuditCloseReviewDecision(button.dataset.auditCloseDecision).catch(error => captureError('guided audit decision', error));
+  }));
+  document.querySelectorAll('[data-audit-close-delete]').forEach(button => button.addEventListener('click', () => {
+    state.ui.auditCloseId = button.dataset.auditCloseDelete;
+    state.ui.activeSheet = 'confirm-delete-audit-close';
+    render();
+  }));
+  document.querySelectorAll('[data-confirm-delete-audit-close]').forEach(button => button.addEventListener('click', async () => {
+    await deleteAuditClose(button.dataset.confirmDeleteAuditClose);
+    state.ui.auditCloseId = '';
+    state.ui.auditCloseDraft = null;
+    closeSheet();
+    render();
+  }));
   document.querySelectorAll('[data-open-option]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const target = button.dataset.openOption;
@@ -791,10 +962,22 @@ function bindSheetActions() {
     });
   }));
   document.querySelectorAll('[data-option-value]').forEach(button => button.addEventListener('click', () => applyOptionSelection(button.dataset.optionValue || '')));
+  document.querySelector('[data-option-search-open]')?.addEventListener('click', () => {
+    if (!state.ui.optionPicker) return;
+    state.ui.optionPicker.searchActive = true;
+    render();
+    window.requestAnimationFrame(() => document.querySelector('[data-option-search]')?.focus());
+  });
   document.querySelector('[data-option-search]')?.addEventListener('input', event => {
     if (!state.ui.optionPicker) return;
     state.ui.optionPicker.search = event.target.value;
-    render();
+    const visibleValues = new Set(filterSearchableOptions(
+      state.ui.optionPicker.options,
+      state.ui.optionPicker.search
+    ).map(option => String(option.value)));
+    document.querySelectorAll('.option-list [data-option-value]').forEach(button => {
+      button.hidden = !visibleValues.has(button.dataset.optionValue);
+    });
   });
   document.querySelectorAll('[data-record-pick]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
@@ -1165,6 +1348,146 @@ async function handleTool(action) {
   showToast('Función en preparación');
 }
 
+function newAuditCloseDraft() {
+  return {
+    step: 'data',
+    accountName: '',
+    cutoffDate: '',
+    realBalance: '',
+    range: { from: '', to: '' },
+    headers: [],
+    objects: [],
+    mapping: {},
+    statementRows: [],
+    amountSchema: 'amount',
+    fileReady: false
+  };
+}
+
+function ensureAuditCloseDraft() {
+  if (!state.ui.auditCloseDraft) state.ui.auditCloseDraft = newAuditCloseDraft();
+  return state.ui.auditCloseDraft;
+}
+
+function setAuditCloseDraftField(path, value) {
+  const draft = ensureAuditCloseDraft();
+  if (path.startsWith('range.')) {
+    const key = path.slice('range.'.length);
+    draft.range = { ...(draft.range || {}), [key]: value };
+    return;
+  }
+  draft[path] = value;
+}
+
+function activeAuditCloseMapping(mapping = {}, amountSchema = 'amount', headers = []) {
+  const suggested = suggestedStatementMapping(headers);
+  const shared = {
+    date: mapping.date || suggested.date,
+    description: mapping.description || suggested.description
+  };
+  return amountSchema === 'debitCredit'
+    ? { ...shared, debit: mapping.debit || suggested.debit, credit: mapping.credit || suggested.credit }
+    : { ...shared, amount: mapping.amount || suggested.amount };
+}
+
+async function importAuditCloseStatement(file) {
+  const fileData = await readStatementFile(file);
+  const draft = ensureAuditCloseDraft();
+  const amountSchema = draft.amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
+  state.ui.auditCloseDraft = {
+    ...draft,
+    step: 'mapping',
+    headers: fileData.headers,
+    objects: fileData.objects,
+    mapping: activeAuditCloseMapping(suggestedStatementMapping(fileData.headers), amountSchema, fileData.headers),
+    statementRows: [],
+    amountSchema,
+    fileReady: true
+  };
+  render();
+}
+
+function auditCloseDetailsAreValid(draft) {
+  const range = draft.range || {};
+  return Boolean(
+    draft.accountName
+    && Number.isFinite(parseAmount(draft.realBalance))
+    && range.from
+    && range.to
+    && range.from <= range.to
+    && draft.cutoffDate >= range.to
+  );
+}
+
+async function advanceAuditClose() {
+  const draft = ensureAuditCloseDraft();
+  if (draft.step === 'data') {
+    if (!auditCloseDetailsAreValid(draft)) {
+      showToast('Completa cuenta, corte, saldo y rango antes de continuar.');
+      return;
+    }
+    draft.step = 'import';
+    render();
+    return;
+  }
+  if (draft.step === 'import') {
+    if (!draft.fileReady || !draft.headers?.length) {
+      showToast('Selecciona un archivo CSV o XLSX antes de continuar.');
+      return;
+    }
+    draft.step = 'mapping';
+    render();
+    return;
+  }
+  if (draft.step === 'mapping') {
+    draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
+    const mapping = validateStatementMapping(draft.headers, draft.mapping);
+    const statement = validateStatementRows(draft.objects, draft.mapping);
+    const rows = normalizeStatementRows(draft.objects, draft.mapping);
+    const range = validateRowsAgainstRange(rows, draft.range);
+    if (!auditCloseDetailsAreValid(draft) || !mapping.ok || !statement.ok || !range.ok) {
+      showToast(!mapping.ok ? mapping.message : !statement.ok ? statement.message : !range.ok ? range.message : 'Completa cuenta, corte, saldo y rango antes de continuar.');
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const close = {
+      id: uid('audit-close'),
+      accountName: draft.accountName,
+      cutoffDate: draft.cutoffDate,
+      realBalance: parseAmount(draft.realBalance),
+      range: { from: draft.range.from, to: draft.range.to },
+      statementRows: rows,
+      fingerprint: statementFingerprint(rows),
+      decisions: [],
+      createdAt: timestamp,
+      updatedAt: timestamp
+    };
+    close.status = buildGuidedAuditReview(close, state).status;
+    const created = await createAuditClose(close);
+    if (!created) return;
+    state.ui.auditCloseId = close.id;
+    state.ui.auditCloseDraft = { step: 'review' };
+    openSheet('guided-audit-close');
+    return;
+  }
+  if (draft.step === 'review') {
+    draft.step = 'result';
+    render();
+  }
+}
+
+async function saveAuditCloseReviewDecision(value = '') {
+  const [statementRowId, transactionId, action] = value.split(':');
+  if (!['confirm', 'dismiss', 'pending'].includes(action) || !state.ui.auditCloseId) return;
+  await saveAuditCloseDecision(state.ui.auditCloseId, {
+    id: uid('audit-decision'),
+    statementRowId,
+    transactionId,
+    status: action === 'confirm' ? 'confirmed' : action === 'dismiss' ? 'dismissed' : 'pending',
+    createdAt: new Date().toISOString()
+  });
+}
+
 function openOptionPicker(config) {
   state.ui.optionPicker = {
     title: config.title || 'Seleccionar',
@@ -1172,7 +1495,8 @@ function openOptionPicker(config) {
     value: config.value || '',
     target: config.target,
     returnSheet: config.returnSheet || state.ui.activeSheet,
-    search: ''
+    search: '',
+    searchActive: false
   };
   state.ui.activeSheet = 'option-picker';
   render();
@@ -1181,21 +1505,14 @@ function openOptionPicker(config) {
 function optionPickerSheet() {
   const picker = state.ui.optionPicker || {};
   const searchable = (picker.options || []).length > 8;
-  const search = picker.search || '';
-  const options = (picker.options || []).filter(option => !search || canon(option.label || option.value).includes(canon(search)));
   return `
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet picker-sheet ${searchable ? 'has-search' : ''}" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">${html(picker.title || 'Seleccionar')}</h2>
-        ${searchable ? `<input class="input" data-option-search placeholder="Buscar..." value="${html(search)}" autofocus>` : ''}
+        ${searchable ? renderSearchActivator(picker.searchActive) : ''}
         <div class="option-list">
-          ${options.map(option => `
-            <button class="option-row ${option.value === picker.value ? 'selected' : ''}" data-option-value="${html(option.value)}">
-              <span>${html(option.label || option.value)}</span>
-              ${option.value === picker.value ? icon('check') : ''}
-            </button>
-          `).join('') || '<div class="empty-state">Sin opciones</div>'}
+          ${renderSearchableOptionRows(picker.options, [picker.value])}
         </div>
         <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
@@ -1224,7 +1541,14 @@ function applyOptionSelection(value) {
         state.ui.recordFlow[key] = value;
         if (key === 'category') state.ui.recordFlow.subcategory = '';
       }
+      clearRecordValidation(state.ui.recordFlow, key);
     }
+  } else if (picker.target.startsWith('auditClose.mapping.')) {
+    const draft = ensureAuditCloseDraft();
+    const key = picker.target.slice('auditClose.mapping.'.length);
+    draft.mapping = activeAuditCloseMapping({ ...(draft.mapping || {}), [key]: value }, draft.amountSchema, draft.headers);
+  } else if (picker.target === 'auditClose.accountName') {
+    ensureAuditCloseDraft().accountName = value;
   }
   state.ui.activeSheet = picker.returnSheet || '';
   state.ui.optionPicker = null;
@@ -1743,15 +2067,23 @@ function simpleCreateSheet(title, fields, button, action) {
 
 function searchSheet() {
   const q = state.ui.searchText || '';
-  const rows = q ? state.transactions.filter(tx => canon([tx.description, tx.account, tx.category, tx.subcategory].join(' ')).includes(canon(q))).slice(0, 20) : [];
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div><h2 class="sheet-title">Búsqueda global</h2>
       <input class="input" data-global-search-input placeholder="Cuenta, categoría, descripción..." value="${q}">
-      <div class="search-results-list">${q ? rows.map(tx => `<button class="settings-row" data-open-tx="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('receipt')}</span><span><strong>${tx.description || tx.movement}</strong><small>${tx.account} · ${tx.category || tx.movement} · ${formatMoney(tx.amount)}</small></span>${icon('chevronRight')}</button>`).join('') || '<div class="empty-state">Sin resultados</div>' : '<div class="empty-state">Escribe para buscar</div>'}</div>
+      <div class="search-results-list" data-global-search-results>${renderGlobalSearchResults(q)}</div>
       <button class="secondary-button" data-sheet-close>Cerrar</button>
     </section></div>
   `;
+}
+
+function renderGlobalSearchResults(query) {
+  const rows = query
+    ? state.transactions.filter(tx => canon([tx.description, tx.account, tx.category, tx.subcategory].join(' ')).includes(canon(query))).slice(0, 20)
+    : [];
+  return query
+    ? rows.map(tx => `<button class="settings-row" data-open-tx="${tx.id}"><span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('receipt')}</span><span><strong>${tx.description || tx.movement}</strong><small>${tx.account} · ${tx.category || tx.movement} · ${formatMoney(tx.amount)}</small></span>${icon('chevronRight')}</button>`).join('') || '<div class="empty-state">Sin resultados</div>'
+    : '<div class="empty-state">Escribe para buscar</div>';
 }
 
 function healthDetailSheet() {
@@ -1928,7 +2260,7 @@ async function clearAppServiceWorkerAndCaches() {
 document.addEventListener('input', event => {
   if (event.target.matches('[data-global-search-input]')) {
     state.ui.searchText = event.target.value;
-    render();
+    replaceSearchResults('[data-global-search-results]', renderGlobalSearchResults(state.ui.searchText));
   }
   if (event.target.matches('[data-import-edit]')) {
     const [index, field] = event.target.dataset.importEdit.split(':');

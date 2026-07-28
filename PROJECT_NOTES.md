@@ -10,9 +10,15 @@
 
 ## Backlog acordado
 
-- Conciliación mensual guiada.
+- Auditoría guiada flexible por cuenta y rango; incluye cierres mensuales, quincenales o por cualquier fecha declarada. Su primera versión local está implementada y pendiente de validación real no destructiva.
 - Auditoría contra estados de cuenta PDF.
 - Indicador de cobertura de obligaciones y presupuesto planeado.
 - Alertas PWA para pagos, ingresos, vencimientos y riesgos relevantes.
 
 Estos puntos se evalúan por separado antes de implementarlos.
+
+## Herramientas de trabajo para futuras mejoras de interfaz
+
+- Para diagnóstico, pruebas renderizadas y QA móvil de V7 usar `build-web-apps:frontend-testing-debugging` cuando aplique.
+- Para decisiones de diseño e interacción de V7 usar `frontend-design` antes de implementar una propuesta aprobada.
+- Son capacidades disponibles del entorno de trabajo, no dependencias ni código incorporado a la PWA. Las skills de iOS no aplican a esta PWA web.

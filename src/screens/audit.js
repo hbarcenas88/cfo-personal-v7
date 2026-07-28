@@ -1,21 +1,32 @@
 import { icon } from '../icons.js';
 import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
+import { renderSearchActivator } from '../components/searchableOptions.js';
 import { canon, formatDate, formatMoney, html, periodLabel } from '../utils/format.js';
+import { renderAuditCloseEntry, renderAuditCloseList } from './auditClose.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
   const auditPeriodLabel = state.auditPeriod?.mode === 'all' ? 'Todo el historial' : periodLabel(state.auditPeriod);
   const dashboardPeriodLabel = periodLabel(state.period);
-  const comparison = buildAuditComparison(state, state.auditPeriod, filters);
-  const rows = comparison.currentRows;
-  const subtotal = comparison.currentTotal;
   return `
     <div class="audit-period-seal">
       <div><strong>Contexto de Auditoría: ${auditPeriodLabel}</strong><small>${auditPeriodLabel === dashboardPeriodLabel ? 'Coincide con el dashboard' : `Dashboard: ${dashboardPeriodLabel}`}</small></div>
       <button class="text-button audit-period-change" data-open-audit-period>Cambiar</button>
     </div>
+    ${renderAuditCloseEntry(state)}
+    ${renderAuditCloseList(state)}
     ${renderFilters(state, filters)}
+    <div data-audit-results>${renderAuditResults(state)}</div>
+  `;
+}
+
+export function renderAuditResults(state) {
+  const filters = state.filters.audit;
+  const comparison = buildAuditComparison(state, state.auditPeriod, filters);
+  const rows = comparison.currentRows;
+  const subtotal = comparison.currentTotal;
+  return `
     ${state.auditPeriod?.compare ? renderComparisonCard(comparison) : ''}
     ${card(`<div class="metric-grid audit-summary-grid"><div><div class="metric-title">Total registros</div><div class="metric-value metric-value-sm">${rows.length}</div></div><div><div class="metric-title">Subtotal filtrado</div><div class="metric-value metric-value-sm ${subtotal < 0 ? 'danger' : 'success'}">${subtotal < 0 ? '-' : ''}${formatMoney(subtotal)}</div></div></div>`)}
     <div class="section-title"><h2>Movimientos</h2></div>
@@ -77,17 +88,15 @@ function renderAuditDropdown(state) {
   const type = state.ui.auditDropdown;
   if (!type) return '';
   const key = { account: 'accounts', type: 'types', category: 'categories', subcategory: 'subcategories' }[type];
-  const search = state.ui.auditDropdownSearch || '';
-  const options = auditDropdownOptions(state, type)
-    .filter(value => !search || canon(value).includes(canon(search)))
-    .slice(0, 80);
+  const options = auditDropdownOptions(state, type);
+  const searchable = options.length > 8;
   return `
     <div class="audit-dropdown" role="dialog" aria-label="Opciones de filtro">
       <div class="audit-dropdown-head"><strong>${auditDropdownTitle(type)}</strong><button class="icon-button compact" data-audit-dropdown-close aria-label="Cerrar selector">${icon('x')}</button></div>
-      ${options.length > 8 ? `<input class="input audit-dropdown-search" data-audit-dropdown-search placeholder="Buscar..." value="${html(search)}" autofocus>` : ''}
+      ${searchable ? renderAuditSearchActivator(state.ui.auditDropdownSearchActive) : ''}
       <div class="audit-dropdown-options">
         ${options.map(value => `
-          <button class="audit-dropdown-option ${state.filters.audit[key].includes(value) ? 'selected' : ''}" data-audit-dropdown-toggle="${type}:${html(value)}">
+          <button class="audit-dropdown-option ${state.filters.audit[key].includes(value) ? 'selected' : ''}" data-audit-dropdown-toggle="${type}:${html(value)}" data-audit-dropdown-option="${html(value)}">
             <span>${html(value)}</span>${state.filters.audit[key].includes(value) ? icon('check') : ''}
           </button>
         `).join('') || '<div class="empty-state">Sin opciones</div>'}
@@ -95,6 +104,13 @@ function renderAuditDropdown(state) {
       <div class="audit-dropdown-footer"><button class="audit-dropdown-clear audit-filter-footer-action" data-audit-dropdown-clear="${type}">Limpiar</button><button class="secondary-button compact audit-filter-footer-action" data-audit-dropdown-close>Listo</button></div>
     </div>
   `;
+}
+
+function renderAuditSearchActivator(active) {
+  return renderSearchActivator(active)
+    .replace('data-option-search-open', 'data-audit-dropdown-search-open')
+    .replace('data-option-search', 'data-audit-dropdown-search')
+    .replace('option-search-trigger', 'option-search-trigger audit-dropdown-search-trigger');
 }
 
 function auditDropdownOptions(state, type) {

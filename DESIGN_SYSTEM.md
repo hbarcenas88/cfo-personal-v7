@@ -41,6 +41,8 @@ Usar el componente o clase existente antes de crear una variante. Los botones s�
 
 Los flujos móviles usan campos propios, keypad y pickers/sheets. No usar `<select>` nativos. Etiquetas, valor actual, estado requerido y error deben permanecer visibles o claramente asociados.
 
+La edición de texto no re-renderiza el formulario completo: conserva cursor y teclado. Todas las calculadoras reutilizan la cuadrícula clásica de cuatro columnas; `back` borra y el guardado validado sigue siendo la única confirmación financiera. Los selectores muestran primero la lista y sólo enfocan `Buscar o escribir` por intención explícita.
+
 ### Filtros y selectores
 
 Los filtros de auditoría usan dropdowns propios, compactos y anclados a su disparador. Admiten chips activos, selección múltiple y búsqueda cuando la lista es larga. Sólo puede haber un dropdown abierto; se cierra con el mismo disparador, Escape, toque fuera, cerrar o “Listo”.
