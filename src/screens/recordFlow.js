@@ -50,6 +50,10 @@ function renderForm(state, flow) {
     provision: ['Nueva provisión', 'Provisión', 'var(--amber)', 'Provisión']
   }[type];
   const title = flow.editTransactionId ? `Editar ${labels[1].toLowerCase()}` : labels[0];
+  const validation = flow.validation || null;
+  const amountError = validation?.field === 'amount' ? validation.message : flow.keypadError || '';
+  const keypad = renderKeypad({ variant: type === 'income' ? 'income' : 'expense' })
+    .replace(/\s*<button type="button" class="keypad-back"[\s\S]*?<\/button>/, '');
   return `
     <section class="record-screen open">
       <header class="record-header">
@@ -58,19 +62,21 @@ function renderForm(state, flow) {
         <button class="icon-button primary" data-record-save aria-label="${flow.editTransactionId ? 'Guardar cambios' : 'Guardar movimiento'}">${icon('check')}</button>
       </header>
       <main class="record-body">
-        <button class="flow-box flow-box-full" data-record-calendar>
+        <button class="flow-box flow-box-full" data-record-calendar data-record-focus="date">
           <small>Fecha</small><strong>${flow.date || todayISO()}</strong>
         </button>
         ${type === 'transfer' ? renderTransferFields(state, flow) : renderStandardFields(state, flow, type)}
         ${type === 'expense' ? renderExtraordinaryControl(flow) : ''}
-        <div class="amount-hero">
+        ${validation && validation.field !== 'amount' ? `<div class="danger record-validation-error" role="alert">${validation.message}</div>` : ''}
+        <div class="amount-hero" data-record-focus="amount" tabindex="-1">
           <small>${labels[1]}</small>
-          <strong class="money record-amount-value" style="--record-accent:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
-          ${flow.keypadError ? `<div class="danger mt-xs">${flow.keypadError}</div>` : ''}
+          <strong class="money record-amount-value" data-record-amount style="--record-accent:${labels[2]}">USD ${flow.displayAmount || '0.00'}</strong>
+          <button type="button" class="keypad-back" data-key="back" data-record-backspace aria-label="Borrar último dígito" ${flow.amountExpression ? '' : 'disabled'}>${icon('backspace')}</button>
+          <div class="danger mt-xs record-amount-error" data-record-amount-error role="alert" ${amountError ? '' : 'hidden'}>${amountError}</div>
         </div>
-        <div class="field"><label>Descripción</label><input class="input" data-record-field="description" placeholder="Notas (opcional)..." value="${flow.description || ''}"></div>
+        <div class="field"><label>Descripción</label><input class="input" data-record-field="description" data-record-focus="description" placeholder="Notas (opcional)..." value="${flow.description || ''}"></div>
         ${type === 'transfer' ? `<div class="card"><strong>Transferencia auditable</strong><p class="muted">Genera dos movimientos vinculados y no impacta ingresos, gastos ni presupuesto.</p></div>` : ''}
-        ${renderKeypad({ value: flow.amountExpression, variant: type === 'income' ? 'income' : 'expense', currency: 'USD' })}
+        ${keypad}
       </main>
     </section>
   `;
@@ -115,7 +121,7 @@ function renderTransferFields(state, flow) {
 
 function fieldButton(label, value, placeholder, key) {
   return `
-    <button class="flow-box select-flow" data-record-pick="${key}" type="button">
+    <button class="flow-box select-flow" data-record-pick="${key}" data-record-focus="${key}" type="button">
       <small>${label}</small>
       <strong>${value || placeholder}</strong>
       ${icon('chevronDown')}
@@ -140,4 +146,16 @@ export function recordPayload(flow) {
     description: flow.description || '',
     isExtraordinary: flow.type === 'expense' && Boolean(flow.isExtraordinary)
   };
+}
+
+export function validateRecordFlow(flow, keypadState) {
+  if (!flow.date) return { ok: false, field: 'date', message: 'Fecha requerida' };
+  if (keypadState?.error || !Number.isFinite(keypadState?.value) || keypadState.value <= 0) {
+    return { ok: false, field: 'amount', message: keypadState?.error ? 'Completa el cálculo' : 'Monto requerido' };
+  }
+  if (flow.type !== 'budget' && !flow.account) return { ok: false, field: 'account', message: 'Cuenta requerida' };
+  if (flow.type === 'transfer' && (!flow.accountTo || flow.account === flow.accountTo)) {
+    return { ok: false, field: 'accountTo', message: 'Selecciona cuentas distintas' };
+  }
+  return { ok: true };
 }

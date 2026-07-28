@@ -1,5 +1,5 @@
 import { renderShell, setScreenActive, toastRoot } from './components/ui.js';
-import { createKeypadController } from './components/keypad.js';
+import { createKeypadController, evaluateExpression } from './components/keypad.js';
 import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './components/calendar.js';
 import { renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
@@ -9,7 +9,7 @@ import { renderCategories } from './screens/categories.js';
 import { renderAudit } from './screens/audit.js';
 import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
-import { recordPayload, renderRecordRoot } from './screens/recordFlow.js';
+import { recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
 import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
@@ -355,12 +355,8 @@ function bindRecordEvents() {
     const update = () => {
       if (!state.ui.recordFlow) return;
       state.ui.recordFlow[input.dataset.recordField] = input.value;
-      if (input.dataset.recordField === 'category') state.ui.recordFlow.subcategory = '';
-      debugLog('record field changed', { field: input.dataset.recordField, value: input.value });
-      render();
     };
     input.addEventListener('input', update);
-    input.addEventListener('change', update);
   });
   document.querySelectorAll('[data-record-sub]').forEach(button => button.addEventListener('click', () => {
     state.ui.recordFlow.subcategory = button.dataset.recordSub;
@@ -382,26 +378,51 @@ function bindRecordEvents() {
   if (state.ui.recordFlow?.step === 'form') {
     keypad = createKeypadController({
       initial: state.ui.recordFlow.amountExpression || '',
-      onChange: (display, expression, error) => {
-        state.ui.recordFlow.amountExpression = expression;
-        state.ui.recordFlow.displayAmount = display;
-        state.ui.recordFlow.keypadError = error || '';
-        const parsed = Number(expression);
-        if (!Number.isNaN(parsed)) state.ui.recordFlow.amount = parsed;
-        render();
-      },
-      onConfirm: value => {
-        state.ui.recordFlow.amount = value;
-        state.ui.recordFlow.displayAmount = Number(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      onChange: keypadState => {
+        const flow = state.ui.recordFlow;
+        if (!flow) return;
+        flow.amountExpression = keypadState.expression;
+        flow.displayAmount = keypadState.display;
+        flow.keypadError = keypadState.error || '';
+        flow.keypadState = keypadState;
+        flow.validation = null;
+        if (Number.isFinite(keypadState.value)) flow.amount = keypadState.value;
+        const amount = document.querySelector('[data-record-amount]');
+        const error = document.querySelector('[data-record-amount-error]');
+        const backspace = document.querySelector('[data-record-backspace]');
+        if (amount) amount.textContent = `USD ${keypadState.display}`;
+        if (error) {
+          error.textContent = keypadState.error || '';
+          error.hidden = !keypadState.error;
+        }
+        if (backspace) backspace.disabled = !keypadState.expression;
       }
     });
     document.querySelectorAll('[data-key]').forEach(button => button.addEventListener('click', () => keypad.press(button.dataset.key)));
   }
   document.querySelector('[data-record-save]')?.addEventListener('click', async () => {
-    const payload = recordPayload(state.ui.recordFlow);
+    const flow = state.ui.recordFlow;
+    if (!flow) return;
+    const evaluated = evaluateExpression(flow.amountExpression);
+    const keypadState = {
+      value: evaluated.error ? null : evaluated.value,
+      error: evaluated.error || (evaluated.value < 0 ? 'El monto no puede ser negativo' : '')
+    };
+    const validation = validateRecordFlow(flow, keypadState);
+    if (!validation.ok) {
+      flow.validation = { field: validation.field, message: validation.message };
+      render();
+      queueMicrotask(() => document.querySelector(`[data-record-focus="${validation.field}"]`)?.focus());
+      return;
+    }
+    flow.amount = keypadState.value;
+    flow.keypadState = keypadState;
+    flow.keypadError = '';
+    flow.validation = null;
+    const payload = recordPayload(flow);
     debugLog('record save validation', payload);
-    const saved = state.ui.recordFlow.editTransactionId
-      ? await updateTransaction(state.ui.recordFlow.editTransactionId, payload)
+    const saved = flow.editTransactionId
+      ? await updateTransaction(flow.editTransactionId, payload)
       : await saveTransaction(payload);
     debugLog('record save result', { saved, transactions: state.transactions.length, budgets: state.budgets.length });
     if (saved) state.ui.recordFlow = null;
