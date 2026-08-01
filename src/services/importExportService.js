@@ -3,13 +3,16 @@ import { normalizeBudget, normalizeTransaction } from './financeService.js';
 import { canon, formatDate, parseAmount, parseDate, parseMonth, todayISO } from '../utils/format.js';
 import { inferIcon } from '../icons.js';
 
+export const AUDIT_STATEMENT_TEMPLATE_KIND = 'audit_statement';
+
 export const templateHeaders = {
   accounts: ['nombre', 'tipo', 'saldo_inicial'],
   categories: ['categoria', 'subcategoria'],
   provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual'],
   recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria'],
   transactions: ['cuenta', 'movimiento', 'monto', 'categoria', 'subcategoria', 'descripcion', 'fecha'],
-  budgets: ['cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'mes']
+  budgets: ['cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'mes'],
+  [AUDIT_STATEMENT_TEMPLATE_KIND]: ['Fecha', 'Descripción', 'Monto']
 };
 
 export function parseCSV(text) {
@@ -163,7 +166,7 @@ export function downloadTemplate(kind) {
   const headers = templateHeaders[kind];
   if (!headers) return;
   const filename = downloadText(datedName(`template_${kind}`), `${headers.join(',')}\r\n`);
-  showToast(`Template descargado: ${filename}`);
+  showToast(`${templateMeta(kind).title} descargado: ${filename}`);
 }
 
 export async function importCatalog(kind, objects) {
@@ -350,4 +353,21 @@ export function explainTemplate(kind) {
     budgets: 'Presupuestos se cargan por cuenta, monto, categoria, subcategoria y mes al final.'
   };
   return descriptions[kind] || '';
+}
+
+export function templateMeta(kind) {
+  if (kind === AUDIT_STATEMENT_TEMPLATE_KIND) {
+    return {
+      title: 'Auditoría — estado de cuenta',
+      description: 'Formato para comparar un estado de cuenta con una cuenta elegida.',
+      fields: 'Fecha, Descripción, Monto',
+      help: 'Fecha AAAA-MM-DD. Monto negativo = débito/gasto; positivo = crédito/ingreso. Puedes cargar CSV o XLSX.'
+    };
+  }
+  return {
+    title: kind,
+    description: explainTemplate(kind),
+    fields: (templateHeaders[kind] || []).join(', '),
+    help: ''
+  };
 }
