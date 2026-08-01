@@ -22,10 +22,11 @@ const closedTemplateSheet = renderTemplateSheet({ ui: { templateInfoKind: '' } }
 assert.match(closedTemplateSheet, /Auditoría — estado de cuenta/);
 assert.match(closedTemplateSheet, /data-template="audit_statement"/);
 assert.match(closedTemplateSheet, /data-template-info="audit_statement"/);
+assert.match(closedTemplateSheet, /data-template-info="audit_statement" aria-expanded="false" aria-controls="template-info-audit_statement"/);
 assert.doesNotMatch(closedTemplateSheet, /data-template-info-panel/);
 
 const openTemplateSheet = renderTemplateSheet({ ui: { templateInfoKind: 'audit_statement' } });
-assert.match(openTemplateSheet, /data-template-info-panel="audit_statement"/);
+assert.match(openTemplateSheet, /<div class="template-entry">\s*<button class="settings-row template-row" data-template="audit_statement"[\s\S]*?<\/button>\s*<button class="template-info" data-template-info="audit_statement" aria-expanded="true" aria-controls="template-info-audit_statement"[\s\S]*?<\/button>\s*<div class="template-info-panel" id="template-info-audit_statement" role="note" data-template-info-panel="audit_statement">/);
 assert.match(openTemplateSheet, /Fecha AAAA-MM-DD/);
 assert.match(openTemplateSheet, /Monto negativo = débito\/gasto/);
 
