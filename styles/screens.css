@@ -1732,6 +1732,27 @@
   border-radius: 16px;
 }
 
+.template-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+  align-items: start;
+  margin-top: 8px;
+}
+
+.template-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.template-row > span:nth-child(2) {
+  min-width: 0;
+}
+
+.template-row strong {
+  overflow-wrap: anywhere;
+}
+
 .template-row small {
   display: grid;
   gap: 2px;
@@ -1740,6 +1761,31 @@
 .template-fields {
   color: var(--text-soft);
   overflow-wrap: anywhere;
+}
+
+.template-info {
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--blue);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.template-info-panel {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+  padding: 10px 12px;
+  border: 1px solid var(--blue-soft);
+  border-radius: var(--radius-md);
+  background: var(--blue-soft);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .rules-card {

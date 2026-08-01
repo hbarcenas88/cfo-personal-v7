@@ -5,6 +5,8 @@ import {
   templateMeta,
   toCSV
 } from '../src/services/importExportService.js';
+import { renderTemplateSheet } from '../src/screens/settings.js';
+import { renderAuditCloseSheet } from '../src/screens/auditClose.js';
 
 assert.equal(AUDIT_STATEMENT_TEMPLATE_KIND, 'audit_statement');
 assert.deepEqual(templateHeaders.audit_statement, ['Fecha', 'Descripción', 'Monto']);
@@ -15,3 +17,17 @@ assert.deepEqual(templateMeta(AUDIT_STATEMENT_TEMPLATE_KIND), {
   help: 'Fecha AAAA-MM-DD. Monto negativo = débito/gasto; positivo = crédito/ingreso. Puedes cargar CSV o XLSX.'
 });
 assert.equal(toCSV(templateHeaders.audit_statement, []), 'Fecha,Descripción,Monto');
+
+const closedTemplateSheet = renderTemplateSheet({ ui: { templateInfoKind: '' } });
+assert.match(closedTemplateSheet, /Auditoría — estado de cuenta/);
+assert.match(closedTemplateSheet, /data-template="audit_statement"/);
+assert.match(closedTemplateSheet, /data-template-info="audit_statement"/);
+assert.doesNotMatch(closedTemplateSheet, /data-template-info-panel/);
+
+const openTemplateSheet = renderTemplateSheet({ ui: { templateInfoKind: 'audit_statement' } });
+assert.match(openTemplateSheet, /data-template-info-panel="audit_statement"/);
+assert.match(openTemplateSheet, /Fecha AAAA-MM-DD/);
+assert.match(openTemplateSheet, /Monto negativo = débito\/gasto/);
+
+const auditCloseSheet = renderAuditCloseSheet({ ui: {}, auditClosures: [], accounts: [] });
+assert.doesNotMatch(auditCloseSheet, /data-template="audit_statement"/);

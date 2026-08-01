@@ -2,7 +2,7 @@ import { COLOR_CATALOG, ICON_CATALOG, icon } from '../icons.js';
 import { dataHealth } from '../services/healthService.js';
 import { resolveCapacityRules } from '../services/financeService.js';
 import { card, emptyState } from '../components/ui.js';
-import { explainTemplate, templateHeaders } from '../services/importExportService.js';
+import { AUDIT_STATEMENT_TEMPLATE_KIND, templateHeaders, templateMeta } from '../services/importExportService.js';
 import { formatMoney, html } from '../utils/format.js';
 
 export function renderSettings(state) {
@@ -248,19 +248,30 @@ function yes(value) {
   return value ? 'Sí' : 'No';
 }
 
-export function renderTemplateSheet() {
+export function renderTemplateSheet(state = {}) {
+  const templateInfoKind = state.ui?.templateInfoKind || '';
   return `
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet wide" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">Templates CSV</h2>
-        ${Object.entries(templateHeaders).map(([kind, headers]) => `
-          <button class="settings-row template-row" data-template="${kind}">
-            <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('fileDown')}</span>
-            <span><strong>${kind}</strong><small><span>${explainTemplate(kind)}</span><span class="template-fields">${headers.join(', ')}</span></small></span>
-            ${icon('download')}
-          </button>
-        `).join('')}
+        ${Object.entries(templateHeaders).map(([kind, headers]) => {
+          const meta = templateMeta(kind);
+          const hasInfo = kind === AUDIT_STATEMENT_TEMPLATE_KIND;
+          const infoOpen = templateInfoKind === kind;
+          const infoId = `template-info-${kind}`;
+          return `
+            <div class="template-entry">
+              <button class="settings-row template-row" data-template="${kind}">
+                <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('fileDown')}</span>
+                <span><strong>${meta.title}</strong><small><span>${meta.description}</span><span class="template-fields">${headers.join(', ')}</span></small></span>
+                ${icon('download')}
+              </button>
+              ${hasInfo ? `<button class="template-info" data-template-info="${kind}" aria-expanded="${infoOpen}" aria-controls="${infoId}" aria-label="Cómo preparar el estado de cuenta">?</button>` : ''}
+              ${hasInfo && infoOpen ? `<div class="template-info-panel" id="${infoId}" role="note" data-template-info-panel="${kind}">${meta.help}</div>` : ''}
+            </div>
+          `;
+        }).join('')}
         <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
     </div>

@@ -215,7 +215,7 @@ function renderActiveSheet() {
   const sheet = state.ui.activeSheet;
   if (sheet === 'period') return renderPeriodSheet(state.ui.periodDraft, periodSheetOptions(state.ui.periodDraft));
   if (sheet === 'calendar') return renderCalendarSheet(calendarDraft);
-  if (sheet === 'templates') return renderTemplateSheet();
+  if (sheet === 'templates') return renderTemplateSheet(state);
   if (sheet === 'icon') return renderIconPickerSheet(state);
   if (sheet === 'option-picker') return optionPickerSheet();
   if (sheet === 'account-actions') return accountActionsSheet();
@@ -770,6 +770,11 @@ function bindFilters() {
 
 function bindTools() {
   document.querySelectorAll('[data-template]').forEach(button => button.addEventListener('click', () => downloadTemplate(button.dataset.template)));
+  document.querySelectorAll('[data-template-info]').forEach(button => button.addEventListener('click', () => {
+    const kind = button.dataset.templateInfo;
+    state.ui.templateInfoKind = state.ui.templateInfoKind === kind ? '' : kind;
+    render();
+  }));
   document.querySelectorAll('[data-open-icon]').forEach(button => button.addEventListener('click', () => {
     const [type, id] = button.dataset.openIcon.split(':');
     const list = type === 'account' ? state.accounts : type === 'provision' ? state.provisions : state.categories;
