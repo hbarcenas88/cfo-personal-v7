@@ -59,6 +59,8 @@ El cierre guiado vive dentro de Auditoría y se expresa como un recorrido móvil
 
 Cada diferencia usa texto, icono y color semántico; rojo para solo en la app, azul para solo en el banco y ámbar para advertencias. Confirmar, descartar o dejar pendiente son acciones explícitas y accesibles. La importación, asignación de columnas y eliminación de un cierre usan sheets y controles propios, con resumen de datos antes de confirmar; nunca `<select>` nativos. El estado `Delta detectado: revisar` comunica una tarea pendiente, no un error financiero ni una invitación a crear ajustes.
 
+En Ajustes → Descargar templates, `Auditoría — estado de cuenta` es una fila propia, no anidada en la importación del cierre. La descarga y el botón `?` de ayuda son hermanos; el botón de ayuda conserva un target mínimo de 44 px y expande una nota asociada sin solapar la fila ni desplazar los controles fuera del viewport.
+
 ### Feedback
 
 Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmación explícita para borrar, restaurar, reiniciar o realizar una acción que pueda alterar datos.

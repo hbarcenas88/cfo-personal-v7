@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { renderAuditCloseEntry, renderAuditCloseSheet } from '../src/screens/auditClose.js';
+import { renderTemplateSheet } from '../src/screens/settings.js';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
 const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
@@ -12,11 +13,14 @@ const styles = await readFile(new URL('../styles/screens.css', import.meta.url),
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
 const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+const importExport = await readFile(new URL('../src/services/importExportService.js', import.meta.url), 'utf8');
 const xlsxBundle = await readFile(new URL('../assets/vendor/xlsx.full.min.js', import.meta.url), 'utf8');
 const progress = await readFile(new URL('../PROGRESS.md', import.meta.url), 'utf8');
 const verifier = await readFile(new URL('../VERIFIER.md', import.meta.url), 'utf8');
 const backlog = await readFile(new URL('../BACKLOG.md', import.meta.url), 'utf8');
 const roadmap = await readFile(new URL('../V7_ROADMAP.md', import.meta.url), 'utf8');
+const productSpec = await readFile(new URL('../PRODUCT_SPEC.md', import.meta.url), 'utf8');
+const designSystem = await readFile(new URL('../DESIGN_SYSTEM.md', import.meta.url), 'utf8');
 
 assert.match(auditClose, /data-open-audit-close/);
 assert.match(auditClose, /data-audit-close-file/);
@@ -412,7 +416,7 @@ assert.strictEqual(
 );
 assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 
-assert.match(worker, /cfo-personal-v7-cache-40/);
+assert.match(worker, /cfo-personal-v7-cache-41/);
 assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
@@ -422,12 +426,19 @@ assert.match(worker, /'\.\/assets\/vendor\/xlsx\.full\.min\.js'/);
 assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
 assert.match(worker, /!response\.ok\s*\|\|\s*response\.status\s*===\s*206/);
 assert.match(worker, /await cache\.put\(event\.request, copy\)/);
+const settings = renderTemplateSheet({ ui: { templateInfoKind: '' } });
+assert.match(settings, /data-template="audit_statement"/);
+assert.match(settings, /data-template-info="audit_statement"/);
+assert.doesNotMatch(auditClose, /data-template="audit_statement"/);
+assert.match(importExport, /\['Fecha', 'Descripción', 'Monto'\]/);
 
-for (const document of [progress, verifier, backlog, roadmap]) {
-  assert.match(document, /Observación sintética no adjunta \(narrativa, no evidencia de entrega\)/);
-  assert.match(document, /captura duradera o validación móvil del usuario/);
-  assert.match(document, /no autoriza publicación ni merge/);
-}
+assert.match(progress, /GitHub Pages se publicaron con `cfo-personal-v7-cache-40` el 2026-07-28/);
+assert.match(backlog, /plantilla `Auditoría — estado de cuenta` se descarga localmente desde Ajustes y no muta finanzas/);
+assert.match(verifier, /Auditoría — estado de cuenta/);
+assert.match(productSpec, /`Fecha,Descripción,Monto`/);
+assert.match(designSystem, /no anidada en la importación del cierre/);
+assert.match(designSystem, /target mínimo de 44 px/);
+assert.match(roadmap, /evidencia de dispositivo\/PWA y validación no destructiva con datos reales/);
 assert.doesNotMatch(verifier, /- \[x\] Sesi.n (controlada|sint.tica):/);
 assert.match(verifier, /- \[ \] Adjuntar captura visual duradera o completar validación móvil del usuario antes de tratar esta revisión como evidencia de entrega\./);
 
