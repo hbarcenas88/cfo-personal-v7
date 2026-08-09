@@ -1,4 +1,4 @@
-import { renderShell, setScreenActive, toastRoot } from './components/ui.js';
+import { ensureShell, setScreenActive, toastRoot, updateShellState } from './components/ui.js';
 import { createKeypadController, evaluateExpression } from './components/keypad.js';
 import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './components/calendar.js';
 import { renderPeriodSheet } from './components/periodPicker.js';
@@ -19,6 +19,7 @@ import { readStatementFile, suggestedStatementMapping, validateStatementMapping 
 import { applyDraftPreset, createPeriodDraft, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
 import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
+import { captureInteractionState, createRenderCoordinator, restoreInteractionState } from './utils/renderCoordinator.js';
 import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows } from './components/searchableOptions.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
@@ -30,6 +31,10 @@ let auditDropdownDismissBound = false;
 let filterPersistTimer = 0;
 const APP_VERSION = '7.0.5';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
+const requestRender = createRenderCoordinator({
+  schedule: callback => queueMicrotask(callback),
+  render: renderScopes
+});
 
 function debugLog(action, detail = {}) {
   const entry = { at: new Date().toISOString(), action, detail };
@@ -112,11 +117,11 @@ debugLog('state loaded', {
   origin: location.origin,
   path: location.pathname
 });
-subscribe(render);
+subscribe(() => render());
 render();
 registerServiceWorker();
 
-window.addEventListener('cfo:render', render);
+window.addEventListener('cfo:render', event => render(event.detail || 'all'));
 window.addEventListener('cfo:toast', toastRoot);
 window.addEventListener('cfo:persist-render', async () => {
   await persist();
@@ -149,32 +154,78 @@ document.addEventListener('click', event => {
   debugLog('click', { tag: target.tagName, text: target.textContent?.trim().slice(0, 80), attrs });
 }, true);
 
-function render() {
-  renderShell();
-  setScreenActive();
-  if (!state.onboarded && emptyData()) {
-    document.getElementById('screen-balances').innerHTML = renderOnboarding();
-  } else {
-    document.getElementById('screen-balances').innerHTML = renderBalances(state);
+function render(scopes = 'all') {
+  requestRender(scopes);
+}
+
+function renderScopes(scopes) {
+  ensureShell();
+  const requested = new Set(scopes);
+  if (requested.has('all')) {
+    ['shell', 'screen', 'sheet', 'record', 'toast'].forEach(scope => requested.add(scope));
   }
-  document.getElementById('screen-summary').innerHTML = renderSummary(state);
-  document.getElementById('screen-categories').innerHTML = renderCategories(state);
-  document.getElementById('screen-audit').innerHTML = renderAudit(state);
-  document.getElementById('screen-settings').innerHTML = renderSettings(state);
-  injectDebugTool();
-  document.getElementById('record-root').innerHTML = renderRecordRoot(state);
-  document.getElementById('sheet-root').innerHTML = renderActiveSheet();
-  setScreenActive();
-  toastRoot();
-  bindDynamicEvents();
-  renderIcons(document);
+
+  if (requested.has('shell')) {
+    updateShellState();
+    setScreenActive();
+  }
+
+  if (requested.has('screen')) {
+    const screenRoot = document.getElementById(`screen-${state.activeView}`);
+    const snapshot = captureInteractionState(screenRoot);
+    renderActiveScreen();
+    injectDebugTool();
+    if (screenRoot) {
+      bindDynamicEvents(screenRoot);
+      renderIcons(screenRoot);
+      restoreInteractionState(snapshot, screenRoot);
+    }
+  }
+
+  if (requested.has('record')) {
+    const recordRoot = document.getElementById('record-root');
+    const snapshot = captureInteractionState(recordRoot);
+    recordRoot.innerHTML = renderRecordRoot(state);
+    bindDynamicEvents(recordRoot);
+    renderIcons(recordRoot);
+    restoreInteractionState(snapshot, recordRoot);
+  }
+
+  if (requested.has('sheet')) {
+    const sheetRoot = document.getElementById('sheet-root');
+    const snapshot = captureInteractionState(sheetRoot);
+    sheetRoot.innerHTML = renderActiveSheet();
+    bindDynamicEvents(sheetRoot);
+    renderIcons(sheetRoot);
+    restoreInteractionState(snapshot, sheetRoot);
+  }
+
+  if (requested.has('toast')) toastRoot();
+}
+
+function renderActiveScreen() {
+  const activeScreenId = `screen-${state.activeView}`;
+  document.querySelectorAll('.screen').forEach(screen => {
+    if (screen.id !== activeScreenId) {
+      screen.replaceChildren();
+      return;
+    }
+    if (state.activeView === 'balances') {
+      screen.innerHTML = !state.onboarded && emptyData() ? renderOnboarding() : renderBalances(state);
+    } else if (state.activeView === 'summary') {
+      screen.innerHTML = renderSummary(state);
+    } else if (state.activeView === 'categories') {
+      screen.innerHTML = renderCategories(state);
+    } else if (state.activeView === 'audit') {
+      screen.innerHTML = renderAudit(state);
+    } else if (state.activeView === 'settings') {
+      screen.innerHTML = renderSettings(state);
+    }
+  });
 }
 
 function rerenderSheetPreserveScroll() {
-  const top = document.querySelector('.sheet')?.scrollTop || 0;
-  render();
-  const sheet = document.querySelector('.sheet');
-  if (sheet) sheet.scrollTop = top;
+  render('sheet');
 }
 
 function emptyData() {
@@ -299,8 +350,18 @@ function returnToPeriodSheet() {
   render();
 }
 
-function bindDynamicEvents() {
-  document.querySelectorAll('[data-onboarding-action]').forEach(button => button.addEventListener('click', () => {
+function bindingContext(root) {
+  const ownerDocument = root.ownerDocument || globalThis.document;
+  return {
+    querySelector: selector => root.querySelector(selector),
+    querySelectorAll: selector => root.querySelectorAll(selector),
+    addEventListener: (...args) => ownerDocument.addEventListener(...args),
+    elementFromPoint: (...args) => ownerDocument.elementFromPoint(...args)
+  };
+}
+
+function bindDynamicEvents(root) {
+  root.querySelectorAll('[data-onboarding-action]').forEach(button => button.addEventListener('click', () => {
     const action = button.dataset.onboardingAction;
     if (action === 'import') {
       state.onboarded = true;
@@ -317,17 +378,19 @@ function bindDynamicEvents() {
     }
   }));
 
-  document.querySelectorAll('[data-settings-back]').forEach(button => button.addEventListener('click', () => {
+  root.querySelectorAll('[data-settings-back]').forEach(button => button.addEventListener('click', () => {
     state.ui.drawerOpen = true;
-    render();
+    render('shell');
   }));
 
-  document.querySelectorAll('[data-settings]').forEach(button => button.addEventListener('click', () => setSettingsPage(button.dataset.settings)));
-  document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', event => {
+  root.querySelectorAll('[data-settings]').forEach(button => {
+    button.addEventListener('click', () => setSettingsPage(button.dataset.settings));
+  });
+  root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     handleTool(button.dataset.tool).catch(error => captureError(`tool:${button.dataset.tool}`, error));
   }));
-  document.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
+  root.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
     if (event.currentTarget === event.target || el.tagName === 'BUTTON') {
       if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
         state.ui.activeSheet = 'period';
@@ -344,17 +407,18 @@ function bindDynamicEvents() {
       }
     }
   }));
-  bindSheetDragClose();
+  bindSheetDragClose(root);
 
-  bindRecordEvents();
-  bindPeriodEvents();
-  bindCalendarEvents();
-  bindFilters();
-  bindTools();
-  bindSheetActions();
+  bindRecordEvents(root);
+  bindPeriodEvents(root);
+  bindCalendarEvents(root);
+  bindFilters(root);
+  bindTools(root);
+  bindSheetActions(root);
 }
 
-function bindSheetDragClose() {
+function bindSheetDragClose(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('.sheet').forEach(sheet => {
     let startY = 0;
     let startScroll = 0;
@@ -382,7 +446,8 @@ function bindSheetDragClose() {
   });
 }
 
-function bindRecordEvents() {
+function bindRecordEvents(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('[data-record-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.recordFlow = null;
     render();
@@ -509,7 +574,8 @@ function startTransactionEdit(id) {
   render();
 }
 
-function bindPeriodEvents() {
+function bindPeriodEvents(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('[data-period-close]').forEach(el => el.addEventListener('click', event => {
     if (event.currentTarget === event.target || el.tagName === 'BUTTON') cancelPeriodDraft();
   }));
@@ -547,7 +613,8 @@ function bindPeriodEvents() {
   document.querySelector('[data-period-apply]')?.addEventListener('click', () => applyPeriodDraft());
 }
 
-function bindCalendarEvents() {
+function bindCalendarEvents(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('[data-cal-date]').forEach(button => button.addEventListener('click', () => {
     calendarDraft.selectedDate = button.dataset.calDate;
     calendarDraft.visibleMonth = button.dataset.calDate.slice(0, 7);
@@ -590,7 +657,8 @@ function bindCalendarEvents() {
   });
 }
 
-function bindFilters() {
+function bindFilters(root) {
+  const document = bindingContext(root);
   if (!auditDropdownDismissBound) {
     auditDropdownDismissBound = true;
     document.addEventListener('keydown', event => {
@@ -768,7 +836,8 @@ function bindFilters() {
   });
 }
 
-function bindTools() {
+function bindTools(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('[data-template]').forEach(button => button.addEventListener('click', () => downloadTemplate(button.dataset.template)));
   document.querySelectorAll('[data-template-info]').forEach(button => button.addEventListener('click', () => {
     const kind = button.dataset.templateInfo;
@@ -799,7 +868,7 @@ function bindTools() {
     await moveAccount(button.dataset.accountMove, Number(button.dataset.direction));
     render();
   }));
-  bindAccountDrag();
+  bindAccountDrag(root);
   document.querySelectorAll('[data-account-kpi]').forEach(input => input.addEventListener('change', async () => {
     const [id, key] = input.dataset.accountKpi.split(':');
     await mutate(s => {
@@ -882,7 +951,8 @@ function bindTools() {
   }));
 }
 
-function bindSheetActions() {
+function bindSheetActions(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('[data-open-audit-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.auditCloseId = '';
     state.ui.auditCloseDraft = newAuditCloseDraft();
@@ -1271,7 +1341,8 @@ async function saveAccountSection(section) {
   }
 }
 
-function bindAccountDrag() {
+function bindAccountDrag(root) {
+  const document = bindingContext(root);
   document.querySelectorAll('[data-account-drag]').forEach(handle => {
     handle.addEventListener('dragstart', event => {
       draggedAccountId = handle.dataset.accountDrag;

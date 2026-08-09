@@ -13,6 +13,7 @@ import {
   suggestedStatementMapping,
   validateStatementMapping
 } from '../src/services/statementFileService.js';
+import { renderAuditCloseList } from '../src/screens/auditClose.js';
 
 assert.deepEqual(
   validateStatementMapping(['Fecha', 'Monto', 'Descripción'], {
@@ -369,5 +370,75 @@ const dismissedPendingConflict = applyAuditCloseDecision(conflictingConfirmation
   status: 'dismissed'
 });
 assert.equal(dismissedPendingConflict.decisions.find(item => item.transactionId === 'app-netflix').status, 'dismissed');
+
+const longAccountName = 'Cuenta de ahorros familiar para objetivos de largo plazo y emergencias';
+const savedCloseMarkup = renderAuditCloseList({
+  auditClosures: [{
+    id: 'long-name-close',
+    accountName: longAccountName,
+    cutoffDate: '2026-08-09',
+    realBalance: 123.45,
+    range: { from: '2026-08-01', to: '2026-08-09' },
+    statementRows: [],
+    decisions: []
+  }],
+  transactions: []
+});
+
+function assertSavedCloseMarkup(markup, expected) {
+  assert.equal(textForClass(markup, 'strong', 'guided-audit-close-name'), expected.name);
+  assert.equal(textForClass(markup, 'small', 'guided-audit-close-date'), expected.date);
+  assert.equal(textForClass(markup, 'strong', `guided-audit-close-status ${expected.variant}`), expected.status);
+  assert.equal(textForClass(markup, 'small', 'guided-audit-close-amount'), expected.amount);
+  assert.match(markup, /class="guided-audit-close-chevron" aria-hidden="true">\s*<svg/);
+}
+
+function textForClass(markup, tagName, className) {
+  const match = markup.match(new RegExp(`<${tagName} class="${escapeRegExp(className)}">([^<]*)</${tagName}>`));
+  assert.ok(match, `${className} must exist on a ${tagName} element`);
+  return match[1];
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const pendingCloseExpected = {
+  name: longAccountName,
+  date: '09/08/26',
+  status: 'Delta detectado: revisar',
+  amount: '$123.45',
+  variant: 'pending'
+};
+assertSavedCloseMarkup(savedCloseMarkup, pendingCloseExpected);
+const swappedNameAndAmountMarkup = savedCloseMarkup
+  .replace(`<strong class="guided-audit-close-name">${longAccountName}</strong>`, '<strong class="guided-audit-close-name">__AMOUNT__</strong>')
+  .replace('<small class="guided-audit-close-amount">$123.45</small>', `<small class="guided-audit-close-amount">${longAccountName}</small>`)
+  .replace('__AMOUNT__', '$123.45');
+assert.throws(
+  () => assertSavedCloseMarkup(swappedNameAndAmountMarkup, pendingCloseExpected),
+  { name: 'AssertionError' },
+  'the saved-close DOM contract must reject values associated with the wrong semantic class'
+);
+
+const balancedCloseMarkup = renderAuditCloseList({
+  auditClosures: [{
+    id: 'balanced-close',
+    accountName: 'Cuenta cuadrada',
+    cutoffDate: '2026-08-08',
+    realBalance: 0,
+    range: { from: '2026-08-01', to: '2026-08-08' },
+    statementRows: [],
+    decisions: []
+  }],
+  transactions: []
+});
+assertSavedCloseMarkup(balancedCloseMarkup, {
+  name: 'Cuenta cuadrada',
+  date: '08/08/26',
+  status: 'Cuadrado',
+  amount: '$0.00',
+  variant: 'balanced'
+});
 
 console.log('guided-audit.test.mjs passed');

@@ -3,10 +3,11 @@ import { dismissToast, setSettingsPage, setView, state, undo } from '../state.js
 import { shiftPeriod } from '../services/periodService.js';
 import { periodLabel } from '../utils/format.js';
 
-export function renderShell() {
+export function ensureShell() {
   const app = document.getElementById('app');
+  if (!app || app.dataset.shellMounted === 'true') return app;
   app.innerHTML = `
-    <div class="app">
+    <div class="app" data-cfo-shell>
       ${renderHeader()}
       <main id="content" class="content">
         <section id="screen-balances" class="screen"></section>
@@ -21,15 +22,40 @@ export function renderShell() {
       <div id="record-root"></div>
     </div>
   `;
+  app.dataset.shellMounted = 'true';
   bindShellEvents();
   renderIcons(app);
+  return app;
+}
+
+export function updateShellState() {
+  const app = document.getElementById('app');
+  if (!app) return;
+  const label = app.querySelector('[data-period-label]');
+  if (label) label.textContent = periodLabel(state.period);
+  app.querySelectorAll('[data-view]').forEach(button => {
+    const active = button.dataset.view === state.activeView;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute?.('aria-current');
+  });
+  const drawerButton = app.querySelector('[data-action="drawer"]');
+  drawerButton?.setAttribute('aria-expanded', String(Boolean(state.ui.drawerOpen)));
+  const drawer = app.querySelector('.drawer-backdrop');
+  drawer?.classList.toggle('open', Boolean(state.ui.drawerOpen));
+  drawer?.setAttribute('aria-hidden', String(!state.ui.drawerOpen));
+}
+
+export function renderShell() {
+  ensureShell();
+  updateShellState();
 }
 
 export function renderHeader() {
   return `
     <header class="topbar">
       <div class="topbar-main">
-        <button class="icon-button" data-action="drawer" aria-label="Abrir menú">${icon('menu')}</button>
+        <button class="icon-button" data-action="drawer" aria-label="Abrir menú" aria-expanded="${String(Boolean(state.ui.drawerOpen))}">${icon('menu')}</button>
         <div class="brand">
           <div class="brand-title">CFO <span>Personal</span></div>
           <div class="brand-subtitle">Dashboard financiero</div>
@@ -40,7 +66,7 @@ export function renderHeader() {
       </div>
       <div class="period-pill">
         <button data-action="prev-period" aria-label="Periodo anterior">${icon('chevronLeft')}</button>
-        <button class="period-value" data-action="period">${icon('calendar')}<span>${periodLabel(state.period)}</span></button>
+        <button class="period-value" data-action="period">${icon('calendar')}<span data-period-label>${periodLabel(state.period)}</span></button>
         <button data-action="next-period" aria-label="Periodo siguiente">${icon('chevronRight')}</button>
       </div>
     </header>
@@ -72,7 +98,7 @@ function navItem([view, iconName, label]) {
 export function renderDrawer() {
   const open = state.ui.drawerOpen ? 'open' : '';
   return `
-    <div class="drawer-backdrop ${open}" data-action="close-drawer">
+    <div class="drawer-backdrop ${open}" data-action="close-drawer" aria-hidden="${String(!state.ui.drawerOpen)}">
       <aside class="drawer" onclick="event.stopPropagation()">
         <div class="brand drawer-brand">
           <div class="brand-title">CFO <span>Personal</span></div>
@@ -110,14 +136,12 @@ export function bindShellEvents() {
   });
   document.querySelector('[data-action="drawer"]')?.addEventListener('click', () => {
     state.ui.drawerOpen = true;
-    renderShell();
-    window.dispatchEvent(new CustomEvent('cfo:render'));
+    window.dispatchEvent(new CustomEvent('cfo:render', { detail: ['shell'] }));
   });
   document.querySelectorAll('[data-action="close-drawer"]').forEach(el => {
     el.addEventListener('click', () => {
       state.ui.drawerOpen = false;
-      renderShell();
-      window.dispatchEvent(new CustomEvent('cfo:render'));
+      window.dispatchEvent(new CustomEvent('cfo:render', { detail: ['shell'] }));
     });
   });
   document.querySelector('[data-action="new-record"]')?.addEventListener('click', () => {

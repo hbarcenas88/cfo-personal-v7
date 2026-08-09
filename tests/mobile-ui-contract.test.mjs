@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
+import { bindShellEvents, ensureShell, updateShellState } from '../src/components/ui.js';
 import { renderAuditCloseEntry, renderAuditCloseSheet } from '../src/screens/auditClose.js';
 import { renderTemplateSheet } from '../src/screens/settings.js';
+import { state } from '../src/state.js';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
 const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
@@ -22,6 +24,119 @@ const roadmap = await readFile(new URL('../V7_ROADMAP.md', import.meta.url), 'ut
 const productSpec = await readFile(new URL('../PRODUCT_SPEC.md', import.meta.url), 'utf8');
 const designSystem = await readFile(new URL('../DESIGN_SYSTEM.md', import.meta.url), 'utf8');
 
+{
+  const previousDocument = globalThis.document;
+  const previousView = state.activeView;
+  const previousPeriod = state.period;
+  const previousDrawerOpen = state.ui.drawerOpen;
+  let shellWrites = 0;
+  const periodLabel = { textContent: '' };
+  const drawerButton = fakeElement();
+  const drawerBackdrop = fakeElement();
+  const navButtons = [
+    Object.assign(fakeElement(), { dataset: { view: 'balances' } }),
+    Object.assign(fakeElement(), { dataset: { view: 'audit' } })
+  ];
+  const app = {
+    dataset: {},
+    set innerHTML(value) {
+      shellWrites++;
+      this.markup = value;
+    },
+    get innerHTML() {
+      return this.markup || '';
+    },
+    querySelector: selector => ({
+      '[data-period-label]': periodLabel,
+      '[data-action="drawer"]': drawerButton,
+      '.drawer-backdrop': drawerBackdrop
+    }[selector] || null),
+    querySelectorAll: selector => selector === '[data-view]' ? navButtons : []
+  };
+  globalThis.document = {
+    getElementById: id => id === 'app' ? app : null,
+    querySelector: () => null,
+    querySelectorAll: () => []
+  };
+
+  ensureShell();
+  ensureShell();
+  assert.equal(shellWrites, 1, 'the application shell must mount once');
+
+  state.activeView = 'audit';
+  state.period = { mode: 'month', month: '2026-08' };
+  state.ui.drawerOpen = true;
+  updateShellState();
+
+  assert.equal(periodLabel.textContent, 'Ago 2026', 'the mounted shell must update its period label in place');
+  assert.equal(navButtons[0].classList.has('active'), false);
+  assert.equal(navButtons[1].classList.has('active'), true);
+  assert.equal(drawerBackdrop.classList.has('open'), true);
+  assert.equal(drawerButton.attributes['aria-expanded'], 'true');
+
+  state.activeView = previousView;
+  state.period = previousPeriod;
+  state.ui.drawerOpen = previousDrawerOpen;
+  globalThis.document = previousDocument;
+}
+
+function fakeElement() {
+  const classes = new Set();
+  return {
+    attributes: {},
+    classList: {
+      has: name => classes.has(name),
+      toggle: (name, force) => force ? classes.add(name) : classes.delete(name)
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    }
+  };
+}
+
+{
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousDrawerOpen = state.ui.drawerOpen;
+  let openDrawer;
+  let renderEvents = 0;
+  const drawerButton = Object.assign(fakeElement(), {
+    addEventListener: (type, listener) => {
+      if (type === 'click') openDrawer = listener;
+    }
+  });
+  const drawerBackdrop = fakeElement();
+  const app = {
+    dataset: { shellMounted: 'true' },
+    querySelector: selector => ({
+      '[data-action="drawer"]': drawerButton,
+      '.drawer-backdrop': drawerBackdrop
+    }[selector] || null),
+    querySelectorAll: () => []
+  };
+  globalThis.document = {
+    getElementById: id => id === 'app' ? app : null,
+    querySelector: selector => selector === '[data-action="drawer"]' ? drawerButton : null,
+    querySelectorAll: () => []
+  };
+  globalThis.window = {
+    dispatchEvent: event => {
+      if (event.type === 'cfo:render') renderEvents++;
+    }
+  };
+  state.ui.drawerOpen = false;
+
+  bindShellEvents();
+  openDrawer();
+
+  assert.equal(renderEvents, 1, 'opening the drawer must request one coordinated update');
+  assert.equal(drawerBackdrop.classList.has('open'), false, 'the drawer handler must not render synchronously before its coordinated update');
+
+  state.ui.drawerOpen = previousDrawerOpen;
+  globalThis.document = previousDocument;
+  globalThis.window = previousWindow;
+}
+
 assert.match(auditClose, /data-open-audit-close/);
 assert.match(auditClose, /data-audit-close-file/);
 assert.match(auditClose, /data-audit-close-map/);
@@ -32,6 +147,33 @@ assert.match(auditClose, /Advertencia de fecha/);
 assert.doesNotMatch(auditClose, /<select\b/i);
 assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
 assert.match(styles, /\.guided-audit-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
+assertSavedAuditCloseStyles(styles);
+
+const savedAuditStyleMutations = [
+  ['row display', '.guided-audit-close-row', 'display: grid;'],
+  ['row columns', '.guided-audit-close-row', 'grid-template-columns: minmax(0, 1fr) auto;'],
+  ['row target height', '.guided-audit-close-row', 'min-height: var(--control-md);'],
+  ['content minimum width', '.guided-audit-close-content', 'min-width: 0;'],
+  ['content display', '.guided-audit-close-content', 'display: grid;'],
+  ['content columns', '.guided-audit-close-content', 'grid-template-columns: minmax(0, 1fr) auto;'],
+  ['long-text wrapping', ['.guided-audit-close-name', '.guided-audit-close-status'], 'overflow-wrap: anywhere;'],
+  ['metadata columns', '.guided-audit-close-meta', 'grid-template-columns: minmax(0, 1fr) auto;'],
+  ['chevron width', '.guided-audit-close-chevron', 'width: var(--control-md);'],
+  ['chevron height', '.guided-audit-close-chevron', 'height: var(--control-md);'],
+  ['chevron centering', '.guided-audit-close-chevron', 'place-items: center;'],
+  ['SVG width', '.guided-audit-close-chevron svg', 'width: var(--icon-sm);'],
+  ['SVG height', '.guided-audit-close-chevron svg', 'height: var(--icon-sm);'],
+  ['mobile content columns', '.guided-audit-close-content', 'grid-template-columns: minmax(0, 1fr);', '@media (max-width: 420px)']
+];
+
+savedAuditStyleMutations.forEach(([label, selectors, declaration, atRule]) => {
+  const mutatedStyles = moveCssDeclarationToDecoy(styles, selectors, declaration, atRule);
+  assert.throws(
+    () => assertSavedAuditCloseStyles(mutatedStyles),
+    { name: 'AssertionError' },
+    `saved-audit CSS contract must fail when ${label} moves to another selector`
+  );
+});
 
 const balancedAuditCloseEntry = renderAuditCloseEntry({
   auditClosures: [{
@@ -249,6 +391,104 @@ await persistPreferences();
 assert.equal(persistCalls, 1);
 assert.equal(mutationCalls, 0);
 
+function assertSavedAuditCloseStyles(source) {
+  const rowRule = extractCssRuleBody(source, '.guided-audit-close-row');
+  assert.match(rowRule, /(?:^|\s)display:\s*grid;/, 'saved audit rows must use grid');
+  assert.match(rowRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/, 'saved audit rows must reserve flexible content and a fixed chevron column');
+  assert.match(rowRule, /min-height:\s*var\(--control-md\);/, 'the full saved audit row must retain the 44px control target');
+
+  const contentRule = extractCssRuleBody(source, '.guided-audit-close-content');
+  assert.match(contentRule, /min-width:\s*0;/, 'saved audit content must be allowed to shrink');
+  assert.match(contentRule, /(?:^|\s)display:\s*grid;/, 'saved audit content must use grid');
+  assert.match(contentRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/, 'saved audit content must keep identity flexible and metadata readable');
+
+  const longTextRule = extractCssRuleBody(source, ['.guided-audit-close-name', '.guided-audit-close-status']);
+  assert.match(longTextRule, /overflow-wrap:\s*anywhere;/, 'long account names and statuses must wrap in their own rule');
+
+  const metaRule = extractCssRuleBody(source, '.guided-audit-close-meta');
+  assert.match(metaRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/, 'audit status and amount must have separate readable columns');
+
+  const chevronRule = extractCssRuleBody(source, '.guided-audit-close-chevron');
+  assert.match(chevronRule, /width:\s*var\(--control-md\);/, 'the chevron affordance must use the 44px control width');
+  assert.match(chevronRule, /height:\s*var\(--control-md\);/, 'the chevron affordance must use the 44px control height');
+  assert.match(chevronRule, /place-items:\s*center;/, 'the chevron SVG must stay centered inside its affordance');
+
+  const chevronSvgRule = extractCssRuleBody(source, '.guided-audit-close-chevron svg');
+  assert.match(chevronSvgRule, /width:\s*var\(--icon-sm\);/, 'the chevron SVG must not retain intrinsic width');
+  assert.match(chevronSvgRule, /height:\s*var\(--icon-sm\);/, 'the chevron SVG must not retain intrinsic height');
+
+  const mobileBlock = extractCssAtRuleBody(source, '@media (max-width: 420px)');
+  const mobileContentRule = extractCssRuleBody(mobileBlock, '.guided-audit-close-content');
+  assert.match(mobileContentRule, /grid-template-columns:\s*minmax\(0,\s*1fr\);/, 'saved audit metadata must stack into a non-zero-width mobile column');
+}
+
+function extractCssRuleBody(source, selectors) {
+  const selectorList = Array.isArray(selectors) ? selectors : [selectors];
+  const expectedHeader = normalizeCssHeader(selectorList.join(', '));
+  const block = findTopLevelCssBlocks(source).find(candidate => candidate.header === expectedHeader);
+  assert.ok(block, `CSS rule ${selectorList.join(', ')} must exist`);
+  return block.body;
+}
+
+function extractCssAtRuleBody(source, atRule) {
+  const expectedHeader = normalizeCssHeader(atRule);
+  const block = findTopLevelCssBlocks(source).find(candidate => candidate.header === expectedHeader);
+  assert.ok(block, `${atRule} must exist`);
+  return block.body;
+}
+
+function findTopLevelCssBlocks(source) {
+  const blocks = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const openBrace = source.indexOf('{', cursor);
+    if (openBrace === -1) break;
+    let depth = 1;
+    let closeBrace = openBrace + 1;
+    for (; closeBrace < source.length && depth > 0; closeBrace++) {
+      if (source[closeBrace] === '{') depth++;
+      if (source[closeBrace] === '}') depth--;
+    }
+    assert.equal(depth, 0, `CSS block starting at offset ${openBrace} must have a balanced closing brace`);
+    const bodyEnd = closeBrace - 1;
+    blocks.push({
+      header: normalizeCssHeader(source.slice(cursor, openBrace)),
+      body: source.slice(openBrace + 1, bodyEnd),
+      bodyStart: openBrace + 1,
+      bodyEnd
+    });
+    cursor = closeBrace;
+  }
+  return blocks;
+}
+
+function moveCssDeclarationToDecoy(source, selectors, declaration, atRule = '') {
+  const atRuleBlock = atRule
+    ? findTopLevelCssBlocks(source).find(candidate => candidate.header === normalizeCssHeader(atRule))
+    : null;
+  if (atRule) assert.ok(atRuleBlock, `${atRule} must exist before mutation`);
+  const scopeBody = atRuleBlock?.body || source;
+  const selectorList = Array.isArray(selectors) ? selectors : [selectors];
+  const ruleBlock = findTopLevelCssBlocks(scopeBody)
+    .find(candidate => candidate.header === normalizeCssHeader(selectorList.join(', ')));
+  assert.ok(ruleBlock, `CSS rule ${selectorList.join(', ')} must exist before mutation`);
+  const declarationOffset = ruleBlock.body.indexOf(declaration);
+  assert.notEqual(declarationOffset, -1, `${declaration} must exist before mutation`);
+
+  const scopeOffset = atRuleBlock?.bodyStart || 0;
+  const absoluteOffset = scopeOffset + ruleBlock.bodyStart + declarationOffset;
+  const withoutDeclaration = `${source.slice(0, absoluteOffset)}${source.slice(absoluteOffset + declaration.length)}`;
+  return `${withoutDeclaration}\n.guided-audit-contract-decoy { ${declaration} }`;
+}
+
+function normalizeCssHeader(value) {
+  return value
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*,\s*/g, ', ')
+    .trim();
+}
+
 function extractFunction(source, signature) {
   const start = source.indexOf(signature);
   assert.notEqual(start, -1, `${signature} must remain available`);
@@ -260,6 +500,162 @@ function extractFunction(source, signature) {
     if (depth === 0) return source.slice(start, index + 1);
   }
   assert.fail(`${signature} must have a complete body`);
+}
+
+{
+  const renderActiveScreenSource = extractFunction(main, 'function renderActiveScreen()');
+  const calls = { onboarding: 0, balances: 0, summary: 0, categories: 0, audit: 0, settings: 0 };
+  const screens = ['balances', 'summary', 'categories', 'audit', 'settings'].map(view => {
+    let markup = 'stale listener host';
+    return {
+      id: `screen-${view}`,
+      get innerHTML() { return markup; },
+      set innerHTML(value) { markup = value; },
+      replaceChildren() { markup = ''; }
+    };
+  });
+  const renderActiveScreen = runInNewContext(`${renderActiveScreenSource}\nrenderActiveScreen;`, {
+    state: { activeView: 'audit', onboarded: true },
+    document: { querySelectorAll: () => screens },
+    emptyData: () => false,
+    injectDebugTool: () => {},
+    renderOnboarding: () => { calls.onboarding++; return 'onboarding'; },
+    renderBalances: () => { calls.balances++; return 'balances'; },
+    renderSummary: () => { calls.summary++; return 'summary'; },
+    renderCategories: () => { calls.categories++; return 'categories'; },
+    renderAudit: () => { calls.audit++; return 'audit'; },
+    renderSettings: () => { calls.settings++; return 'settings'; }
+  });
+
+  renderActiveScreen();
+
+  assert.deepEqual(calls, { onboarding: 0, balances: 0, summary: 0, categories: 0, audit: 1, settings: 0 });
+  assert.equal(screens.find(screen => screen.id === 'screen-audit').innerHTML, 'audit');
+  screens.filter(screen => screen.id !== 'screen-audit').forEach(screen => {
+    assert.equal(screen.innerHTML, '', `${screen.id} must be emptied while inactive`);
+  });
+}
+
+{
+  const renderScopesSource = extractFunction(main, 'function renderScopes(scopes)');
+  let screenRenders = 0;
+  let recordRenders = 0;
+  let sheetRenders = 0;
+  let recordReplacements = 0;
+  let sheetReplacements = 0;
+  let toastRenders = 0;
+  let shellUpdates = 0;
+  const boundRoots = [];
+  const iconRoots = [];
+  const capturedRoots = [];
+  const restoredRoots = [];
+  const appRoot = { id: 'app' };
+  const recordRoot = {
+    id: 'record-root',
+    set innerHTML(value) { recordReplacements++; this.markup = value; }
+  };
+  const sheetRoot = {
+    id: 'sheet-root',
+    set innerHTML(value) { sheetReplacements++; this.markup = value; }
+  };
+  const roots = new Map([
+    ['app', appRoot],
+    ['record-root', recordRoot],
+    ['sheet-root', sheetRoot]
+  ]);
+  const renderScopes = runInNewContext(`${renderScopesSource}\nrenderScopes;`, {
+    Set,
+    ensureShell: () => {},
+    document: { getElementById: id => roots.get(id) || null },
+    captureInteractionState: root => { capturedRoots.push(root); return { root }; },
+    restoreInteractionState: (snapshot, root) => { restoredRoots.push(root); },
+    updateShellState: () => { shellUpdates++; },
+    setScreenActive: () => {},
+    renderActiveScreen: () => { screenRenders++; },
+    injectDebugTool: () => {},
+    renderRecordRoot: () => { recordRenders++; return 'record'; },
+    renderActiveSheet: () => { sheetRenders++; return 'sheet'; },
+    toastRoot: () => { toastRenders++; },
+    bindDynamicEvents: root => { boundRoots.push(root); },
+    renderIcons: root => { iconRoots.push(root); },
+    state: {}
+  });
+
+  renderScopes(['sheet']);
+
+  assert.equal(shellUpdates, 0, 'sheet scope must not update shell state');
+  assert.equal(screenRenders, 0, 'sheet scope must not invoke the active-screen renderer');
+  assert.equal(recordRenders, 0, 'sheet scope must not invoke the record renderer');
+  assert.equal(recordReplacements, 0, 'sheet scope must not replace record-root');
+  assert.equal(toastRenders, 0, 'sheet scope must not invoke the toast renderer');
+  assert.equal(sheetRenders, 1);
+  assert.equal(sheetReplacements, 1);
+  assert.deepEqual(boundRoots, [sheetRoot], 'sheet bindings must be limited to sheet-root');
+  assert.deepEqual(iconRoots, [sheetRoot], 'sheet icons must be limited to sheet-root');
+  assert.deepEqual(capturedRoots, [sheetRoot]);
+  assert.deepEqual(restoredRoots, [sheetRoot]);
+}
+
+{
+  const bindDynamicEventsSource = extractFunction(main, 'function bindDynamicEvents');
+  let drawerBindings = 0;
+  let screenBindings = 0;
+  const drawerSetting = { addEventListener: () => { drawerBindings++; }, dataset: { settings: 'tools' } };
+  const screenSetting = { addEventListener: () => { screenBindings++; }, dataset: { settings: 'planning' } };
+  const screenRoot = {
+    querySelector: () => null,
+    querySelectorAll: selector => selector === '[data-settings]' ? [screenSetting] : []
+  };
+  const bindDynamicEvents = runInNewContext(`${bindDynamicEventsSource}\nbindDynamicEvents;`, {
+    document: {
+      querySelector: () => null,
+      querySelectorAll: selector => selector === '[data-settings]' ? [drawerSetting] : []
+    },
+    bindSheetDragClose: () => {},
+    bindRecordEvents: () => {},
+    bindPeriodEvents: () => {},
+    bindCalendarEvents: () => {},
+    bindFilters: () => {},
+    bindTools: () => {},
+    bindSheetActions: () => {}
+  });
+
+  bindDynamicEvents(screenRoot);
+
+  assert.equal(drawerBindings, 0, 'dynamic renders must not rebind listeners on the persistent drawer');
+  assert.equal(screenBindings, 1, 'the active rendered region must receive its dynamic settings listener');
+}
+
+{
+  const bindDynamicEventsSource = extractFunction(main, 'function bindDynamicEvents');
+  let screenBindings = 0;
+  let sheetBindings = 0;
+  const screenSetting = { addEventListener: () => { screenBindings++; }, dataset: { settings: 'planning' } };
+  const sheetSetting = { addEventListener: () => { sheetBindings++; }, dataset: { settings: 'accounts' } };
+  const emptyQueryRoot = { querySelector: () => null, querySelectorAll: () => [] };
+  const sheetRoot = {
+    querySelector: () => null,
+    querySelectorAll: selector => selector.includes('[data-settings]') ? [sheetSetting] : []
+  };
+  const bindDynamicEvents = runInNewContext(`${bindDynamicEventsSource}\nbindDynamicEvents;`, {
+    document: {
+      querySelector: () => null,
+      querySelectorAll: selector => selector.includes('[data-settings]') ? [screenSetting] : []
+    },
+    bindSheetDragClose: root => assert.strictEqual(root, sheetRoot),
+    bindRecordEvents: root => assert.strictEqual(root, sheetRoot),
+    bindPeriodEvents: root => assert.strictEqual(root, sheetRoot),
+    bindCalendarEvents: root => assert.strictEqual(root, sheetRoot),
+    bindFilters: root => assert.strictEqual(root, sheetRoot),
+    bindTools: root => assert.strictEqual(root, sheetRoot),
+    bindSheetActions: root => assert.strictEqual(root, sheetRoot),
+    root: emptyQueryRoot
+  });
+
+  bindDynamicEvents(sheetRoot);
+
+  assert.equal(screenBindings, 0, 'sheet binding must not touch the unchanged active screen');
+  assert.equal(sheetBindings, 1, 'sheet binding must attach listeners inside sheet-root');
 }
 
 const applyPeriodDraftSource = extractFunction(main, 'async function applyPeriodDraft()');
@@ -313,7 +709,7 @@ let failedAsset;
 let runtimeCache;
 let runtimeNetwork;
 let runtimeMatch;
-const appShell = runInNewContext(`${worker}\nAPP_SHELL`, {
+const workerContract = runInNewContext(`${worker}\n({ appShell: APP_SHELL, cacheName: CACHE_NAME })`, {
   URL,
   Promise,
   self: {
@@ -336,6 +732,7 @@ const appShell = runInNewContext(`${worker}\nAPP_SHELL`, {
     return response;
   }
 });
+const { appShell, cacheName } = workerContract;
 const installWaits = [];
 lifecycleHandlers.get('install')({ waitUntil: promise => installWaits.push(promise) });
 assert.equal(skipWaitingCalls, 1);
@@ -416,7 +813,17 @@ assert.strictEqual(
 );
 assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 
-assert.match(worker, /cfo-personal-v7-cache-41/);
+assert.deepEqual(
+  {
+    cacheName,
+    renderCoordinatorPrecached: appShell.includes('https://app.test/src/utils/renderCoordinator.js')
+  },
+  {
+    cacheName: 'cfo-personal-v7-cache-42',
+    renderCoordinatorPrecached: true
+  },
+  'Wave 0 must bump the worker cache and precache the render coordinator'
+);
 assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
 assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);

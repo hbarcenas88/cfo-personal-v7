@@ -29,9 +29,17 @@ export function renderAuditCloseList(state) {
         const status = review.status === 'balanced' ? 'Cuadrado' : 'Delta detectado: revisar';
         return `
           <button class="guided-audit-close-row" data-open-audit-close-id="${html(close.id)}">
-            <span><strong>${html(close.accountName || 'Cuenta')}</strong><small>${close.cutoffDate ? formatDate(close.cutoffDate) : 'Sin fecha de corte'}</small></span>
-            <span class="guided-audit-delta ${review.status === 'balanced' ? 'balanced' : 'pending'}"><strong>${status}</strong><small>${formatSignedMoney(review.delta)}</small></span>
-            ${icon('chevronRight')}
+            <span class="guided-audit-close-content">
+              <span class="guided-audit-close-identity">
+                <strong class="guided-audit-close-name">${html(close.accountName || 'Cuenta')}</strong>
+                <small class="guided-audit-close-date">${close.cutoffDate ? formatDate(close.cutoffDate) : 'Sin fecha de corte'}</small>
+              </span>
+              <span class="guided-audit-close-meta">
+                <strong class="guided-audit-close-status ${review.status === 'balanced' ? 'balanced' : 'pending'}">${status}</strong>
+                <small class="guided-audit-close-amount">${formatSignedMoney(review.delta)}</small>
+              </span>
+            </span>
+            <span class="guided-audit-close-chevron" aria-hidden="true">${icon('chevronRight')}</span>
           </button>
         `;
       }).join('')}

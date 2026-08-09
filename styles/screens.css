@@ -2398,7 +2398,6 @@
 }
 
 .guided-audit-entry,
-.guided-audit-close-row,
 .guided-audit-row,
 .guided-audit-pair,
 .guided-audit-decisions,
@@ -2408,13 +2407,11 @@
   gap: var(--space-sm);
 }
 
-.guided-audit-entry,
-.guided-audit-close-row {
+.guided-audit-entry {
   justify-content: space-between;
 }
 
 .guided-audit-entry > div,
-.guided-audit-close-row > span:first-child,
 .guided-audit-row > div,
 .guided-audit-result > div {
   min-width: 0;
@@ -2444,7 +2441,12 @@
 }
 
 .guided-audit-close-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
   width: 100%;
+  max-width: 100%;
   min-height: var(--control-md);
   padding: 10px 0;
   border: 0;
@@ -2454,19 +2456,74 @@
   text-align: left;
 }
 
-.guided-audit-close-row > svg {
-  flex: 0 0 auto;
+.guided-audit-close-content {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.guided-audit-close-identity,
+.guided-audit-close-meta {
+  min-width: 0;
+}
+
+.guided-audit-close-identity {
+  display: grid;
+}
+
+.guided-audit-close-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-xs);
+  text-align: right;
+}
+
+.guided-audit-close-name,
+.guided-audit-close-status {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.guided-audit-close-date,
+.guided-audit-close-amount {
+  white-space: nowrap;
+}
+
+.guided-audit-close-amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.guided-audit-close-chevron {
+  display: grid;
+  width: var(--control-md);
+  height: var(--control-md);
+  place-items: center;
+  justify-self: end;
+  color: var(--text-soft);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.guided-audit-close-chevron svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .guided-audit-delta {
   text-align: right;
 }
 
-.guided-audit-delta.pending {
+.guided-audit-delta.pending,
+.guided-audit-close-status.pending {
   color: var(--amber);
 }
 
-.guided-audit-delta.balanced {
+.guided-audit-delta.balanced,
+.guided-audit-close-status.balanced {
   color: var(--green);
 }
 
@@ -2724,6 +2781,15 @@
 }
 
 @media (max-width: 420px) {
+  .guided-audit-close-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xs);
+  }
+
+  .guided-audit-close-meta {
+    text-align: left;
+  }
+
   .two-col {
     grid-template-columns: 1fr;
   }
