@@ -28,9 +28,12 @@ const designSystem = await readFile(new URL('../DESIGN_SYSTEM.md', import.meta.u
   const previousDocument = globalThis.document;
   const previousView = state.activeView;
   const previousPeriod = state.period;
+  const previousAuditPeriod = state.auditPeriod;
   const previousDrawerOpen = state.ui.drawerOpen;
   let shellWrites = 0;
   const periodLabel = { textContent: '' };
+  const periodContext = { textContent: '', hidden: true };
+  const periodPill = fakeElement();
   const drawerButton = fakeElement();
   const drawerBackdrop = fakeElement();
   const navButtons = [
@@ -48,6 +51,8 @@ const designSystem = await readFile(new URL('../DESIGN_SYSTEM.md', import.meta.u
     },
     querySelector: selector => ({
       '[data-period-label]': periodLabel,
+      '[data-period-context]': periodContext,
+      '.period-pill': periodPill,
       '[data-action="drawer"]': drawerButton,
       '.drawer-backdrop': drawerBackdrop
     }[selector] || null),
@@ -64,18 +69,29 @@ const designSystem = await readFile(new URL('../DESIGN_SYSTEM.md', import.meta.u
   assert.equal(shellWrites, 1, 'the application shell must mount once');
 
   state.activeView = 'audit';
-  state.period = { mode: 'month', month: '2026-08' };
+  state.period = { mode: 'month', month: '2026-07' };
+  state.auditPeriod = { mode: 'all', compare: false };
   state.ui.drawerOpen = true;
   updateShellState();
 
-  assert.equal(periodLabel.textContent, 'Ago 2026', 'the mounted shell must update its period label in place');
+  assert.equal(periodLabel.textContent, 'Todo el historial', 'Audit must show its independent period in the mounted shell');
+  assert.equal(periodPill.attributes['data-period-scope'], 'audit');
+  assert.equal(periodContext.textContent, 'S\u00f3lo afecta Auditor\u00eda');
+  assert.equal(periodContext.hidden, false);
   assert.equal(navButtons[0].classList.has('active'), false);
   assert.equal(navButtons[1].classList.has('active'), true);
   assert.equal(drawerBackdrop.classList.has('open'), true);
   assert.equal(drawerButton.attributes['aria-expanded'], 'true');
 
+  state.activeView = 'summary';
+  updateShellState();
+  assert.equal(periodLabel.textContent, 'Jul 2026', 'dashboard views must return to the confirmed global period');
+  assert.equal(periodPill.attributes['data-period-scope'], 'global');
+  assert.equal(periodContext.hidden, true);
+
   state.activeView = previousView;
   state.period = previousPeriod;
+  state.auditPeriod = previousAuditPeriod;
   state.ui.drawerOpen = previousDrawerOpen;
   globalThis.document = previousDocument;
 }
@@ -133,6 +149,59 @@ function fakeElement() {
   assert.equal(drawerBackdrop.classList.has('open'), false, 'the drawer handler must not render synchronously before its coordinated update');
 
   state.ui.drawerOpen = previousDrawerOpen;
+  globalThis.document = previousDocument;
+  globalThis.window = previousWindow;
+}
+
+{
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousView = state.activeView;
+  const previousPeriod = state.period;
+  const previousAuditPeriod = state.auditPeriod;
+  const listeners = {};
+  const button = action => ({
+    addEventListener: (type, listener) => {
+      if (type === 'click') listeners[action] = listener;
+    }
+  });
+  const periodButton = button('period');
+  const previousButton = button('previous');
+  const nextButton = button('next');
+  const events = [];
+  globalThis.document = {
+    querySelectorAll: () => [],
+    querySelector: selector => ({
+      '[data-action="period"]': periodButton,
+      '[data-action="prev-period"]': previousButton,
+      '[data-action="next-period"]': nextButton
+    }[selector] || null)
+  };
+  globalThis.window = { dispatchEvent: event => events.push(event) };
+  state.period = { mode: 'month', month: '2026-07' };
+  state.auditPeriod = { mode: 'all', compare: false };
+  state.activeView = 'audit';
+
+  bindShellEvents();
+  listeners.period();
+  listeners.previous();
+  state.activeView = 'summary';
+  listeners.next();
+
+  assert.deepEqual(
+    events.map(event => ({ type: event.type, detail: event.detail })),
+    [
+      { type: 'cfo:period', detail: { scope: 'audit' } },
+      { type: 'cfo:period-shift', detail: { scope: 'audit', delta: -1 } },
+      { type: 'cfo:period-shift', detail: { scope: 'global', delta: 1 } }
+    ]
+  );
+  assert.deepEqual(state.period, { mode: 'month', month: '2026-07' }, 'shell controls must leave persistence to main');
+  assert.deepEqual(state.auditPeriod, { mode: 'all', compare: false }, 'shell controls must not mutate Audit directly');
+
+  state.activeView = previousView;
+  state.period = previousPeriod;
+  state.auditPeriod = previousAuditPeriod;
   globalThis.document = previousDocument;
   globalThis.window = previousWindow;
 }
@@ -261,12 +330,33 @@ assert.match(periodTabTargets, /min-height:\s*44px/);
 const periodTabContainer = componentStyles.match(/\.period-sheet \.segmented\s*\{[\s\S]*?\n\}/)?.[0];
 assert.ok(periodTabContainer, 'period-picker tabs must reserve their touch-target height');
 assert.match(periodTabContainer, /min-height:\s*54px/);
-assert.match(audit, /data-open-audit-period/);
+assert.doesNotMatch(audit, /audit-period-seal|data-open-audit-period|audit-period-change/);
+assert.match(audit, /buildAuditComparison/);
+assert.match(audit, /data-audit-results/);
+assert.match(audit, /transactionCard/);
 assert.match(audit, /data-toggle-audit-filters/);
-assert.match(styles, /\.period-sheet-footer\s*\{[\s\S]*?position:\s*sticky/);
-const periodSheetContent = componentStyles.match(/\.period-sheet-content\s*\{[\s\S]*?\n\}/)[0];
+const periodSheetRule = extractCssRuleBody(componentStyles, '.period-sheet');
+assert.match(periodSheetRule, /height:\s*min\(760px,\s*calc\(100vh - 24px\)\);/);
+assert.match(periodSheetRule, /height:\s*min\(760px,\s*calc\(100dvh - 24px\)\);/);
+assert.match(periodSheetRule, /overflow:\s*hidden;/);
+const periodSheetContent = extractCssRuleBody(componentStyles, '.period-sheet-content');
 assert.match(periodSheetContent, /min-height:\s*0/);
 assert.match(periodSheetContent, /overflow-y:\s*auto/);
+assert.match(periodSheetContent, /overscroll-behavior:\s*contain/);
+const periodSheetFooter = extractCssRuleBody(styles, '.period-sheet-footer');
+assert.match(periodSheetFooter, /position:\s*static/);
+const periodSheetFooterButtons = extractCssRuleBody(styles, '.period-sheet-footer button');
+assert.match(periodSheetFooterButtons, /min-height:\s*var\(--control-md\)/);
+const selectedPeriodChoice = extractCssRuleBody(styles, '.period-sheet .record-choice.selected');
+assert.match(selectedPeriodChoice, /border-color:\s*var\(--blue\)/);
+assert.match(selectedPeriodChoice, /background:\s*var\(--blue-soft\)/);
+const selectedPeriodMark = extractCssRuleBody(styles, '.period-selected-mark');
+assert.match(selectedPeriodMark, /color:\s*var\(--blue\)/);
+const periodCurrentSummary = extractCssRuleBody(styles, '.period-current-summary');
+assert.match(periodCurrentSummary, /border:\s*1px solid var\(--line\)/);
+assert.match(periodCurrentSummary, /background:\s*var\(--blue-soft\)/);
+assert.match(periodCurrentSummary, /color:\s*var\(--blue\)/);
+assert.doesNotMatch(styles, /audit-period-seal|audit-period-change/);
 assert.match(styles, /\.audit-filter-panel\s*\{[\s\S]*?position:\s*relative/);
 
 assert.match(audit, /class="search-panel audit-search-panel"/);
@@ -287,7 +377,6 @@ assert.match(styles, /\.category-filter-controls\s*\{\s*position:\s*relative;/);
 assert.match(styles, /\.category-selector\s*\{\s*position:\s*static;/);
 assert.match(styles, /\.category-view-segmented\s*\{[\s\S]*?min-height:\s*calc\(var\(--control-md\) \+ 8px\)/);
 assert.match(styles, /\.category-view-segmented > button\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
-assert.match(audit, /audit-period-change/);
 assert.match(audit, /audit-filter-toggle/);
 assert.match(audit, /audit-filter-control/);
 assert.match(audit, /audit-filter-active/);
@@ -297,7 +386,6 @@ assert.match(componentStyles, /\.chip\.dense\s*\{[\s\S]*?min-height:\s*32px/);
   /\.metric-top\s+\.category-filter-clear\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   /\.category-filter-controls\s+\.category-filter-trigger\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   /\.category-view-segmented\s*>\s*button\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
-  /\.audit-period-seal\s+\.audit-period-change\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   /\.audit-filter-head\s+\.audit-filter-toggle\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   /\.audit-filter-selectors\s+\.audit-filter-control\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   /\.audit-active-filters\s+\.audit-filter-active\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
@@ -819,10 +907,10 @@ assert.deepEqual(
     renderCoordinatorPrecached: appShell.includes('https://app.test/src/utils/renderCoordinator.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-42',
+    cacheName: 'cfo-personal-v7-cache-43',
     renderCoordinatorPrecached: true
   },
-  'Wave 0 must bump the worker cache and precache the render coordinator'
+  'Wave 1 must bump the worker cache while preserving render-coordinator precache parity'
 );
 assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);

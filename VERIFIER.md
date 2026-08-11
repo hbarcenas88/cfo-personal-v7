@@ -1,5 +1,33 @@
 # CFO Personal V7 - Verificador de entrega
 
+## Oleada 1 — sistema de períodos — automatización, QA y revisión aprobados
+
+### Evidencia automatizada — 2026-08-10
+
+- [x] TDD de contratos: `period-scope.test.mjs` falló primero por ausencia de `periodPresetState`; después confirmó estado seleccionado/copiado, igualdad por campos relevantes, ausencia de mutación y markup real con `aria-pressed`, `.selected` y `Seleccionado`.
+- [x] TDD de carcasa: `mobile-ui-contract.test.mjs` falló primero porque Auditoría mostraba el período global; después confirmó etiqueta y alcance contextual, microcopy `Sólo afecta Auditoría` y eventos de apertura/desplazamiento con `detail.scope`.
+- [x] TDD de interacción: `period-interaction.test.mjs` falló primero por ausencia de desplazamiento persistido por alcance; después confirmó borrador → cancelar/aplicar, copia puntual del dashboard, independencia posterior y datos financieros intactos.
+- [x] TDD visual/CSS: el contrato falló contra el sheet sin altura estable; después confirmó fallback `vh`, `dvh`, `overflow: hidden`, único scroll en `.period-sheet-content`, footer fuera del scroll, targets de 44 px y selección con tokens azules existentes.
+- [x] TDD PWA: el contrato falló con `cfo-personal-v7-cache-42`; después confirmó `cfo-personal-v7-cache-43` y paridad de precache de `renderCoordinator.js`.
+- [x] Ronda de corrección 1: el contrato integral falló porque `Usar período del dashboard` devolvía `selected: true`; después confirmó que la copia es una acción sin `aria-pressed`, `.selected` ni `Seleccionado`, y que existe exactamente una representación del borrador —opción activa o resumen `Selección actual`, nunca ambas— para año actual, mes actual, mes arbitrario y rango personalizado al abrir, copiar y alternar rango/año.
+- [x] Ejecutados con código 0 `node --check` para los diez archivos JS modificados, la suite serial de 14 archivos, `git diff --check` y la revisión textual de privacidad; el estado final conserva únicamente cambios de la Oleada 1, su plan fuente y este reporte, sin datos privados.
+
+### QA Browser — 2026-08-10
+
+- [x] Browser disponible, origen local aislado y datos sintéticos/vacíos. Página `CFO Personal V7`, contenido significativo, sin overlay y sin errores ni advertencias de consola relevantes.
+- [x] A 390 × 844, el sheet midió 390 × 760 px (top 84, bottom 844); el footer midió 68.67 px y terminó en 843.33, visible sin desplazarlo. `document.body.scrollWidth` permaneció en 390.
+- [x] El preset confirmado se mostró con superficie azul, `aria-pressed` y `Seleccionado`. Elegir `Mes pasado` cambió sólo el borrador; `Cancelar` conservó exactamente `Ago 2026` y los 523 caracteres del contenido visible.
+- [x] `Desde` y `Hasta` estuvieron ausentes para mes/año y aparecieron únicamente en `Personalizado`. Rango personalizado y año conservaron exactamente 760 px de altura exterior (delta 0); el footer siguió visible.
+- [x] Seleccionar 2026 y `Aplicar` actualizó la pastilla global a `2026`. En Auditoría, la pastilla mostró `Todo el historial`, alcance `audit` y `Sólo afecta Auditoría`; `.audit-period-seal` tuvo 0 ocurrencias.
+- [x] En Auditoría, `Usar período del dashboard` cambió sólo el borrador; `Cancelar` conservó rótulo y resultados. Tras aplicar la copia, desplazar el global de 2026 a 2027 dejó Auditoría en 2026, confirmando independencia.
+- [x] Smoke test de escritorio con ancho efectivo de 1280 px: contenido no vacío, sin overflow horizontal ni consola relevante; el sheet quedó centrado a 640 px con footer visible.
+- [x] Re-revisión independiente de la ronda 1 en Browser a 390 × 844: global 2027 → rango mostró un solo resumen `Selección actual: 2027`, sin opción presionada; copiar el dashboard en Auditoría dejó un solo año presionado y la acción de copia sin `aria-pressed`, `.selected` ni `Seleccionado`. Sheet 390 × 760, footer bottom 843.33, ancho 390/390 y consola limpia. Veredicto final: `SPEC PASS` y `QUALITY APPROVED`.
+
+### Revisión y entrega pendientes
+
+- [x] Revisión independiente completada; los dos hallazgos Important se corrigieron en una ronda TDD y la re-revisión final quedó aprobada.
+- [ ] La evidencia de Browser no sustituye validación posterior en teléfono, aceptación PWA ni datos reales respaldados.
+
 ## Consolidación V7 - 2026-07-17
 
 - [x] Ejecutados `storage-scope.test.mjs` y `transaction-edit.test.mjs`.

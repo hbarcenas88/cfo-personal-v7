@@ -46,13 +46,25 @@ export function createPeriodDraft(period = {}, { scope = 'global', compare = fal
 
 export function applyDraftPreset(draft, preset, dashboardPeriod) {
   if (preset === 'all') return { ...draft, mode: 'all', from: '', to: '', compare: false, tab: 'range' };
-  if (preset === 'dashboard') return { ...createPeriodDraft(dashboardPeriod, { scope: draft.scope }), compare: false, tab: 'range' };
+  if (preset === 'dashboard') return { ...createPeriodDraft(dashboardPeriod, { scope: draft.scope }), compare: false };
   const now = currentMonth();
   if (preset === 'thisMonth') return { ...draft, mode: 'month', month: now, year: Number(now.slice(0, 4)), from: '', to: '', tab: 'range' };
   if (preset === 'lastMonth') return { ...draft, ...shiftPeriod({ mode: 'month', month: now }, -1), from: '', to: '', tab: 'range' };
   if (preset === 'thisYear') return { ...draft, mode: 'year', year: Number(now.slice(0, 4)), month: `${now.slice(0, 4)}-01`, from: '', to: '', tab: 'year' };
   if (preset === 'custom') return { ...draft, mode: 'range', from: draft.from || `${now}-01`, to: draft.to || monthEnd(now), month: (draft.from || now).slice(0, 7), tab: 'range' };
   return draft;
+}
+
+export function periodPresetState(draft, preset, dashboardPeriod) {
+  let selected = false;
+  if (preset === 'custom') selected = draft?.mode === 'range';
+  else if (preset === 'all') selected = draft?.mode === 'all';
+  else if (preset === 'dashboard') selected = false;
+  else selected = samePeriod(draft, applyDraftPreset(draft, preset, dashboardPeriod));
+  return {
+    selected,
+    copied: Boolean(preset === 'dashboard' && draft?.scope === 'audit' && samePeriod(draft, dashboardPeriod))
+  };
 }
 
 export function setDraftDate(draft, field, value) {
@@ -108,6 +120,14 @@ export function comparisonPeriod(period) {
 function stripDraft(draft) {
   const { scope, tab, ...period } = draft;
   return period;
+}
+
+function samePeriod(left, right) {
+  if (!left || !right || left.mode !== right.mode) return false;
+  if (left.mode === 'all') return true;
+  if (left.mode === 'month') return left.month === right.month;
+  if (left.mode === 'year') return Number(left.year) === Number(right.year);
+  return left.from === right.from && left.to === right.to;
 }
 
 function isValidPersistedPeriod(period) {

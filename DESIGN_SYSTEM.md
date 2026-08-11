@@ -49,9 +49,11 @@ Los filtros de auditoría usan dropdowns propios, compactos y anclados a su disp
 
 ### Períodos y comparación por contexto
 
-El selector global sirve a Balances, Resumen y Categorías; Auditoría usa un período propio y persistente. Abrir un selector crea un borrador: presets, calendario y campos no cambian la pantalla hasta `Aplicar`; `Cancelar`, Escape, cerrar y tocar fuera lo descartan. Las flechas preservan el modo activo: mes, año o rango de igual duración desplazado completo.
+El selector global sirve a Balances, Resumen y Categorías; Auditoría usa un período propio y persistente. La pastilla superior representa el alcance de la pantalla activa: en Auditoría muestra su período y el microcopy `Sólo afecta Auditoría`; en las demás vistas muestra el global. Abrir el selector crea un borrador: presets, calendario y campos no cambian la pantalla hasta `Aplicar`; `Cancelar`, Escape, cerrar y tocar fuera lo descartan. Las flechas desplazan únicamente el alcance visible y preservan el modo activo: mes, año o rango de igual duración desplazado completo.
 
-La comparación es una lectura analítica, nunca una mutación financiera. Sólo aparece dentro del selector mientras la pantalla activa es Auditoría o Categorías y compara automáticamente con el período anterior equivalente. Auditoría muestra un sello de contexto cuando difiere del dashboard; Categorías conserva el período global y no expone la comparación desde Balances ni Resumen.
+Cada opción del selector expresa su estado confirmado en el borrador con superficie azul, `aria-pressed` y la marca `Seleccionado`; las opciones no activas no simulan confirmación. `Usar período del dashboard` es una acción de copia y nunca una segunda opción presionada. Si la pestaña visible no contiene una opción equivalente al borrador —por ejemplo un mes arbitrario visto en `Por año`— el sheet muestra un único resumen accesible `Selección actual` y mantiene el borrador intacto. `Desde` y `Hasta` sólo se renderizan para `Personalizado`. Año y rango comparten una altura exterior estable, un único scroll dentro del contenido y un pie siempre visible con `Cancelar` y `Aplicar`.
+
+La comparación es una lectura analítica, nunca una mutación financiera. Sólo aparece dentro del selector mientras la pantalla activa es Auditoría o Categorías y compara automáticamente con el período anterior equivalente. `Usar período del dashboard` hace una copia puntual en el borrador de Auditoría, no una sincronización viva; Categorías conserva el período global y no expone la comparación desde Balances ni Resumen.
 
 ### Auditoría guiada de cierre
 
@@ -109,7 +111,7 @@ La armonización se hace por flujos, no por pantallas aisladas. Resumen y Catego
 - La búsqueda y su acción de limpieza forman una misma fila: alturas coherentes, botón de limpieza de 44 px y sin competir visualmente con el campo.
 - Un dropdown abierto puede cubrir contenido posterior, pero nunca quedar recortado, iniciar fuera de pantalla ni ocultar su título, opciones o acción `Listo`.
 - Todo sheet o dropdown debe cerrarse con control visible, Escape, toque fuera y, cuando hay selección múltiple, `Listo`.
-- A 390 px, el sheet de período se ordena verticalmente: accesos rápidos, Desde, Hasta, comparación contextual y pie fijo con `Cancelar`/`Aplicar`. No usar una pestaña de comparación meramente informativa.
+- A 390 px, el sheet de período se ordena verticalmente: accesos rápidos, fechas sólo para `Personalizado`, comparación contextual y pie fijo con `Cancelar`/`Aplicar`. Su superficie exterior no cambia de altura al alternar rango/año y sólo el contenido central puede desplazarse. No usar una pestaña de comparación meramente informativa.
 - Auditoría prioriza búsqueda a ancho completo, resumen de filtros activos y un disparador compacto `Filtros`; los selectores propios se abren después sin desplazar ni recortar el contenido.
 - Mientras `Comparar` está activo en Categorías, cada tarjeta puede añadir una línea secundaria de variación de gasto; con la opción apagada conserva su densidad normal. La comparación no se expresa en la vista `Solo presupuesto`.
 - En Registro, la fecha se edita desde su campo de formulario. La calculadora no duplica el affordance de calendario y el monto mantiene la jerarquía principal.

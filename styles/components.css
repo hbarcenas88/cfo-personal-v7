@@ -133,6 +133,26 @@
   gap: 7px;
 }
 
+.period-value-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  text-align: center;
+}
+
+.period-value-copy > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.period-value-copy small {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
 .period-value svg {
   width: 17px;
   height: 17px;
@@ -830,6 +850,11 @@ textarea[aria-invalid="true"] {
 .period-sheet {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: min(760px, calc(100vh - 24px));
+  height: min(760px, calc(100dvh - 24px));
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
   padding: 12px 0 0;
 }
 
@@ -847,6 +872,7 @@ textarea[aria-invalid="true"] {
 .period-sheet-content {
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 16px 16px;
 }
 

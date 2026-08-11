@@ -131,8 +131,11 @@ window.addEventListener('cfo:new-record', () => {
   state.ui.recordFlow = { step: 'choose' };
   render();
 });
-window.addEventListener('cfo:period', () => {
-  openPeriodSheet('global');
+window.addEventListener('cfo:period', event => {
+  openPeriodSheet(event.detail?.scope === 'audit' ? 'audit' : 'global');
+});
+window.addEventListener('cfo:period-shift', event => {
+  shiftConfirmedPeriod(event.detail?.scope === 'audit' ? 'audit' : 'global', Number(event.detail?.delta) || 0);
 });
 window.addEventListener('cfo:global-search', () => {
   state.ui.activeSheet = 'search';
@@ -312,6 +315,7 @@ function periodSheetOptions(draft) {
   const hasPreviousPeriod = draft?.mode !== 'all';
   return {
     scope,
+    dashboardPeriod: state.period,
     showComparison: scope === 'audit' || state.activeView === 'categories',
     previousLabel: hasPreviousPeriod ? periodLabel(shiftPeriod(draft, -1)) : 'No disponible para todo el historial'
   };
@@ -342,6 +346,15 @@ async function applyPeriodDraft() {
 function cancelPeriodDraft() {
   state.ui.periodDraft = null;
   closeSheet();
+}
+
+async function shiftConfirmedPeriod(scope, delta) {
+  const key = scope === 'audit' ? 'auditPeriod' : 'period';
+  const confirmed = state[key];
+  if (!delta || confirmed?.mode === 'all') return;
+  state[key] = { ...confirmed, ...shiftPeriod(confirmed, delta) };
+  await persist();
+  render();
 }
 
 function returnToPeriodSheet() {
@@ -661,15 +674,7 @@ function bindFilters(root) {
   const document = bindingContext(root);
   if (!auditDropdownDismissBound) {
     auditDropdownDismissBound = true;
-    document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape' || (!state.ui.auditDropdown && !state.ui.categoryDropdown && !state.ui.auditFiltersOpen)) return;
-      state.ui.auditDropdown = '';
-      state.ui.categoryDropdown = false;
-      state.ui.auditDropdownSearch = '';
-      state.ui.auditDropdownSearchActive = false;
-      state.ui.auditFiltersOpen = false;
-      render();
-    });
+    document.addEventListener('keydown', handleGlobalEscape);
     document.addEventListener('click', event => {
       if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter], [data-toggle-audit-filters]')) return;
       state.ui.auditDropdown = '';
@@ -767,9 +772,6 @@ function bindFilters(root) {
     state.ui.auditDropdownSearchActive = false;
     renderAndPersistFilters();
   });
-  document.querySelectorAll('[data-open-audit-period]').forEach(button => button.addEventListener('click', () => {
-    openPeriodSheet('audit');
-  }));
   document.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
     const [key, value] = splitPair(button.dataset.filterRemove);
     state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
@@ -834,6 +836,24 @@ function bindFilters(root) {
       renderAndPersistFilters();
     });
   });
+}
+
+function handleGlobalEscape(event) {
+  if (event.key !== 'Escape') return;
+  const periodCalendarOpen = state.ui.activeSheet === 'calendar'
+    && String(state.ui.calendarTarget || '').startsWith('period:');
+  if (state.ui.activeSheet === 'period' || periodCalendarOpen) {
+    state.ui.calendarTarget = null;
+    cancelPeriodDraft();
+    return;
+  }
+  if (!state.ui.auditDropdown && !state.ui.categoryDropdown && !state.ui.auditFiltersOpen) return;
+  state.ui.auditDropdown = '';
+  state.ui.categoryDropdown = false;
+  state.ui.auditDropdownSearch = '';
+  state.ui.auditDropdownSearchActive = false;
+  state.ui.auditFiltersOpen = false;
+  render();
 }
 
 function bindTools(root) {

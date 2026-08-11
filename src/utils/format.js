@@ -144,6 +144,7 @@ export function periodBounds(period) {
 
 export function periodLabel(period) {
   if (!period) return monthLabel(currentMonth());
+  if (period.mode === 'all') return 'Todo el historial';
   if (period.mode === 'range') return `${formatDate(period.from)} - ${formatDate(period.to)}`;
   if (period.mode === 'year') return String(period.year || period.month?.slice(0, 4) || new Date().getFullYear());
   if (period.mode === 'months') return `${period.months?.length || 0} meses`;

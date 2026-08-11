@@ -2,18 +2,12 @@ import { icon } from '../icons.js';
 import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
 import { renderSearchActivator } from '../components/searchableOptions.js';
-import { canon, formatDate, formatMoney, html, periodLabel } from '../utils/format.js';
+import { canon, formatDate, formatMoney, html } from '../utils/format.js';
 import { renderAuditCloseEntry, renderAuditCloseList } from './auditClose.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
-  const auditPeriodLabel = state.auditPeriod?.mode === 'all' ? 'Todo el historial' : periodLabel(state.auditPeriod);
-  const dashboardPeriodLabel = periodLabel(state.period);
   return `
-    <div class="audit-period-seal">
-      <div><strong>Contexto de Auditoría: ${auditPeriodLabel}</strong><small>${auditPeriodLabel === dashboardPeriodLabel ? 'Coincide con el dashboard' : `Dashboard: ${dashboardPeriodLabel}`}</small></div>
-      <button class="text-button audit-period-change" data-open-audit-period>Cambiar</button>
-    </div>
     ${renderAuditCloseEntry(state)}
     ${renderAuditCloseList(state)}
     ${renderFilters(state, filters)}

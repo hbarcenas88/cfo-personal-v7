@@ -52,9 +52,9 @@ Auditoría permite buscar, combinar filtros y abrir acciones de un movimiento. L
 
 ### Períodos y comparación analítica
 
-Balances, Resumen y Categorías comparten un período global confirmado por la persona usuaria. Su selector trabaja con un borrador hasta `Aplicar`; cancelar no puede alterar los datos visibles. La navegación anterior/siguiente preserva el modo elegido: mes, año o rango de igual duración.
+Balances, Resumen y Categorías comparten un período global confirmado por la persona usuaria. Su selector trabaja con un borrador hasta `Aplicar`; `Cancelar`, Escape o tocar fuera descartan ese borrador sin alterar el período confirmado ni los datos visibles. `Desde` y `Hasta` sólo aparecen al elegir `Personalizado`. La navegación anterior/siguiente preserva el modo elegido: mes, año o rango de igual duración.
 
-Auditoría abre en Todo el historial y guarda un período independiente junto con sus filtros. Puede copiar una instantánea del período del dashboard, pero nunca queda vinculada a cambios posteriores de ese dashboard. La interfaz explica de forma visible cuando ambos contextos difieren.
+Auditoría abre en Todo el historial y guarda un período independiente junto con sus filtros. Al entrar en esa pantalla, el control superior muestra y desplaza el período de Auditoría y añade `Sólo afecta Auditoría`; fuera de ella vuelve a representar el período global. `Usar período del dashboard` copia una instantánea al borrador de Auditoría como acción, no como una segunda selección, y nunca crea un vínculo con cambios posteriores del dashboard. Si la pestaña abierta no contiene el período copiado o previamente elegido, un resumen único de `Selección actual` mantiene visible lo que confirmará `Aplicar` sin alterar el borrador.
 
 Auditoría y Categorías pueden comparar un período acotado con el período anterior equivalente. Auditoría aplica simétricamente los filtros de texto, cuenta, tipo, categoría y subcategoría. Categorías respeta la selección de categorías y compara gasto ejecutado en las vistas Combinado y Solo gasto. La comparación sólo cambia lecturas analíticas; no modifica movimientos, presupuestos, balances, ingresos, gastos, transferencias ni trazabilidad. Si no existe base de comparación, la app indica `Sin base anterior` en lugar de presentar un porcentaje engañoso.
 

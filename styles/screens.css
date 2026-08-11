@@ -402,40 +402,6 @@
   padding: 2px;
 }
 
-.audit-period-seal {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: var(--space-md);
-  padding: 11px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--blue-soft);
-}
-
-.audit-period-seal > div {
-  min-width: 0;
-}
-
-.audit-period-seal strong,
-.audit-period-seal small {
-  display: block;
-}
-
-.audit-period-seal strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 14px;
-}
-
-.audit-period-seal small {
-  margin-top: 3px;
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
 .audit-card .row-icon {
   width: 42px;
   height: 42px;
@@ -641,10 +607,6 @@
   min-height: var(--control-md);
 }
 
-.audit-period-seal .audit-period-change {
-  min-height: var(--control-md);
-}
-
 .audit-filter-head .audit-filter-toggle {
   min-height: var(--control-md);
 }
@@ -783,6 +745,57 @@
 
 .record-choice small {
   color: var(--text-muted);
+}
+
+.period-sheet .record-choice.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.period-selected-mark {
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: right;
+}
+
+.period-mode-grid .icon-choice {
+  min-height: var(--control-md);
+  display: grid;
+  place-items: center;
+  gap: 2px;
+}
+
+.period-mode-grid .icon-choice.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.period-mode-grid .period-selected-mark {
+  font-size: 9px;
+}
+
+.period-current-summary {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.period-current-summary span {
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.period-current-summary strong {
+  color: var(--text);
+  font-size: 14px;
 }
 
 .record-choice-title {
@@ -2241,8 +2254,7 @@
 }
 
 .period-sheet-footer {
-  position: sticky;
-  bottom: 0;
+  position: static;
   z-index: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2250,6 +2262,10 @@
   padding: 12px 16px calc(12px + var(--safe-bottom));
   border-top: 1px solid var(--line);
   background: var(--surface);
+}
+
+.period-sheet-footer button {
+  min-height: var(--control-md);
 }
 
 .period-draft-error {

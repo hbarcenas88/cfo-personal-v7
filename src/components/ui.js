@@ -1,6 +1,5 @@
 import { icon, renderIcons } from '../icons.js';
 import { dismissToast, setSettingsPage, setView, state, undo } from '../state.js';
-import { shiftPeriod } from '../services/periodService.js';
 import { periodLabel } from '../utils/format.js';
 
 export function ensureShell() {
@@ -31,8 +30,17 @@ export function ensureShell() {
 export function updateShellState() {
   const app = document.getElementById('app');
   if (!app) return;
+  const scope = activePeriodScope();
+  const period = scope === 'audit' ? state.auditPeriod : state.period;
   const label = app.querySelector('[data-period-label]');
-  if (label) label.textContent = periodLabel(state.period);
+  if (label) label.textContent = periodLabel(period);
+  const periodPill = app.querySelector('.period-pill');
+  periodPill?.setAttribute('data-period-scope', scope);
+  const periodContext = app.querySelector('[data-period-context]');
+  if (periodContext) {
+    periodContext.textContent = 'Sólo afecta Auditoría';
+    periodContext.hidden = scope !== 'audit';
+  }
   app.querySelectorAll('[data-view]').forEach(button => {
     const active = button.dataset.view === state.activeView;
     button.classList.toggle('active', active);
@@ -52,6 +60,8 @@ export function renderShell() {
 }
 
 export function renderHeader() {
+  const scope = activePeriodScope();
+  const period = scope === 'audit' ? state.auditPeriod : state.period;
   return `
     <header class="topbar">
       <div class="topbar-main">
@@ -64,9 +74,9 @@ export function renderHeader() {
           <button class="icon-button" data-action="search" aria-label="Buscar">${icon('search')}</button>
         </div>
       </div>
-      <div class="period-pill">
+      <div class="period-pill" data-period-scope="${scope}">
         <button data-action="prev-period" aria-label="Periodo anterior">${icon('chevronLeft')}</button>
-        <button class="period-value" data-action="period">${icon('calendar')}<span data-period-label>${periodLabel(state.period)}</span></button>
+        <button class="period-value" data-action="period">${icon('calendar')}<span class="period-value-copy"><span data-period-label>${periodLabel(period)}</span><small data-period-context ${scope === 'audit' ? '' : 'hidden'}>Sólo afecta Auditoría</small></span></button>
         <button data-action="next-period" aria-label="Periodo siguiente">${icon('chevronRight')}</button>
       </div>
     </header>
@@ -148,18 +158,21 @@ export function bindShellEvents() {
     window.dispatchEvent(new CustomEvent('cfo:new-record'));
   });
   document.querySelector('[data-action="period"]')?.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('cfo:period'));
+    window.dispatchEvent(new CustomEvent('cfo:period', { detail: { scope: activePeriodScope() } }));
   });
   document.querySelector('[data-action="search"]')?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('cfo:global-search'));
   });
-  document.querySelector('[data-action="prev-period"]')?.addEventListener('click', () => shiftHeaderPeriod(-1));
-  document.querySelector('[data-action="next-period"]')?.addEventListener('click', () => shiftHeaderPeriod(1));
+  document.querySelector('[data-action="prev-period"]')?.addEventListener('click', () => requestPeriodShift(-1));
+  document.querySelector('[data-action="next-period"]')?.addEventListener('click', () => requestPeriodShift(1));
 }
 
-function shiftHeaderPeriod(delta) {
-  state.period = { ...state.period, ...shiftPeriod(state.period, delta) };
-  window.dispatchEvent(new CustomEvent('cfo:persist-render'));
+function activePeriodScope() {
+  return state.activeView === 'audit' ? 'audit' : 'global';
+}
+
+function requestPeriodShift(delta) {
+  window.dispatchEvent(new CustomEvent('cfo:period-shift', { detail: { scope: activePeriodScope(), delta } }));
 }
 
 export function setScreenActive() {

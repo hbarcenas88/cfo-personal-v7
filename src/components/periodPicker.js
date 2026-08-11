@@ -1,4 +1,5 @@
 import { icon } from '../icons.js';
+import { periodPresetState } from '../services/periodService.js';
 import { currentMonth, formatDate, periodLabel } from '../utils/format.js';
 
 export function renderPeriodSheet(draft, options) {
@@ -13,10 +14,11 @@ export function renderPeriodSheet(draft, options) {
             <button class="${draft.tab === 'range' ? 'active' : ''}" data-period-tab="range">Por rango</button>
             <button class="${draft.tab === 'year' ? 'active' : ''}" data-period-tab="year">Por año</button>
           </div>
-          ${scope === 'audit' ? renderAuditScopeActions() : ''}
+          ${scope === 'audit' ? renderAuditScopeActions(draft, options.dashboardPeriod) : ''}
           <div id="period-draft">
-            ${draft.tab === 'year' ? renderYear(draft) : renderRange(draft)}
+            ${draft.tab === 'year' ? renderYear(draft) : renderRange(draft, options.dashboardPeriod)}
           </div>
+          ${hasVisibleDraftSelection(draft, options.dashboardPeriod) ? '' : renderCurrentDraftSummary(draft)}
           ${options.showComparison ? `
             <label class="analysis-toggle period-compare-toggle">
               <span><strong>Comparar con período anterior</strong><small>${options.previousLabel}</small></span>
@@ -35,7 +37,7 @@ export function renderPeriodSheet(draft, options) {
   `;
 }
 
-function renderRange(draft) {
+function renderRange(draft, dashboardPeriod) {
   const presets = [
     ['thisMonth', 'Este mes', periodLabel({ mode: 'month', month: currentMonth() })],
     ['lastMonth', 'Mes pasado', 'Período mensual anterior'],
@@ -44,32 +46,36 @@ function renderRange(draft) {
   ];
   return `
     <div class="tour-list period-preset-list">
-      ${presets.map(([key, title, subtitle]) => `
-        <button class="record-choice" data-period-preset="${key}">
+      ${presets.map(([key, title, subtitle]) => {
+        const state = periodPresetState(draft, key, dashboardPeriod);
+        return `
+        <button class="record-choice ${state.selected ? 'selected' : ''}" data-period-preset="${key}" aria-pressed="${state.selected}">
           <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('calendar')}</span>
           <span><strong>${title}</strong><small>${subtitle}</small></span>
-          ${icon('chevronRight')}
+          ${state.selected ? selectedMark() : icon('chevronRight')}
         </button>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
-    <div class="two-col period-date-fields">
+    ${draft.mode === 'range' ? `<div class="two-col period-date-fields">
       <button class="flow-box" data-period-date="from"><small>Desde</small><strong>${draft.from ? formatDate(draft.from, true) : 'Seleccionar'}</strong></button>
       <button class="flow-box" data-period-date="to"><small>Hasta</small><strong>${draft.to ? formatDate(draft.to, true) : 'Seleccionar'}</strong></button>
-    </div>
+    </div>` : ''}
   `;
 }
 
-function renderAuditScopeActions() {
+function renderAuditScopeActions(draft, dashboardPeriod) {
+  const allState = periodPresetState(draft, 'all', dashboardPeriod);
   return `
     <div class="tour-list period-scope-actions">
-      <button class="record-choice" data-period-preset="all">
+      <button class="record-choice ${allState.selected ? 'selected' : ''}" data-period-preset="all" aria-pressed="${allState.selected}">
         <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('calendar')}</span>
         <span><strong>Todo el historial</strong><small>Todos los registros disponibles</small></span>
-        ${icon('chevronRight')}
+        ${allState.selected ? selectedMark() : icon('chevronRight')}
       </button>
       <button class="record-choice" data-period-copy-dashboard>
         <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('copy')}</span>
-        <span><strong>Copiar período del dashboard</strong><small>Usar el período global actual</small></span>
+        <span><strong>Usar período del dashboard</strong><small>Copia el período global actual</small></span>
         ${icon('chevronRight')}
       </button>
     </div>
@@ -81,7 +87,30 @@ function renderYear(draft) {
   const years = Array.from({ length: 8 }, (_, i) => current - 4 + i);
   return `
     <div class="icon-grid period-mode-grid">
-      ${years.map(year => `<button class="icon-choice ${year === Number(draft.year) ? 'active' : ''}" data-period-year="${year}">${year}</button>`).join('')}
+      ${years.map(year => {
+        const selected = draft.mode === 'year' && year === Number(draft.year);
+        return `<button class="icon-choice ${selected ? 'active selected' : ''}" data-period-year="${year}" aria-pressed="${selected}"><span>${year}</span>${selected ? selectedMark() : ''}</button>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function selectedMark() {
+  return '<span class="period-selected-mark">Seleccionado</span>';
+}
+
+function hasVisibleDraftSelection(draft, dashboardPeriod) {
+  if (draft.scope === 'audit' && draft.mode === 'all') return true;
+  if (draft.tab === 'year') return draft.mode === 'year';
+  return ['thisMonth', 'lastMonth', 'thisYear', 'custom']
+    .some(preset => periodPresetState(draft, preset, dashboardPeriod).selected);
+}
+
+function renderCurrentDraftSummary(draft) {
+  return `
+    <div class="period-current-summary" data-period-current-summary role="status" aria-label="Selección actual: ${periodLabel(draft)}">
+      <span>Selección actual</span>
+      <strong>${periodLabel(draft)}</strong>
     </div>
   `;
 }
