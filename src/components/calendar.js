@@ -1,35 +1,61 @@
 import { icon } from '../icons.js';
 import { MONTHS, formatDate, todayISO } from '../utils/format.js';
 
-export function renderCalendarSheet({ selectedDate = todayISO(), visibleMonth = selectedDate.slice(0, 7), title = 'Selecciona fecha' } = {}) {
+export function renderCalendarSheet({ selectedDate = todayISO(), visibleMonth = selectedDate.slice(0, 7), title = 'Selecciona fecha', context = 'period' } = {}) {
   const [year, month] = visibleMonth.split('-').map(Number);
   const days = calendarDays(year, month - 1);
+  const grid = renderCalendarGrid(days, selectedDate, month);
+  const navigation = renderMonthNavigation(year, month);
+  const confirm = '<button class="primary-button" data-cal-confirm>Listo</button>';
+  const content = context === 'record'
+    ? `${grid}${navigation}${renderQuickActions({ includeCustom: false })}${confirm}`
+    : `${renderQuickActions({ includeCustom: true })}${navigation}${grid}${renderSelectedCard(selectedDate)}${confirm}`;
   return `
     <div class="sheet-backdrop open" data-sheet-close>
-      <section class="sheet wide" onclick="event.stopPropagation()">
+      <section class="sheet wide${context === 'record' ? ' record-calendar-sheet' : ''}" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <h2 class="sheet-title">${title}</h2>
-        <div class="quick-grid">
-          ${quick('today', 'Hoy')}
-          ${quick('yesterday', 'Ayer')}
-          ${quick('monthStart', 'Inicio de mes')}
-          ${quick('custom', 'Personalizado')}
-        </div>
-        <div class="period-pill center-picker-pill">
-          <button data-cal-nav="-1">${icon('chevronLeft')}</button>
-          <button class="period-value" disabled>${MONTHS[month - 1]} ${year}</button>
-          <button data-cal-nav="1">${icon('chevronRight')}</button>
-        </div>
-        <div class="calendar-grid">
-          ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => `<span class="dow">${d}</span>`).join('')}
-          ${days.map(day => dayButton(day, selectedDate, month)).join('')}
-        </div>
-        <div class="card calendar-selected-card">
-          <div class="metric-title">Fecha seleccionada</div>
-          <div class="metric-value metric-value-sm">${formatDate(selectedDate, true)}</div>
-        </div>
-        <button class="primary-button" data-cal-confirm>Listo</button>
+        ${content}
       </section>
+    </div>
+  `;
+}
+
+function renderCalendarGrid(days, selectedDate, month) {
+  return `
+    <div class="calendar-grid">
+      ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => `<span class="dow">${day}</span>`).join('')}
+      ${days.map(day => dayButton(day, selectedDate, month)).join('')}
+    </div>
+  `;
+}
+
+function renderMonthNavigation(year, month) {
+  return `
+    <div class="period-pill center-picker-pill">
+      <button data-cal-nav="-1" aria-label="Mes anterior">${icon('chevronLeft')}</button>
+      <button class="period-value" disabled>${MONTHS[month - 1]} ${year}</button>
+      <button data-cal-nav="1" aria-label="Mes siguiente">${icon('chevronRight')}</button>
+    </div>
+  `;
+}
+
+function renderQuickActions({ includeCustom }) {
+  return `
+    <div class="quick-grid">
+      ${quick('today', 'Hoy')}
+      ${quick('yesterday', 'Ayer')}
+      ${quick('monthStart', 'Inicio de mes')}
+      ${includeCustom ? quick('custom', 'Personalizado') : ''}
+    </div>
+  `;
+}
+
+function renderSelectedCard(selectedDate) {
+  return `
+    <div class="card calendar-selected-card">
+      <div class="metric-title">Fecha seleccionada</div>
+      <div class="metric-value metric-value-sm">${formatDate(selectedDate, true)}</div>
     </div>
   `;
 }
@@ -39,12 +65,19 @@ function quick(value, label) {
 }
 
 function dayButton(day, selected, currentMonth) {
+  const isSelected = day.iso === selected;
+  const isToday = day.iso === todayISO();
   const classes = [
     day.month !== currentMonth ? 'outside' : '',
-    day.iso === selected ? 'selected' : '',
-    day.iso === todayISO() ? 'today' : ''
+    isSelected ? 'selected' : '',
+    isToday ? 'today' : ''
   ].filter(Boolean).join(' ');
-  return `<button class="${classes}" data-cal-date="${day.iso}">${day.day}</button>`;
+  return `<button class="${classes}" data-cal-date="${day.iso}" aria-pressed="${isSelected}" aria-label="${calendarAriaLabel(day.iso)}"${isToday ? ' aria-current="date"' : ''}>${day.day}</button>`;
+}
+
+function calendarAriaLabel(iso) {
+  const [year, month, day] = iso.split('-').map(Number);
+  return `${day} de ${MONTHS[month - 1].toLowerCase()} de ${year}`;
 }
 
 function calendarDays(year, month) {

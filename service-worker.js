@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-43';
+const CACHE_NAME = 'cfo-personal-v7-cache-44';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -24,6 +24,7 @@ const APP_SHELL = [
   './src/services/statementFileService.js',
   './src/components/ui.js',
   './src/components/keypad.js',
+  './src/components/recordKeypad.js',
   './src/components/searchableOptions.js',
   './src/components/calendar.js',
   './src/components/periodPicker.js',

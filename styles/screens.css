@@ -752,16 +752,23 @@
   background: var(--blue-soft);
 }
 
-.period-selected-mark {
+.period-selected-indicator {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 999px;
   color: var(--blue);
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.15;
-  text-align: right;
+}
+
+.period-selected-indicator svg {
+  width: 18px;
+  height: 18px;
 }
 
 .period-mode-grid .icon-choice {
-  min-height: var(--control-md);
+  min-height: 52px;
   display: grid;
   place-items: center;
   gap: 2px;
@@ -773,29 +780,10 @@
   color: var(--blue);
 }
 
-.period-mode-grid .period-selected-mark {
-  font-size: 9px;
-}
-
-.period-current-summary {
-  display: grid;
-  gap: 3px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--blue-soft);
-  color: var(--blue);
-}
-
-.period-current-summary span {
-  font-size: 11px;
-  font-weight: 760;
-}
-
-.period-current-summary strong {
-  color: var(--text);
-  font-size: 14px;
+.period-mode-grid .period-selected-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 .record-choice-title {
@@ -995,6 +983,11 @@
   font-weight: 850;
 }
 
+.record-calendar-sheet .calendar-grid {
+  min-height: 0;
+  align-content: space-between;
+}
+
 .period-preset-list,
 .period-mode-grid {
   margin: var(--space-md) 0;
@@ -1086,6 +1079,18 @@
   gap: 8px;
 }
 
+.period-mode-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(52px, 1fr));
+}
+
+@media (min-width: 641px) {
+  .period-mode-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(52px, 1fr));
+  }
+}
+
 .icon-choice,
 .color-choice {
   min-height: var(--control-lg);
@@ -1094,6 +1099,11 @@
   background: #fff;
   display: grid;
   place-items: center;
+}
+
+.period-mode-grid .icon-choice {
+  position: relative;
+  border-radius: var(--radius-md);
 }
 
 .icon-choice.active {

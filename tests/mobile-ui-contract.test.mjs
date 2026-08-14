@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { bindShellEvents, ensureShell, updateShellState } from '../src/components/ui.js';
+import { renderPeriodSheet } from '../src/components/periodPicker.js';
 import { renderAuditCloseEntry, renderAuditCloseSheet } from '../src/screens/auditClose.js';
 import { renderTemplateSheet } from '../src/screens/settings.js';
 import { state } from '../src/state.js';
@@ -323,6 +324,9 @@ assert.deepEqual(
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
 assert.match(periodPicker, /data-period-copy-dashboard/);
+assert.match(periodPicker, /data-period-selected-indicator/);
+assert.match(periodPicker, /aria-hidden="true"/);
+assert.doesNotMatch(periodPicker, /Selecci\u00f3n actual|data-period-current-summary|>Seleccionado</);
 assert.doesNotMatch(periodPicker, /data-period-tab="compare"/);
 const periodTabTargets = componentStyles.match(/\.period-sheet \[data-period-tab\]\s*\{[\s\S]*?\n\}/)?.[0];
 assert.ok(periodTabTargets, 'period-picker tabs must have their own touch-target rule');
@@ -339,6 +343,9 @@ const periodSheetRule = extractCssRuleBody(componentStyles, '.period-sheet');
 assert.match(periodSheetRule, /height:\s*min\(760px,\s*calc\(100vh - 24px\)\);/);
 assert.match(periodSheetRule, /height:\s*min\(760px,\s*calc\(100dvh - 24px\)\);/);
 assert.match(periodSheetRule, /overflow:\s*hidden;/);
+const globalPeriodSheetRule = extractCssRuleBody(componentStyles, '.period-sheet[data-period-scope="global"]');
+assert.match(globalPeriodSheetRule, /height:\s*min\(640px,\s*calc\(100vh - 24px\)\);/);
+assert.match(globalPeriodSheetRule, /height:\s*min\(640px,\s*calc\(100dvh - 24px\)\);/);
 const periodSheetContent = extractCssRuleBody(componentStyles, '.period-sheet-content');
 assert.match(periodSheetContent, /min-height:\s*0/);
 assert.match(periodSheetContent, /overflow-y:\s*auto/);
@@ -350,12 +357,40 @@ assert.match(periodSheetFooterButtons, /min-height:\s*var\(--control-md\)/);
 const selectedPeriodChoice = extractCssRuleBody(styles, '.period-sheet .record-choice.selected');
 assert.match(selectedPeriodChoice, /border-color:\s*var\(--blue\)/);
 assert.match(selectedPeriodChoice, /background:\s*var\(--blue-soft\)/);
-const selectedPeriodMark = extractCssRuleBody(styles, '.period-selected-mark');
-assert.match(selectedPeriodMark, /color:\s*var\(--blue\)/);
-const periodCurrentSummary = extractCssRuleBody(styles, '.period-current-summary');
-assert.match(periodCurrentSummary, /border:\s*1px solid var\(--line\)/);
-assert.match(periodCurrentSummary, /background:\s*var\(--blue-soft\)/);
-assert.match(periodCurrentSummary, /color:\s*var\(--blue\)/);
+const selectedPeriodIndicator = extractCssRuleBody(styles, '.period-selected-indicator');
+assert.match(selectedPeriodIndicator, /color:\s*var\(--blue\)/);
+assert.doesNotMatch(styles, /\.period-current-summary/);
+const periodModeGrid = extractCssRuleBody(styles, '.period-mode-grid');
+assert.match(periodModeGrid, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+assert.match(periodModeGrid, /grid-template-rows:\s*repeat\(4, minmax\(52px, 1fr\)\)/);
+assert.match(styles, /@media\s*\(min-width:\s*641px\)\s*\{[\s\S]*?\.period-mode-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\);[\s\S]*?grid-template-rows:\s*repeat\(2, minmax\(52px, 1fr\)\);[\s\S]*?\}\s*\}/);
+const yearPeriodMarkup = renderPeriodSheet({
+  tab: 'year',
+  mode: 'year',
+  year: 2026,
+  month: '2026-08',
+  from: '',
+  to: '',
+  compare: false,
+  error: ''
+}, {
+  scope: 'global',
+  dashboardPeriod: { mode: 'month', month: '2026-08', year: 2026, from: '', to: '' },
+  showComparison: false,
+  previousLabel: '',
+  applyEnabled: true
+});
+assert.match(yearPeriodMarkup, /class="period-sheet-content" data-period-mode="year"/);
+assert.match(yearPeriodMarkup, /id="period-draft" data-period-draft-region/);
+const yearContentLayout = extractCssRuleBody(componentStyles, '.period-sheet-content[data-period-mode="year"]');
+assert.match(yearContentLayout, /display:\s*flex/);
+assert.match(yearContentLayout, /flex-direction:\s*column/);
+const yearDraftRegion = extractCssRuleBody(componentStyles, '.period-sheet-content[data-period-mode="year"] \[data-period-draft-region\]');
+assert.match(yearDraftRegion, /flex:\s*1 1 0/);
+assert.match(yearDraftRegion, /min-height:\s*0/);
+const yearGridLayout = extractCssRuleBody(componentStyles, '.period-sheet-content[data-period-mode="year"] .period-mode-grid');
+assert.match(yearGridLayout, /flex:\s*1 1 auto/);
+assert.match(yearGridLayout, /min-height:\s*0/);
 assert.doesNotMatch(styles, /audit-period-seal|audit-period-change/);
 assert.match(styles, /\.audit-filter-panel\s*\{[\s\S]*?position:\s*relative/);
 
@@ -443,6 +478,43 @@ assert.doesNotMatch(audit, /autofocus/);
 assert.doesNotMatch(keypad, /key\('calendar'/);
 assert.match(styles, /\.operational-chart-row-head\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto/);
 assert.match(styles, /\.operational-category > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
+
+{
+  const renderActiveSheetSource = extractFunction(main, 'function renderActiveSheet()');
+  const calendarCalls = [];
+  const recordCalendarState = {
+    ui: { activeSheet: 'calendar', calendarTarget: 'record-date' }
+  };
+  const renderRecordCalendarSheet = runInNewContext(`${renderActiveSheetSource}\nrenderActiveSheet;`, {
+    state: recordCalendarState,
+    calendarDraft: { selectedDate: '2026-08-14', visibleMonth: '2026-08' },
+    renderCalendarSheet: options => {
+      calendarCalls.push(options);
+      return options.context;
+    }
+  });
+
+  assert.equal(renderRecordCalendarSheet(), 'record');
+  assert.deepEqual(JSON.parse(JSON.stringify(calendarCalls)), [{ selectedDate: '2026-08-14', visibleMonth: '2026-08', context: 'record' }]);
+
+  recordCalendarState.ui.calendarTarget = 'period:global:from';
+  assert.equal(renderRecordCalendarSheet(), 'period');
+  assert.deepEqual(JSON.parse(JSON.stringify(calendarCalls[1])), { selectedDate: '2026-08-14', visibleMonth: '2026-08', context: 'period' });
+}
+
+const recordCalendarSheetRule = extractCssRuleBody(componentStyles, '.record-calendar-sheet');
+assert.match(recordCalendarSheetRule, /display:\s*grid;/);
+assert.match(recordCalendarSheetRule, /grid-template-rows:\s*auto auto minmax\(0, 1fr\) auto auto auto;/);
+assert.match(recordCalendarSheetRule, /height:\s*min\(720px, calc\(100dvh - 24px\)\);/);
+assert.match(recordCalendarSheetRule, /overflow:\s*hidden;/);
+const recordCalendarQuickRule = extractCssRuleBody(componentStyles, '.record-calendar-sheet .quick-grid');
+assert.match(recordCalendarQuickRule, /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);/);
+const recordCalendarSelectedRule = extractCssRuleBody(componentStyles, '.record-calendar-sheet .calendar-grid .selected');
+assert.match(recordCalendarSelectedRule, /border-radius:\s*50%;/);
+assert.match(recordCalendarSelectedRule, /box-shadow:\s*0 0 0 2px var\(--surface\), 0 0 0 4px var\(--blue\);/);
+const recordCalendarGridRule = extractCssRuleBody(styles, '.record-calendar-sheet .calendar-grid');
+assert.match(recordCalendarGridRule, /min-height:\s*0;/);
+assert.match(recordCalendarGridRule, /align-content:\s*space-between;/);
 
 const filterPersistenceSource = main.match(/function renderAndPersistFilters\(\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(filterPersistenceSource, 'renderAndPersistFilters must remain available for preference updates');
@@ -752,6 +824,7 @@ const appliedState = {
   period: { mode: 'month', month: '2026-05' },
   filters: { categories: { compare: false } },
   ui: {
+    periodDraftApplyEnabled: true,
     periodDraft: {
       scope: 'global',
       mode: 'month',
@@ -784,6 +857,13 @@ assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month
 assert.equal(appliedState.filters.categories.compare, true);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
+assert.match(worker, /cfo-personal-v7-cache-44/, 'Wave 1.1 must activate cache-44');
+assert.match(worker, /\.\/src\/components\/recordKeypad\.js/, 'Wave 1.1 must precache the record keypad binder');
+assert.equal(
+  (worker.match(/\.\/src\/components\/recordKeypad\.js/g) || []).length,
+  1,
+  'the record keypad binder must appear exactly once in the worker shell'
+);
 const lifecycleHandlers = new Map();
 const lifecycleFetches = [];
 const cachePuts = [];
@@ -904,13 +984,15 @@ assert.deepEqual(matchedRequests, ['https://app.test/index.html']);
 assert.deepEqual(
   {
     cacheName,
-    renderCoordinatorPrecached: appShell.includes('https://app.test/src/utils/renderCoordinator.js')
+    renderCoordinatorPrecached: appShell.includes('https://app.test/src/utils/renderCoordinator.js'),
+    recordKeypadPrecached: appShell.includes('https://app.test/src/components/recordKeypad.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-43',
-    renderCoordinatorPrecached: true
+    cacheName: 'cfo-personal-v7-cache-44',
+    renderCoordinatorPrecached: true,
+    recordKeypadPrecached: true
   },
-  'Wave 1 must bump the worker cache while preserving render-coordinator precache parity'
+  'Wave 1.1 must bump the worker cache while preserving application-shell precache parity'
 );
 assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);

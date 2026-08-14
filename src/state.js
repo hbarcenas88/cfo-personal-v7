@@ -49,6 +49,7 @@ export const initialState = {
     activeSheet: '',
     recordFlow: null,
     periodDraft: null,
+    periodDraftApplyEnabled: false,
     calendarTarget: null,
     toast: null,
     undo: null,

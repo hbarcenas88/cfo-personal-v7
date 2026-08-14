@@ -21,6 +21,41 @@ assert.deepEqual(validateRecordFlow({ ...base, type: 'transfer', accountTo: 'BAC
 });
 assert.equal(recordPayload({ ...base, isExtraordinary: true }).isExtraordinary, true);
 
+const income = { ...base, type: 'income', account: 'Caja', category: 'Salario', description: 'Nómina' };
+assert.deepEqual(recordPayload(income), {
+  movement: 'Ingreso', date: '2026-07-26', account: 'Caja', accountTo: '', amount: 12.5,
+  category: 'Salario', subcategory: '', description: 'Nómina', isExtraordinary: false
+});
+assert.deepEqual(validateRecordFlow(income, { value: 12.5, error: '' }), { ok: true });
+
+const transfer = { ...base, type: 'transfer', account: 'Caja', accountTo: 'BAC', description: 'Ahorro' };
+assert.deepEqual(recordPayload(transfer), {
+  movement: 'Transferencia', date: '2026-07-26', account: 'Caja', accountTo: 'BAC', amount: 12.5,
+  category: '', subcategory: '', description: 'Ahorro', isExtraordinary: false
+});
+assert.deepEqual(validateRecordFlow(transfer, { value: 12.5, error: '' }), { ok: true });
+
+const budget = { ...base, type: 'budget', account: '', category: 'Hogar', subcategory: 'Supermercado' };
+assert.deepEqual(recordPayload(budget), {
+  movement: 'Presupuesto', date: '2026-07-26', account: '', accountTo: '', amount: 12.5,
+  category: 'Hogar', subcategory: 'Supermercado', description: '', isExtraordinary: false
+});
+assert.deepEqual(validateRecordFlow(budget, { value: 12.5, error: '' }), { ok: true });
+
+const provision = { ...base, type: 'provision', account: 'BAC', category: 'Reserva', description: 'Vacaciones' };
+assert.deepEqual(recordPayload(provision), {
+  movement: 'Provisión', date: '2026-07-26', account: 'BAC', accountTo: '', amount: 12.5,
+  category: 'Reserva', subcategory: '', description: 'Vacaciones', isExtraordinary: false
+});
+assert.deepEqual(validateRecordFlow(provision, { value: 12.5, error: '' }), { ok: true });
+
+const editedExpense = { ...base, editTransactionId: 'tx-17', category: 'Movilidad', subcategory: 'Taxi', description: 'Corregido' };
+assert.deepEqual(recordPayload(editedExpense), {
+  movement: 'Gasto', date: '2026-07-26', account: 'BAC', accountTo: '', amount: 12.5,
+  category: 'Movilidad', subcategory: 'Taxi', description: 'Corregido', isExtraordinary: false
+});
+assert.deepEqual(validateRecordFlow(editedExpense, { value: 12.5, error: '' }), { ok: true });
+
 const accountCorrection = { ...base, account: '', validation: { field: 'account', message: 'Cuenta requerida' } };
 accountCorrection.account = 'Caja';
 assert.equal(clearRecordValidation(accountCorrection, 'account'), true);

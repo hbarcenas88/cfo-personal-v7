@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as periodService from '../src/services/periodService.js';
 import {
   applyDraftPreset,
   comparisonPeriod,
@@ -11,6 +12,9 @@ import {
 } from '../src/services/periodService.js';
 import { currentMonth } from '../src/utils/format.js';
 import { renderPeriodSheet } from '../src/components/periodPicker.js';
+
+const { hasVisibleDraftSelection } = periodService;
+assert.equal(typeof hasVisibleDraftSelection, 'function', 'periodService must export hasVisibleDraftSelection');
 
 const may = { mode: 'month', month: '2026-05' };
 const draft = createPeriodDraft(may, { scope: 'global', compare: false });
@@ -76,7 +80,7 @@ assert.deepEqual(
   'a later dashboard change must not remain linked to the copied audit draft'
 );
 
-const globalOptions = { scope: 'global', showComparison: false, previousLabel: '', dashboardPeriod: may };
+const globalOptions = { scope: 'global', showComparison: false, previousLabel: '', dashboardPeriod: may, applyEnabled: true };
 const monthSheet = renderPeriodSheet(currentMonthDraft, globalOptions);
 assertSelectedChoice(monthSheet, 'data-period-preset="thisMonth"');
 assertUnselectedChoice(monthSheet, 'data-period-preset="lastMonth"');
@@ -98,7 +102,7 @@ assert.doesNotMatch(yearSheet, /data-period-date=/, 'year mode must not expose c
 
 const auditAllSheet = renderPeriodSheet(
   createPeriodDraft({ mode: 'all' }, { scope: 'audit' }),
-  { scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: may }
+  { scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: may, applyEnabled: true }
 );
 assertSelectedChoice(auditAllSheet, 'data-period-preset="all"');
 assert.match(auditAllSheet, />Usar per\u00edodo del dashboard</);
@@ -106,10 +110,10 @@ assert.doesNotMatch(auditAllSheet, /data-period-date=/, 'all-history mode must n
 
 const auditCopySheet = renderPeriodSheet(
   createPeriodDraft(may, { scope: 'audit' }),
-  { scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: may }
+  { scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: may, applyEnabled: true }
 );
 assertCopyAction(auditCopySheet);
-assertSingleDraftRepresentation(auditCopySheet, 'data-period-current-summary');
+assertNoVisibleDraftSelection(auditCopySheet);
 
 const currentYear = new Date().getFullYear();
 const dashboardYear = { mode: 'year', year: currentYear, month: `${currentYear}-01` };
@@ -120,14 +124,15 @@ const copiedYearDraft = applyDraftPreset(
 );
 assert.equal(copiedYearDraft.tab, 'year', 'copying a dashboard year must preserve its natural tab');
 const copiedYearSheet = renderPeriodSheet(copiedYearDraft, {
-  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardYear
+  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardYear, applyEnabled: true
 });
-assertSingleDraftRepresentation(copiedYearSheet, `data-period-year="${currentYear}"`);
+assertSelectedChoice(copiedYearSheet, `data-period-year="${currentYear}"`);
 assertCopyAction(copiedYearSheet);
 const currentYearRangeTab = renderPeriodSheet({ ...copiedYearDraft, tab: 'range' }, {
-  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardYear
+  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardYear, applyEnabled: true
 });
-assertSingleDraftRepresentation(currentYearRangeTab, 'data-period-preset="thisYear"');
+assertSelectedChoice(currentYearRangeTab, 'data-period-preset="thisYear"');
+assert.equal(hasVisibleDraftSelection({ ...copiedYearDraft, tab: 'range' }, dashboardYear), true);
 
 const dashboardCurrentMonth = { mode: 'month', month: currentMonth() };
 const copiedCurrentMonthDraft = applyDraftPreset(
@@ -136,13 +141,14 @@ const copiedCurrentMonthDraft = applyDraftPreset(
   dashboardCurrentMonth
 );
 const copiedCurrentMonthSheet = renderPeriodSheet(copiedCurrentMonthDraft, {
-  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardCurrentMonth
+  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardCurrentMonth, applyEnabled: true
 });
-assertSingleDraftRepresentation(copiedCurrentMonthSheet, 'data-period-preset="thisMonth"');
+assertSelectedChoice(copiedCurrentMonthSheet, 'data-period-preset="thisMonth"');
 const currentMonthYearTab = renderPeriodSheet({ ...copiedCurrentMonthDraft, tab: 'year' }, {
-  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardCurrentMonth
+  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardCurrentMonth, applyEnabled: false
 });
-assertSingleDraftRepresentation(currentMonthYearTab, 'data-period-current-summary');
+assertNoVisibleDraftSelection(currentMonthYearTab);
+assert.equal(hasVisibleDraftSelection({ ...currentMonthDraft, tab: 'year' }, may), false);
 
 const dashboardArbitraryMonth = { mode: 'month', month: '2024-03' };
 const copiedArbitraryMonthDraft = applyDraftPreset(
@@ -152,11 +158,9 @@ const copiedArbitraryMonthDraft = applyDraftPreset(
 );
 for (const tab of ['range', 'year']) {
   const sheet = renderPeriodSheet({ ...copiedArbitraryMonthDraft, tab }, {
-    scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardArbitraryMonth
+    scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardArbitraryMonth, applyEnabled: tab === 'range'
   });
-  assertSingleDraftRepresentation(sheet, 'data-period-current-summary');
-  assert.match(sheet, /Selecci\u00f3n actual/);
-  assert.match(sheet, /Mar 2024/);
+  assertNoVisibleDraftSelection(sheet);
 }
 
 const copiedRangeDraft = applyDraftPreset(
@@ -165,13 +169,20 @@ const copiedRangeDraft = applyDraftPreset(
   dashboardRange
 );
 const copiedRangeSheet = renderPeriodSheet(copiedRangeDraft, {
-  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardRange
+  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardRange, applyEnabled: true
 });
-assertSingleDraftRepresentation(copiedRangeSheet, 'data-period-preset="custom"');
+assertSelectedChoice(copiedRangeSheet, 'data-period-preset="custom"');
 const copiedRangeYearTab = renderPeriodSheet({ ...copiedRangeDraft, tab: 'year' }, {
-  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardRange
+  scope: 'audit', showComparison: true, previousLabel: '', dashboardPeriod: dashboardRange, applyEnabled: false
 });
-assertSingleDraftRepresentation(copiedRangeYearTab, 'data-period-current-summary');
+assertNoVisibleDraftSelection(copiedRangeYearTab);
+
+const blocked = renderPeriodSheet(
+  { ...currentMonthDraft, tab: 'year' },
+  { ...globalOptions, applyEnabled: false }
+);
+assert.match(blocked, /data-period-apply[^>]*disabled[^>]*aria-disabled="true"/);
+assert.doesNotMatch(blocked, /Selecci\u00f3n actual/);
 
 function choiceMarkup(markup, attribute) {
   const match = markup.match(new RegExp(`<button[^>]*${attribute}[^>]*>[\\s\\S]*?<\\/button>`));
@@ -183,35 +194,46 @@ function assertSelectedChoice(markup, attribute) {
   const choice = choiceMarkup(markup, attribute);
   assert.match(choice, /class="[^"]*\bselected\b/);
   assert.match(choice, /aria-pressed="true"/);
-  assert.match(choice, />Seleccionado</);
+  assert.match(choice, /data-period-selected-indicator/);
+  assert.doesNotMatch(choice, />Seleccionado</);
+  assertSelectionRepresentationCount(markup, 1);
+  assertNoRedundantSelectionText(markup);
 }
 
 function assertUnselectedChoice(markup, attribute) {
   const choice = choiceMarkup(markup, attribute);
   assert.doesNotMatch(choice, /class="[^"]*\bselected\b/);
   assert.match(choice, /aria-pressed="false"/);
+  assert.doesNotMatch(choice, /data-period-selected-indicator/);
   assert.doesNotMatch(choice, />Seleccionado</);
+  assertNoRedundantSelectionText(markup);
 }
 
 function assertCopyAction(markup) {
   const action = choiceMarkup(markup, 'data-period-copy-dashboard');
   assert.doesNotMatch(action, /class="[^"]*\bselected\b/);
   assert.doesNotMatch(action, /aria-pressed=/);
+  assert.doesNotMatch(action, /data-period-selected-indicator/);
   assert.doesNotMatch(action, />Seleccionado</);
+  assertNoRedundantSelectionText(markup);
 }
 
-function assertSingleDraftRepresentation(markup, expectedAttribute) {
+function assertNoVisibleDraftSelection(markup) {
+  assertSelectionRepresentationCount(markup, 0);
+  assertNoRedundantSelectionText(markup);
+}
+
+function assertSelectionRepresentationCount(markup, expectedCount) {
+  const selected = markup.match(/<button[^>]*class="[^"]*\bselected\b[^"]*"[^>]*>/g) || [];
   const pressed = markup.match(/aria-pressed="true"/g) || [];
-  const summaries = markup.match(/data-period-current-summary/g) || [];
-  const selectedMarks = markup.match(/>Seleccionado</g) || [];
-  assert.equal(pressed.length + summaries.length, 1, 'the draft must have exactly one accessible representation');
-  assert.equal(selectedMarks.length, pressed.length, 'only the selected option may show the selected mark');
-  if (expectedAttribute === 'data-period-current-summary') {
-    assert.equal(pressed.length, 0, 'a fallback summary must replace, not duplicate, a selected option');
-    assert.equal(summaries.length, 1);
-  } else {
-    assertSelectedChoice(markup, expectedAttribute);
-    assert.equal(summaries.length, 0, 'a selected option must not be duplicated by a fallback summary');
-  }
+  const indicators = markup.match(/data-period-selected-indicator/g) || [];
+  assert.equal(selected.length, expectedCount, `expected exactly ${expectedCount} .selected period choices`);
+  assert.equal(pressed.length, expectedCount, `expected exactly ${expectedCount} pressed period choices`);
+  assert.equal(indicators.length, expectedCount, `expected exactly ${expectedCount} period selection indicators`);
+  assert.equal(indicators.length, pressed.length, 'each pressed period choice must have exactly one indicator');
+}
+
+function assertNoRedundantSelectionText(markup) {
+  assert.doesNotMatch(markup, /Selecci\u00f3n actual|data-period-current-summary/);
 }
 console.log('period-scope.test.mjs passed');

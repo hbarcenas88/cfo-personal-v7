@@ -1,5 +1,34 @@
 # CFO Personal V7 - Verificador de entrega
 
+## Oleada 1.1 — regresión de Registro y pulido de selectores — validación local
+
+### Evidencia automatizada — 2026-08-13
+
+- [x] TDD de precache: `node tests/mobile-ui-contract.test.mjs` falló primero contra `cfo-personal-v7-cache-43` por exigir `cache-44`; el worker tampoco contenía `./src/components/recordKeypad.js`. Después del cambio mínimo, el mismo contrato terminó con código 0 y confirmó cache-44 y una única ocurrencia del binder dentro de `APP_SHELL`.
+- [x] Ejecutados con código 0 `node tests/mobile-ui-contract.test.mjs`, `node --check service-worker.js` y `git diff --check`. Los únicos avisos fueron informativos de conversión LF → CRLF; no hubo errores de espacios.
+- [x] La fuente de verdad documenta el keypad local de Registro, calendario reordenado sólo para Registro, check no textual y `aria-pressed`, gate de `Aplicar`, copia puntual, re-evaluación al cambiar pestaña, selector global 640 px, años 2 × 4/4 × 2 y Auditoría de 760 px. La simetría completa de la app sigue diferida.
+- [x] Verificación final previa al reviewer: 43 archivos JavaScript/MJS pasaron `node --check`; la batería serial terminó 16/16 y `git diff --check 7e308ab..HEAD` terminó sin errores.
+
+### QA Browser — 2026-08-13
+
+- [x] Se verificó primero que el origen local aislado entregaba `CFO Personal V7`, `cfo-personal-v7-cache-44` y el binder `recordKeypad.js` del worktree actual. Browser abrió contenido significativo a 390 × 844, sin overlay, errores ni advertencias de consola.
+- [x] Registro → Gasto actualizó inmediatamente `USD 1`, `USD 12`, `USD 12.5`, borrar y la expresión con `+`; el monto permaneció visible al abrir/cerrar Cuenta, Categoría y Fecha, al escribir Descripción y al pulsar el siguiente dígito. No se guardó ningún movimiento.
+- [x] Calendario de Registro mostró seis semanas, día seleccionado circular con fecha completa/`aria-pressed`, navegación y Hoy/Ayer/Inicio de mes debajo de la grilla y `Listo` visible sin scroll: sheet 390 × 720, `Listo` entre 773.33 y 825.33 px. `Fecha seleccionada` y `Personalizado` no aparecieron. El calendario Desde/Hasta conservó su composición anterior.
+- [x] Selector global midió 390 × 640 tanto en rango como en año; footer visible, sin textos `Seleccionado`/`Selección actual`, un solo check, años 2 × 4 de 174.33 × 52 px y ancho de documento 390/390. Un año oculto al cambiar de pestaña dejó `Aplicar` disabled y cero señales; al volver restauró una única selección.
+- [x] Auditoría conservó período independiente y sheet 390 × 760; copiar el período global habilitó `Aplicar` sin seleccionar la acción de copia, y Cancelar mantuvo `Todo el historial`. No hubo overflow horizontal ni colisión con el footer.
+- [x] Smoke de escritorio a 1280 × 800: ocho años en 4 × 2, tarjetas uniformes de 146 × 52 px y documento 1280/1280.
+- [x] Ronda final de corrección 1/2: el reviewer detectó flechas mensuales sin nombre accesible y filas de años que no usaban la región disponible. `calendar.test.mjs` y `mobile-ui-contract.test.mjs` reprodujeron ambos fallos antes de la corrección; después exigieron `Mes anterior`/`Mes siguiente` y una región anual flexible real.
+- [x] Re-QA Browser afectado: ambos calendarios exponen las dos etiquetas; Registro conserva sheet 390 × 720, `Listo` visible y sin scroll. A 390 × 844 los años mantienen 2 × 4, crecen uniformemente a 174 × 90 px y dejan 28 px antes del footer; a 1280 × 800 mantienen 4 × 2, 146 × 187 px y el mismo hueco de 28 px. Consola limpia y documento sin overflow en ambas vistas.
+- [ ] La edición renderizada de un movimiento existente no se sembró en Browser para evitar guardar datos sintéticos; `transaction-edit.test.mjs` y la integración del keypad cubren su lógica. Permanece como riesgo Browser específico para el reviewer final.
+
+### Cierre local y pendientes externos
+
+- [x] Privacidad revisada: no se añadieron CSV, XLSX, backups, capturas, datos bancarios, secretos, tokens ni dumps de almacenamiento.
+- [x] Reviewer final independiente: primera ronda `SPEC FAIL / QUALITY CHANGES REQUESTED` por dos Important; ronda de corrección 1/2 con TDD; re-revisión `SPEC PASS / QUALITY APPROVED`, sin hallazgos pendientes. El IAB no pudo readquirirse para una segunda sesión visual independiente, por lo que la aprobación combina su primera QA real, inspección/pruebas frescas y la re-QA Browser de raíz documentada arriba; no se sustituyó por Edge.
+- [x] Este verificador forma parte del único commit final local de la Oleada 1.1; el SHA resultante se reporta en la conversación.
+- [ ] Solicitar autorización textual fresca para publicar ese SHA y verificar GitHub Pages después de la publicación autorizada.
+- [ ] Validación en teléfono físico, aceptación PWA y recorrido no destructivo con datos reales respaldados. La evidencia Browser no los sustituye.
+
 ## Oleada 1 — sistema de períodos — automatización, QA y revisión aprobados
 
 ### Evidencia automatizada — 2026-08-10

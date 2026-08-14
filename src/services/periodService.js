@@ -67,6 +67,13 @@ export function periodPresetState(draft, preset, dashboardPeriod) {
   };
 }
 
+export function hasVisibleDraftSelection(draft, dashboardPeriod) {
+  if (draft?.scope === 'audit' && draft.mode === 'all') return true;
+  if (draft?.tab === 'year') return draft.mode === 'year';
+  return ['thisMonth', 'lastMonth', 'thisYear', 'custom']
+    .some(preset => periodPresetState(draft, preset, dashboardPeriod).selected);
+}
+
 export function setDraftDate(draft, field, value) {
   return { ...draft, mode: 'range', [field]: value, month: value.slice(0, 7), tab: 'range' };
 }
