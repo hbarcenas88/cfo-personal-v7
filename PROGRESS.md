@@ -1,10 +1,11 @@
 # CFO Personal V7 - Progreso
 
-Actualizado: 2026-08-13
+Actualizado: 2026-08-16
 
 ## Estado actual
 
-- V7 es la línea operativa única del repositorio. `main` y GitHub Pages se publicaron con `cfo-personal-v7-cache-40` el 2026-07-28; el worktree de Oleada 1.1 usa localmente `cfo-personal-v7-cache-44` y conserva `renderCoordinator.js` y `recordKeypad.js` en el catálogo de la carcasa PWA. Este estado local no afirma publicación.
+- V7 es la línea operativa única del repositorio. `main` y GitHub Pages se publicaron con `cfo-personal-v7-cache-40` el 2026-07-28; la Oleada 2 final usa localmente `cfo-personal-v7-cache-46` y conserva `renderCoordinator.js`, `recordKeypad.js` y `planningService.js` en el catálogo de la carcasa PWA. Este estado local no afirma publicación.
+- Oleada 2 — Planeación administrable (implementación local corregida): Planeación concentra presupuestos, provisiones y recurrentes. El filtro móvil propio muestra sólo el mes elegido y actualiza la fila visible sin `<select>`; las provisiones conservan metas y fecha opcionales, y una liberación deja saldo conceptual cero con su evento en `provisionEvents`, sin alterar cuentas ni movimientos. La reserva descuenta sólo liberaciones ocurridas hasta el corte consultado; los eventos legacy sin fecha reconocible siguen descontando y borrar una provisión liberada no reactiva su reserva. Una `releaseDate` importada sólo conserva `AAAA-MM-DD` válida y su render se escapa. El CSV preserva los campos de la provisión y el respaldo JSON preserva además el historial conceptual. El review final real originó cuatro hallazgos Important y uno Minor, corregidos con RED/GREEN; la re-revisión de integración del controlador queda pendiente. Browser afectado se observó a 390 × 844 con julio/agosto, edición, targets de 44 px, ancho 390/390, cero `<select>` y consola limpia. Publicación externa permanece pendiente.
 - Auditoría móvil: filtros compactos, edición segura de movimientos y transferencias vinculadas completados. La corrección de anclaje y densidad del dropdown fue revisada localmente a 390 × 844; falta el recorrido con datos reales respaldados.
 - Etapa 1 de armonización: Resumen y Categorías implementados, verificados e integrados en `main`; falta la comprobación con datos reales respaldados.
 - Auditoría previa a la entrevista de Prioridad 0 (2026-07-18): recorrido aislado a 390 × 844 que documentó los defectos del selector, navegación y comparación que motivaron este bloque. Esa evidencia histórica no cubre los flujos nuevos.
@@ -20,7 +21,7 @@ Actualizado: 2026-08-13
 
 ## Próximo paso
 
-Ejecutar la verificación fresca integral de la Oleada 1.1, QA Browser a 390 × 844, smoke de escritorio y revisión independiente. Después, preparar el único commit final y solicitar autorización textual fresca para publicar el SHA exacto. Siguen pendientes la publicación, la validación en teléfono/aceptación PWA y la validación no destructiva con datos reales; el respaldo JSON ya fue confirmado.
+Completar la re-revisión de integración del controlador sobre el checkpoint final y solicitar autorización textual fresca antes de publicar el SHA exacto. Siguen pendientes la publicación, la validación en teléfono/aceptación PWA y la validación no destructiva con datos reales; el respaldo JSON ya fue confirmado.
 
 ## Bloqueos
 

@@ -857,12 +857,17 @@ assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month
 assert.equal(appliedState.filters.categories.compare, true);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-44/, 'Wave 1.1 must activate cache-44');
+assert.match(worker, /cfo-personal-v7-cache-46/, 'Wave 2 final fixes must activate cache-46');
 assert.match(worker, /\.\/src\/components\/recordKeypad\.js/, 'Wave 1.1 must precache the record keypad binder');
 assert.equal(
   (worker.match(/\.\/src\/components\/recordKeypad\.js/g) || []).length,
   1,
   'the record keypad binder must appear exactly once in the worker shell'
+);
+assert.equal(
+  (worker.match(/\.\/src\/services\/planningService\.js/g) || []).length,
+  1,
+  'the planning service must appear exactly once in the worker shell'
 );
 const lifecycleHandlers = new Map();
 const lifecycleFetches = [];
@@ -985,12 +990,14 @@ assert.deepEqual(
   {
     cacheName,
     renderCoordinatorPrecached: appShell.includes('https://app.test/src/utils/renderCoordinator.js'),
-    recordKeypadPrecached: appShell.includes('https://app.test/src/components/recordKeypad.js')
+    recordKeypadPrecached: appShell.includes('https://app.test/src/components/recordKeypad.js'),
+    planningServicePrecached: appShell.includes('https://app.test/src/services/planningService.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-44',
+    cacheName: 'cfo-personal-v7-cache-46',
     renderCoordinatorPrecached: true,
-    recordKeypadPrecached: true
+    recordKeypadPrecached: true,
+    planningServicePrecached: true
   },
   'Wave 1.1 must bump the worker cache while preserving application-shell precache parity'
 );

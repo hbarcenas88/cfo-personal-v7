@@ -9,9 +9,9 @@ import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisShe
 import { renderCategories, renderCategoriesResults } from './screens/categories.js';
 import { renderAudit, renderAuditResults } from './screens/audit.js';
 import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
-import { renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet } from './screens/settings.js';
+import { renderBudgetSheet, renderProvisionSheet, renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet, selectPlanningBudgetPeriod } from './screens/settings.js';
 import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteCategory, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateCategory, updateTransaction, setView } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteBudget, deleteCategory, deleteProvision, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, releaseProvision, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateBudget, updateCategory, updateProvision, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateStatementRows, validateRowsAgainstRange } from './services/guidedAuditService.js';
@@ -182,6 +182,7 @@ function renderScopes(scopes) {
       bindDynamicEvents(screenRoot);
       renderIcons(screenRoot);
       restoreInteractionState(snapshot, screenRoot);
+      focusPlanningSection(screenRoot);
     }
   }
 
@@ -291,7 +292,8 @@ function renderActiveSheet() {
   if (sheet === 'import-catalogs') return importSheetV702('accounts');
   if (sheet === 'new-account') return accountSheetV704();
   if (sheet === 'new-category') return categorySheet();
-  if (sheet === 'new-provision') return provisionSheet();
+  if (sheet === 'planning-budget' || sheet === 'confirm-delete-budget') return renderBudgetSheet(state);
+  if (sheet === 'planning-provision' || sheet === 'confirm-release-provision' || sheet === 'confirm-delete-provision') return renderProvisionSheet(state);
   if (sheet === 'recurring') return recurringSheet();
   if (sheet === 'search') return searchSheet();
   if (sheet === 'health-detail') return healthDetailSheet();
@@ -408,6 +410,10 @@ function bindDynamicEvents(root) {
   root.querySelectorAll('[data-settings]').forEach(button => {
     button.addEventListener('click', () => setSettingsPage(button.dataset.settings));
   });
+  root.querySelectorAll('[data-planning-focus]').forEach(button => button.addEventListener('click', () => {
+    state.ui.planningFocus = button.dataset.planningFocus;
+    setSettingsPage('planning');
+  }));
   root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     handleTool(button.dataset.tool).catch(error => captureError(`tool:${button.dataset.tool}`, error));
@@ -850,6 +856,76 @@ function handleGlobalEscape(event) {
 
 function bindTools(root) {
   const document = bindingContext(root);
+  document.querySelectorAll('[data-budget-period]').forEach(button => button.addEventListener('click', () => {
+    if (selectPlanningBudgetPeriod(state, button.dataset.budgetPeriod)) render();
+  }));
+  document.querySelectorAll('[data-budget-edit]').forEach(button => button.addEventListener('click', () => {
+    state.ui.planningDraft = { budgetId: button.dataset.budgetEdit };
+    openSheet('planning-budget');
+  }));
+  document.querySelectorAll('[data-budget-delete]').forEach(button => button.addEventListener('click', () => {
+    state.ui.planningDraft = { budgetId: button.dataset.budgetDelete };
+    openSheet('confirm-delete-budget');
+  }));
+  document.querySelectorAll('[data-provision-edit]').forEach(button => button.addEventListener('click', () => {
+    state.ui.planningDraft = { provisionId: button.dataset.provisionEdit };
+    openSheet('planning-provision');
+  }));
+  document.querySelectorAll('[data-provision-release]').forEach(button => button.addEventListener('click', () => {
+    state.ui.planningDraft = { provisionId: button.dataset.provisionRelease };
+    openSheet('confirm-release-provision');
+  }));
+  document.querySelectorAll('[data-provision-delete]').forEach(button => button.addEventListener('click', () => {
+    if (button.disabled) return;
+    state.ui.planningDraft = { provisionId: button.dataset.provisionDelete };
+    openSheet('confirm-delete-provision');
+  }));
+  document.querySelector('[data-save-planning-budget]')?.addEventListener('click', async () => {
+    const payload = planningFormPayload(root);
+    const id = state.ui.planningDraft?.budgetId;
+    const saved = id
+      ? await updateBudget(id, payload)
+      : await saveTransaction({ ...payload, movement: 'Presupuesto', date: `${payload.month}-01` });
+    if (saved) {
+      state.ui.planningDraft = null;
+      closeSheet();
+    }
+    render();
+  });
+  document.querySelector('[data-save-planning-provision]')?.addEventListener('click', async () => {
+    const payload = planningFormPayload(root);
+    const id = state.ui.planningDraft?.provisionId;
+    const provisionCount = state.provisions.length;
+    const saved = id
+      ? await updateProvision(id, numericProvisionPayload(payload))
+      : await addProvision(numericProvisionPayload(payload));
+    if (saved || (!id && state.provisions.length > provisionCount)) {
+      state.ui.planningDraft = null;
+      closeSheet();
+    }
+    render();
+  });
+  document.querySelector('[data-confirm-release-provision]')?.addEventListener('click', async button => {
+    if (await releaseProvision(button.currentTarget.dataset.confirmReleaseProvision)) {
+      state.ui.planningDraft = null;
+      closeSheet();
+    }
+    render();
+  });
+  document.querySelector('[data-confirm-delete-provision]')?.addEventListener('click', async button => {
+    if (await deleteProvision(button.currentTarget.dataset.confirmDeleteProvision)) {
+      state.ui.planningDraft = null;
+      closeSheet();
+    }
+    render();
+  });
+  document.querySelector('[data-confirm-delete-budget]')?.addEventListener('click', async button => {
+    if (await deleteBudget(button.currentTarget.dataset.confirmDeleteBudget)) {
+      state.ui.planningDraft = null;
+      closeSheet();
+    }
+    render();
+  });
   document.querySelectorAll('[data-template]').forEach(button => button.addEventListener('click', () => downloadTemplate(button.dataset.template)));
   document.querySelectorAll('[data-template-info]').forEach(button => button.addEventListener('click', () => {
     const kind = button.dataset.templateInfo;
@@ -1229,14 +1305,6 @@ function bindSheetActions(root) {
         saved = state.categories.length > before;
       }
     }
-    if (button.dataset.createAction === 'create-provision') {
-      if (!data.name?.trim()) showToast('Nombre de provisión requerido');
-      else {
-        const before = state.provisions.length;
-        await addProvision({ ...data, balance: parseAmount(data.balance), monthlyAmount: parseAmount(data.monthlyAmount) });
-        saved = state.provisions.length > before;
-      }
-    }
     debugLog('create action result', { action: button.dataset.createAction, saved });
     if (saved) {
       state.ui.accountDraft = null;
@@ -1402,6 +1470,31 @@ async function reorderAccountTo(sourceId, targetId) {
   render();
 }
 
+function planningFormPayload(root) {
+  return Object.fromEntries([...root.querySelectorAll('[data-planning-field]')]
+    .map(input => [input.dataset.planningField, input.value.trim()]));
+}
+
+function focusPlanningSection(root) {
+  const focus = state.activeView === 'settings' && state.settingsPage === 'planning'
+    ? state.ui.planningFocus
+    : '';
+  if (!focus) return;
+  const target = root.querySelector(`[data-planning-focus="${focus}"]`);
+  target?.scrollIntoView({ block: 'start' });
+  target?.focus({ preventScroll: true });
+  state.ui.planningFocus = '';
+}
+
+function numericProvisionPayload(payload) {
+  return {
+    ...payload,
+    balance: parseAmount(payload.balance),
+    monthlyAmount: parseAmount(payload.monthlyAmount),
+    targetAmount: parseAmount(payload.targetAmount)
+  };
+}
+
 async function handleTool(action) {
   state.ui.importDraft = null;
   debugLog('tool action', { action });
@@ -1429,7 +1522,15 @@ async function handleTool(action) {
     state.ui.categoryDraft = null;
     return openSheet(action);
   }
-  if (['new-provision', 'recurring'].includes(action)) return openSheet(action);
+  if (action === 'planning-budgets') {
+    state.ui.planningDraft = null;
+    return openSheet('planning-budget');
+  }
+  if (action === 'planning-provisions') {
+    state.ui.planningDraft = null;
+    return openSheet('planning-provision');
+  }
+  if (action === 'recurring') return openSheet(action);
   if (action === 'icons') return showToast('Elige Icono dentro de una cuenta o categoría');
   if (action === 'rules') return setSettingsPage('rules');
   if (action === 'appearance' || action === 'security' || action === 'cloud') return showToast('Próximamente');
@@ -2122,10 +2223,6 @@ function categorySheet() {
       <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
     </section></div>
   `;
-}
-
-function provisionSheet() {
-  return simpleCreateSheet('Nueva provisión', [['name', 'Nombre de provisión'], ['balance', 'Saldo conceptual'], ['monthlyAmount', 'Planeación mensual']], 'Crear provisión', 'create-provision');
 }
 
 function recurringSheet() {

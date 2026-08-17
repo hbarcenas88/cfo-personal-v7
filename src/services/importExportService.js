@@ -1,5 +1,6 @@
 import { addAccount, addCategory, addProvision, createOpeningAdjustment, mutate, showToast } from '../state.js';
 import { normalizeBudget, normalizeTransaction } from './financeService.js';
+import { normalizeReleaseDate } from './planningService.js';
 import { canon, formatDate, parseAmount, parseDate, parseMonth, todayISO } from '../utils/format.js';
 import { inferIcon } from '../icons.js';
 
@@ -8,7 +9,7 @@ export const AUDIT_STATEMENT_TEMPLATE_KIND = 'audit_statement';
 export const templateHeaders = {
   accounts: ['nombre', 'tipo', 'saldo_inicial'],
   categories: ['categoria', 'subcategoria'],
-  provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual'],
+  provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual', 'monto_objetivo', 'fecha_liberacion'],
   recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria'],
   transactions: ['cuenta', 'movimiento', 'monto', 'categoria', 'subcategoria', 'descripcion', 'fecha'],
   budgets: ['cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'mes'],
@@ -142,7 +143,9 @@ export function exportCSVs(state) {
       rows: state.provisions.map(p => ({
         nombre: p.name,
         saldo_conceptual: p.balance || 0,
-        planeacion_mensual: p.monthlyAmount || 0
+        planeacion_mensual: p.monthlyAmount || 0,
+        monto_objetivo: p.targetAmount || 0,
+        fecha_liberacion: p.releaseDate || ''
       }))
     },
     {
@@ -213,6 +216,8 @@ export async function importCatalog(kind, objects) {
       name: row.nombre || row.name,
       balance: parseAmount(row.saldo_conceptual || row.balance || 0) || 0,
       monthlyAmount: parseAmount(row.planeacion_mensual || row.monthly || 0) || 0,
+      targetAmount: parseAmount(row.monto_objetivo || row.targetAmount || 0) || 0,
+      releaseDate: row.fecha_liberacion || row.releaseDate || '',
       icon: inferIcon(row.nombre, 'provision'),
       color: inferColor(row.nombre || row.name || 'provision')
     });
@@ -311,6 +316,11 @@ export function importIssuesV702(kind, objects, state) {
       if (!(row.nombre || row.name)) fields.push('Nombre requerido');
       if (row.saldo_conceptual && Number.isNaN(parseAmount(row.saldo_conceptual))) fields.push('Saldo conceptual inválido');
       if (row.planeacion_mensual && Number.isNaN(parseAmount(row.planeacion_mensual))) fields.push('Planeación mensual inválida');
+      if (row.monto_objetivo && Number.isNaN(parseAmount(row.monto_objetivo))) fields.push('Monto objetivo inválido');
+    }
+    if (kind === 'provisions') {
+      const releaseDate = row.fecha_liberacion || row.releaseDate;
+      if (releaseDate && !normalizeReleaseDate(releaseDate)) fields.push('Fecha de liberación inválida');
     }
     if (kind === 'recurring') {
       if (!(row.nombre || row.name)) fields.push('Nombre requerido');
@@ -347,7 +357,7 @@ export function explainTemplate(kind) {
   const descriptions = {
     accounts: 'Cuentas admite nombre, tipo y saldo inicial opcional. Icono, color y KPIs se asignan en la app.',
     categories: 'Categorias agrupa categoria y subcategoria. Repite categoria para varias subcategorias.',
-    provisions: 'Provisiones admite nombre, saldo conceptual y planeacion mensual.',
+    provisions: 'Provisiones admite nombre, saldo conceptual y planeacion mensual; monto objetivo y fecha de liberacion son opcionales.',
     recurring: 'Recurrentes admite pagos e ingresos mensuales; monto puede quedar vacio.',
     transactions: 'Movimientos admite ingresos y gastos; la fecha va al final.',
     budgets: 'Presupuestos se cargan por cuenta, monto, categoria, subcategoria y mes al final.'

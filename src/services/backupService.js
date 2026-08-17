@@ -2,7 +2,14 @@ import { datedName, downloadText } from './importExportService.js';
 import { restoreSnapshot, showToast } from '../state.js';
 
 export function createBackup(state) {
-  const payload = {
+  const payload = backupPayload(state);
+  const filename = downloadText(datedName('respaldo_cfo_personal', 'json'), JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+  showToast(`Respaldo JSON creado: ${filename}`);
+  return filename;
+}
+
+export function backupPayload(state) {
+  return {
     app: 'CFO Personal',
     version: state.version || '7.0.0',
     exportedAt: new Date().toISOString(),
@@ -12,6 +19,7 @@ export function createBackup(state) {
       transactions: state.transactions,
       budgets: state.budgets,
       provisions: state.provisions,
+      provisionEvents: state.provisionEvents,
       recurring: state.recurring,
       recurringDone: state.recurringDone,
       rules: state.rules,
@@ -20,9 +28,6 @@ export function createBackup(state) {
       healthDismissed: state.healthDismissed
     }
   };
-  const filename = downloadText(datedName('respaldo_cfo_personal', 'json'), JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
-  showToast(`Respaldo JSON creado: ${filename}`);
-  return filename;
 }
 
 export async function restoreBackupFile(file) {

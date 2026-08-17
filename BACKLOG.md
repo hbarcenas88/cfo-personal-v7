@@ -16,7 +16,7 @@ Estado: esta lista ordena el trabajo pendiente. Toda mejora funcional pasa por d
 9. **Cobertura de obligaciones y presupuesto planeado.**
 10. **Auditoría contra estados de cuenta PDF.** Conversión o extracción asistida posterior; la primera versión de auditoría guiada ya recibe CSV/XLSX y la conciliación flexible incluye cierres mensuales, quincenales o por cualquier rango declarado. PDF e imágenes quedan fuera de esta primera versión.
 11. **Decisión sobre pagos programados.** Mantenerlos como avisos o retirarlos del Resumen.
-12. **Provisiones con objetivo y liberación opcionales.** Por cada provisión, permitir activar meta monetaria, fecha de liberación o ambas, sin alterar por defecto su naturaleza conceptual ni la capacidad de pago; requiere diseño de estados, indicadores y reglas de vencimiento.
+12. **Provisiones reales (decisión de producto).** La oleada actual ejecutó objetivos, fecha y liberación para provisiones conceptuales. Definir por separado si alguna vez existirá una provisión que represente dinero real, con contabilidad, migración y privacidad explícitas.
 
 ## Prioridad 2 — Mejoras posteriores
 

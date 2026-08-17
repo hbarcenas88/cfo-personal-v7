@@ -2,6 +2,7 @@ import { loadState, saveState, clearState, clearFinanceLocalStorage } from './se
 import { applyTransactionEdit, canDuplicateTransaction, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
 import { migrateAuditPeriod } from './services/periodService.js';
 import { applyAuditCloseDecision, statementFingerprint } from './services/guidedAuditService.js';
+import { normalizeProvision } from './services/planningService.js';
 import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
 
@@ -22,6 +23,7 @@ export const initialState = {
   auditClosures: [],
   budgets: [],
   provisions: [],
+  provisionEvents: [],
   capacityRules: { accountRoles: {}, provisionIds: null },
   recurring: [],
   recurringDone: {},
@@ -71,7 +73,9 @@ export const initialState = {
     auditDropdownSearch: '',
     auditFiltersOpen: false,
     filterSearch: '',
-    categoryDraft: null
+    categoryDraft: null,
+    planningDraft: null,
+    planningFocus: ''
   }
 };
 
@@ -121,7 +125,18 @@ function mergeState(saved) {
   merged.budgets = (Array.isArray(saved.budgets) ? saved.budgets : [])
     .filter(row => parseMonth(row.month || row.mes || row.date || row.fecha) || !(row.month || row.mes || row.date || row.fecha))
     .map(row => normalizeBudget(row, merged));
-  merged.provisions = Array.isArray(saved.provisions) ? saved.provisions : [];
+  const normalizedProvisions = (Array.isArray(saved.provisions) ? saved.provisions : []).map(normalizeProvision);
+  const legacyProvisionEvents = normalizedProvisions.flatMap(provision => provision.events
+    .filter(event => event.kind === 'release')
+    .map(event => ({ ...event, provisionId: event.provisionId || provision.id || '' })));
+  merged.provisionEvents = [
+    ...(Array.isArray(saved.provisionEvents) ? saved.provisionEvents.map(event => ({ ...event })) : []),
+    ...legacyProvisionEvents
+  ];
+  merged.provisions = normalizedProvisions.map(provision => ({
+    ...provision,
+    events: provision.events.filter(event => event.kind !== 'release')
+  }));
   merged.capacityRules = migrateCapacityRules(saved.capacityRules, merged.accounts, merged.provisions);
   merged.recurring = Array.isArray(saved.recurring) ? saved.recurring : [];
   return merged;
@@ -658,19 +673,125 @@ export async function addProvision(payload) {
   if (!name) return showToast('Nombre de provisión requerido');
   await mutate(s => {
     const id = uid('provision');
-    s.provisions.push({
+    const createdAt = new Date().toISOString();
+    s.provisions.push(normalizeProvision({
       id,
       name,
-      balance: Math.max(0, Number(payload.balance) || 0),
-      monthlyAmount: Math.max(0, Number(payload.monthlyAmount) || 0),
+      balance: payload.balance,
+      monthlyAmount: payload.monthlyAmount,
+      targetAmount: payload.targetAmount,
+      releaseDate: payload.releaseDate,
       icon: payload.icon || inferIcon(name, 'provision'),
-      color: payload.color || '#C68000'
-    });
+      color: payload.color || '#C68000',
+      createdAt,
+      updatedAt: createdAt
+    }));
     s.capacityRules = s.capacityRules || { accountRoles: {}, provisionIds: null };
     if (Array.isArray(s.capacityRules.provisionIds)) s.capacityRules.provisionIds = [...new Set([...s.capacityRules.provisionIds, id])];
     else s.capacityRules.provisionIds = s.provisions.map(provision => provision.id);
     s.onboarded = true;
   }, { undo: 'Provisión creada' });
+}
+
+export async function releaseProvision(id, payload = {}) {
+  const provision = state.provisions.find(item => item.id === id);
+  if (!provision) {
+    showToast('La provisión no existe');
+    return false;
+  }
+  const amount = Math.max(0, Number(provision.balance) || 0);
+  if (amount === 0) {
+    showToast('La provisión no tiene saldo para liberar');
+    return false;
+  }
+  const date = payload.date || new Date().toISOString().slice(0, 10);
+  const updatedAt = new Date().toISOString();
+  await mutate(s => {
+    const current = s.provisions.find(item => item.id === id);
+    current.balance = 0;
+    s.provisionEvents = [
+      ...(Array.isArray(s.provisionEvents) ? s.provisionEvents : []),
+      { provisionId: id, kind: 'release', amount, date }
+    ];
+    current.updatedAt = updatedAt;
+  }, { undo: 'Provisión liberada' });
+  return true;
+}
+
+export async function updateProvision(id, payload = {}) {
+  const provision = state.provisions.find(item => item.id === id);
+  if (!provision) {
+    showToast('La provisión no existe');
+    return false;
+  }
+  const name = payload.name === undefined ? provision.name : payload.name?.trim();
+  if (!name) {
+    showToast('Nombre de provisión requerido');
+    return false;
+  }
+  const updatedAt = new Date().toISOString();
+  await mutate(s => {
+    const index = s.provisions.findIndex(item => item.id === id);
+    const current = s.provisions[index];
+    s.provisions[index] = normalizeProvision({
+      ...current,
+      ...payload,
+      id: current.id,
+      name,
+      events: current.events,
+      createdAt: current.createdAt,
+      updatedAt
+    });
+  }, { undo: 'Provisión actualizada' });
+  return true;
+}
+
+export async function deleteProvision(id) {
+  const provision = state.provisions.find(item => item.id === id);
+  if (!provision) {
+    showToast('La provisión no existe');
+    return false;
+  }
+  if (Math.max(0, Number(provision.balance) || 0) > 0) {
+    showToast('Libera o ajusta el saldo antes de eliminar la provisión');
+    return false;
+  }
+  await mutate(s => {
+    s.provisions = s.provisions.filter(item => item.id !== id);
+    if (Array.isArray(s.capacityRules?.provisionIds)) {
+      s.capacityRules.provisionIds = s.capacityRules.provisionIds.filter(provisionId => provisionId !== id);
+    }
+  }, { undo: 'Provisión eliminada' });
+  return true;
+}
+
+export async function updateBudget(id, payload = {}) {
+  const budget = state.budgets.find(item => item.id === id);
+  if (!budget) {
+    showToast('El presupuesto no existe');
+    return false;
+  }
+  const amount = Math.abs(parseAmount(payload.amount));
+  if (!payload.month || !payload.category?.trim() || !amount) {
+    showToast('Período, categoría y monto requeridos');
+    return false;
+  }
+  await mutate(s => {
+    const index = s.budgets.findIndex(item => item.id === id);
+    s.budgets[index] = normalizeBudget({ ...s.budgets[index], ...payload, amount }, s);
+  }, { undo: 'Presupuesto actualizado' });
+  return true;
+}
+
+export async function deleteBudget(id) {
+  if (!state.budgets.some(item => item.id === id)) {
+    showToast('El presupuesto no existe');
+    return false;
+  }
+  await mutate(s => {
+    s.budgets = s.budgets.filter(item => item.id !== id);
+  }, { undo: 'Presupuesto eliminado' });
+  return true;
 }
 
 export async function saveTransaction(payload) {

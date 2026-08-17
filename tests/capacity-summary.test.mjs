@@ -5,7 +5,8 @@ import {
   dailyBudgetPace,
   operationalBudgetTotal,
   operationalCategoryRows,
-  operationalCategoryDistribution
+  operationalCategoryDistribution,
+  provisionReserve
 } from '../src/services/financeService.js';
 import { migrateCapacityRules } from '../src/state.js';
 
@@ -48,6 +49,49 @@ assert.equal(capacity.liquidityUsable, 4300);
 assert.equal(capacity.planRemaining, 1200);
 assert.equal(capacity.debt, 300);
 assert.equal(capacity.projectedBalance, 2800);
+
+const releasedState = {
+  ...state,
+  provisions: [
+    { id: 'reserve-1', name: 'Seguro', balance: 0, events: [{ kind: 'release', amount: 400, date: '2026-08-16' }] },
+    { id: 'reserve-2', name: 'Viaje', balance: 250, events: [] }
+  ],
+  capacityRules: {
+    ...state.capacityRules,
+    provisionIds: ['reserve-1', 'reserve-2']
+  },
+  transactions: [
+    ...state.transactions,
+    {
+      id: 'provision-movement',
+      date: '2026-07-06',
+      account: 'Caja',
+      movement: 'Provisión',
+      amount: 650,
+      provisionDelta: 650,
+      affectsBalance: false
+    }
+  ]
+};
+assert.equal(
+  provisionReserve(releasedState, { mode: 'month', month: '2026-07' }),
+  650,
+  'a release after the July cutoff must not reduce the July reserve'
+);
+assert.equal(
+  provisionReserve(releasedState, { mode: 'month', month: '2026-08' }),
+  250,
+  'the same release must reduce the reserve after the August cutoff'
+);
+assert.equal(capacitySummary(releasedState).selectedProvisions, 250, 'capacity must use selected current catalog balances');
+assert.equal(
+  provisionReserve({
+    ...releasedState,
+    provisions: [{ id: 'reserve-1', balance: 0, events: [{ kind: 'release', amount: 700, date: '2026-07-16' }] }]
+  }, { mode: 'month', month: '2026-07' }),
+  0,
+  'conceptual releases must never make the accumulated reserve negative'
+);
 
 const budget = budgetSummary(state);
 assert.equal(budget.spent, 300);

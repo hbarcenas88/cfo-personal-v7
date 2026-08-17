@@ -72,9 +72,15 @@ El análisis compara filas bancarias con movimientos de la cuenta. Una coinciden
 
 La primera versión no lee PDF ni imágenes, no conserva archivos bancarios originales, no crea ajustes para cuadrar y no se conecta a bancos. Las importaciones inválidas, fuera del rango declarado o repetidas se explican antes de crear o duplicar evidencia.
 
+### Planeación y provisiones administrables
+
+Planeación es el único lugar para administrar presupuestos, provisiones conceptuales y recurrentes. Los presupuestos se consultan con un filtro propio por mes: la lista sólo muestra el período elegido y no usa `<select>` nativo. Una provisión puede guardar planeación mensual y, de forma opcional, monto objetivo y fecha de liberación. Esa fecha acepta únicamente `AAAA-MM-DD`; una fecha importada inválida se señala y se normaliza como vacía. Los CSV históricos que no contienen objetivo o fecha siguen siendo válidos. Las exportaciones de provisiones incluyen `monto_objetivo` y `fecha_liberacion`; el respaldo JSON conserva el catálogo y sus `provisionEvents` conceptuales.
+
+Liberar una provisión lleva su saldo conceptual a cero y registra un evento conceptual con importe y fecha. La reserva acumulada de un período sólo descuenta liberaciones ocurridas en o antes de su fecha de corte; los eventos históricos sin fecha reconocible continúan descontándose para no reactivar reservas legacy. Borrar el catálogo después de liberar conserva el evento y tampoco reactiva la reserva. La liberación reduce la liquidez utilizable y la capacidad que se reservaba para esa provisión, pero no toca cuentas, movimientos, ingresos, gastos, presupuestos, transferencias ni auditoría bancaria. Una futura provisión real continúa fuera de alcance y requiere una decisión de producto separada.
+
 ### Proteger los datos
 
-La app explica que los datos viven en el navegador y facilita exportar un respaldo JSON antes de acciones de riesgo o cambios de dispositivo.
+La app explica que los datos viven en el navegador y facilita exportar un respaldo JSON antes de acciones de riesgo o cambios de dispositivo. El respaldo incluye el historial conceptual de liberaciones, pero nunca debe añadirse al repositorio junto con datos personales o financieros reales.
 
 ## Privacidad y persistencia
 

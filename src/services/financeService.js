@@ -1,5 +1,6 @@
 import { canon, clamp, currentMonth, monthEnd, parseAmount, parseDate, parseMonth, periodBounds, previousEquivalentPeriod, uid } from '../utils/format.js';
 import { comparisonPeriod } from './periodService.js';
+import { managedProvisionReserve, releasedProvisionAmount } from './planningService.js';
 
 export function normalizeTransaction(tx = {}, state) {
   const amount = Math.abs(parseAmount(tx.amount ?? tx.monto ?? 0) || 0);
@@ -167,11 +168,13 @@ export function accountBalances(state, period = state.period) {
 }
 
 export function provisionReserve(state, period = state.period) {
-  return Math.max(0, transactionsToCutoff(state, period).reduce((sum, tx) => sum + (Number(tx.provisionDelta) || 0), 0));
+  const movementReserve = transactionsToCutoff(state, period)
+    .reduce((sum, tx) => sum + (Number(tx.provisionDelta) || 0), 0);
+  return Math.max(0, movementReserve - releasedProvisionAmount(state, period));
 }
 
 export function provisionAssigned(state) {
-  return state.provisions.reduce((sum, provision) => sum + Math.max(0, Number(provision.balance) || 0), 0);
+  return managedProvisionReserve(state);
 }
 
 export function kpis(state, period = state.period) {

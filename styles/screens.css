@@ -2423,6 +2423,114 @@
   background: #fff;
 }
 
+.planning-manager {
+  display: grid;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.planning-section-head,
+.planning-row,
+.planning-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.planning-section-head {
+  justify-content: space-between;
+}
+
+.planning-section-head h3,
+.planning-section-head p {
+  margin: 0;
+}
+
+.planning-section-head p,
+.planning-note,
+.planning-confirmation {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.planning-period-filter {
+  display: flex;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding: 2px 0 var(--space-xs);
+  scrollbar-width: thin;
+}
+
+.planning-period-option {
+  min-width: max-content;
+  min-height: var(--control-md);
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.planning-period-option.active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.planning-entry {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.planning-row .row-main {
+  min-width: 0;
+}
+
+.planning-row .row-amount {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.planning-row-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.planning-action {
+  min-height: var(--control-md);
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.planning-action:disabled {
+  color: var(--text-muted);
+  opacity: .65;
+}
+
+.planning-row-actions .danger,
+.danger-action {
+  color: var(--red);
+}
+
+.provision-status {
+  color: var(--blue);
+  font-weight: 750;
+}
+
+.planning-sheet .field + .field {
+  margin-top: var(--space-sm);
+}
+
 .guided-audit-entry,
 .guided-audit-row,
 .guided-audit-pair,

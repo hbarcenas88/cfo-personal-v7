@@ -17,7 +17,7 @@ export function renderBalances(state) {
     </div>
     <div class="section-title"><h2>Saldos por cuenta</h2></div>
     ${card(renderAccountList(visible, balances, 'Sin cuentas visibles', 'Crea una cuenta o importa catálogos para empezar') + renderHiddenAccounts(hidden, balances) + renderAccountTotal(data.balanceTotal), 'account-total-card')}
-    <div class="section-title"><h2>Provisiones</h2></div>
+    <div class="section-title"><h2>Provisiones</h2><button class="chip dense" data-planning-focus="provisions">${icon('shield')} Administrar</button></div>
     ${renderProvisionCard(state)}
     <div class="section-title"><h2>Próximos pagos e ingresos</h2><button class="chip dense" data-settings="planning">${icon('calendarClock')} Administrar</button></div>
     ${card(renderUpcoming(state))}

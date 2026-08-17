@@ -119,7 +119,6 @@ export function renderDrawer() {
         ${settingsRow('planning', 'calendarClock', 'Planeación', 'Presupuesto, provisiones y recurrencias')}
         ${settingsRow('accounts', 'landmark', 'Cuentas', 'Orden, KPIs, iconos y colores')}
         ${settingsRow('categories-admin', 'tags', 'Categorías y subcategorías', 'Catálogo de gasto y presupuesto')}
-        ${settingsRow('provisions-admin', 'shield', 'Provisiones', 'Reservas y conceptos')}
         ${settingsRow('health', 'chart', 'Salud de datos', 'Calidad y posibles errores')}
         ${settingsRow('settings', 'settings', 'Configuración', 'Preferencias y reglas KPI')}
       </aside>

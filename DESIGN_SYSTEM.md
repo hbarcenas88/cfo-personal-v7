@@ -67,6 +67,10 @@ Cada diferencia usa texto, icono y color semántico; rojo para solo en la app, a
 
 En Ajustes → Descargar templates, `Auditoría — estado de cuenta` es una fila propia, no anidada en la importación del cierre. La descarga y el botón `?` de ayuda son hermanos; el botón de ayuda conserva un target mínimo de 44 px y expande una nota asociada sin solapar la fila ni desplazar los controles fuera del viewport.
 
+### Planeación administrable
+
+Planeación reúne Presupuestos, Provisiones y Recurrentes; no debe conservar una ruta paralela de Provisiones. Presupuestos usa un filtro propio de períodos en píldoras desplazables, con target mínimo de 44 px, `aria-pressed` y sin `<select>` nativo; sólo las filas del período activo permanecen en la lista. Las filas de provisión priorizan saldo conceptual, planeación y estado compacto; objetivo y fecha sólo aparecen cuando existen, y cualquier texto persistido se escapa al renderizar. Editar, liberar y eliminar se expresan como acciones distinguibles y alcanzables. La confirmación de liberación nombra el importe y el saldo resultante en cero, e incluye siempre `No modifica ninguna cuenta`; al ser una decisión que altera datos conceptuales se resuelve en un sheet explícito, no con un toast.
+
 ### Feedback
 
 Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmación explícita para borrar, restaurar, reiniciar o realizar una acción que pueda alterar datos.

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-44';
+const CACHE_NAME = 'cfo-personal-v7-cache-46';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -16,6 +16,7 @@ const APP_SHELL = [
   './src/utils/renderCoordinator.js',
   './src/services/storageService.js',
   './src/services/financeService.js',
+  './src/services/planningService.js',
   './src/services/importExportService.js',
   './src/services/backupService.js',
   './src/services/healthService.js',

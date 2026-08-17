@@ -1,5 +1,27 @@
 # CFO Personal V7 - Verificador de entrega
 
+## Oleada 2 — Planeación administrable — corrección final local
+
+### Evidencia automatizada — 2026-08-16
+
+- [x] RED del filtro: `planning-management.test.mjs` falló porque no existía `selectPlanningBudgetPeriod`; después confirmó períodos propios julio/agosto, una sola lista visible, cambio real de la selección, ausencia de `<select>` y retiro del título legado.
+- [x] RED temporal: `capacity-summary.test.mjs` mostró que julio devolvía `250` en lugar de `650`; GREEN confirmó julio antes de la liberación y agosto después. `planning-service.test.mjs` cubre además eventos canónicos, anidados y legacy sin fecha. `planning-state.test.mjs` conserva que borrar una provisión liberada no reactiva su reserva.
+- [x] RED de importación: el preview devolvía cero problemas para una `releaseDate` maliciosa; GREEN exige `AAAA-MM-DD` real, normaliza inválidos a vacío y confirma que `<img ...>` no entra al markup aunque un estado crudo llegue al renderer.
+- [x] RED PWA: `mobile-ui-contract.test.mjs` falló contra `cache-45`; GREEN confirma `cfo-personal-v7-cache-46` y conserva una sola entrada de `planningService.js`.
+- [x] Suite serial fresca 21/21, sintaxis de los 11 archivos JavaScript/MJS modificados y `git diff --check` terminaron con código 0. Sólo aparecieron advertencias informativas LF → CRLF.
+- [x] Las regresiones existentes confirman que liberar o eliminar una provisión no muta cuentas, movimientos, presupuestos, transferencias ni auditoría; sólo modifica el catálogo conceptual y su historial separado.
+
+### QA Browser y revisión real
+
+- [x] Browser afectado a 390 × 844 en `http://127.0.0.1:9136/`: página `CFO Personal V7`, DOM significativo, sin overlay ni errores/advertencias. Se crearon presupuestos julio/agosto; cambiar a julio mostró sólo Comida, dejó agosto fuera y editar actualizó `$300.00` a `$350.00` sin cambiar de filtro. Los dos targets midieron 44 px, hubo cero `<select>` y el documento permaneció 390/390. Se capturó evidencia visual del estado julio.
+- [x] El mismo recorrido creó una provisión con fecha válida, mostró la confirmación `No modifica ninguna cuenta`, liberó `$120.00` y dejó estado `Liberada` con saldo `$0.00`, sin overflow ni consola relevante.
+- [x] El review final real detectó cuatro hallazgos Important —filtro, corte temporal, fecha importada y documentación— y uno Minor —código/título legado—. Esta ronda los reprodujo y corrigió dentro del alcance enumerado.
+- [ ] Re-revisión de integración del controlador sobre el checkpoint final.
+
+### Publicación externa
+
+- [ ] No publicar ni verificar GitHub Pages hasta contar con el SHA final y autorización textual fresca.
+
 ## Oleada 1.1 — regresión de Registro y pulido de selectores — validación local
 
 ### Evidencia automatizada — 2026-08-13
