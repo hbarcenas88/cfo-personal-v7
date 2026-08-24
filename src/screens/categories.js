@@ -1,7 +1,7 @@
 import { icon } from '../icons.js';
 import { buildCategoryComparison, categoryRows } from '../services/financeService.js';
 import { card, emptyState, softColor } from '../components/ui.js';
-import { canon, formatMoney, html, periodLabel } from '../utils/format.js';
+import { canon, formatMoney, html, periodLabel, safeColor } from '../utils/format.js';
 
 export function renderCategories(state) {
   const filters = state.filters.categories;
@@ -13,6 +13,19 @@ export function renderCategories(state) {
 
 export function renderCategoriesResults(state) {
   const filters = state.filters.categories;
+  return `
+    <div class="segmented category-view-segmented" role="group" aria-label="Vista de categorías">
+      <button class="${filters.view === 'combined' ? 'active' : ''}" data-cat-view="combined" aria-pressed="${filters.view === 'combined'}">Combinado</button>
+      <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget" aria-pressed="${filters.view === 'budget'}">Presupuesto</button>
+      <button class="${filters.view === 'spend' ? 'active' : ''}" data-cat-view="spend" aria-pressed="${filters.view === 'spend'}">Gasto</button>
+    </div>
+    <div class="section-title"><h2>Categorías</h2></div>
+    <div data-category-card-results>${renderCategoryCards(state)}</div>
+  `;
+}
+
+export function renderCategoryCards(state) {
+  const filters = state.filters.categories;
   const comparison = filters.compare && filters.view !== 'budget'
     ? buildCategoryComparison(state, state.period, filters)
     : null;
@@ -23,15 +36,10 @@ export function renderCategoriesResults(state) {
     if (filters.categories.length) rows = rows.filter(row => filters.categories.some(cat => canon(cat) === canon(row.name)));
     rows = rows.filter(row => filters.view === 'budget' ? row.planned > 0 : filters.view === 'spend' ? row.spent > 0 : row.planned > 0 || row.spent > 0);
   }
+  const hasFilters = Boolean(filters.text || filters.categories.length);
   return `
-    <div class="segmented category-view-segmented">
-      <button class="${filters.view === 'combined' ? 'active' : ''}" data-cat-view="combined">Combinado</button>
-      <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget">Solo presupuesto</button>
-      <button class="${filters.view === 'spend' ? 'active' : ''}" data-cat-view="spend">Solo gasto</button>
-    </div>
-    <div class="section-title"><h2>Categorías</h2></div>
     ${comparison ? renderComparisonSummary(comparison) : comparisonUnavailable ? renderComparisonUnavailable() : ''}
-    ${rows.length ? rows.map(row => categoryCard(row, filters.expanded.includes(row.name), Boolean(comparison))).join('') : emptyState('grid', 'Sin datos en este período', 'Ajusta fechas, filtros o carga datos')}
+    ${rows.length ? rows.map((row, index) => categoryCard(row, filters.expanded.includes(row.name), Boolean(comparison), index)).join('') : categoryEmptyState(hasFilters)}
   `;
 }
 
@@ -53,16 +61,17 @@ function renderComparisonUnavailable() {
 
 function renderFilterPanel(filters, state) {
   const activeCount = filters.categories.length;
+  const hasFilters = Boolean(filters.text || activeCount);
   const label = activeCount ? `Categorías (${activeCount})` : 'Todas las categorías';
   return card(`
     <div class="metric-top">
       <h2 class="card-heading">Filtros de categorías</h2>
-      <button class="chip dense category-filter-clear" data-clear-cat-filters>Limpiar filtros</button>
+      <button type="button" class="chip dense category-filter-clear" data-clear-cat-filters ${hasFilters ? '' : 'hidden'}>Limpiar filtros</button>
     </div>
     <div class="category-filter-controls">
-      <input class="input" data-cat-search placeholder="Buscar categorías..." value="${html(filters.text || '')}">
+      <input class="input" data-cat-search data-interaction-key="category-search" placeholder="Buscar categorías..." aria-label="Buscar categorías" value="${html(filters.text || '')}">
       <div class="category-selector">
-        <button class="chip dense category-filter-trigger" data-open-category-filter aria-expanded="${Boolean(state.ui.categoryDropdown)}"><span class="chip-label">${label}</span>${icon('chevronDown')}</button>
+        <button type="button" class="chip dense category-filter-trigger" data-open-category-filter aria-expanded="${Boolean(state.ui.categoryDropdown)}" aria-controls="category-filter-options" aria-haspopup="dialog"><span class="chip-label" data-category-filter-label>${label}</span>${icon('chevronDown')}</button>
         ${state.ui.categoryDropdown ? renderCategoryDropdown(state) : ''}
       </div>
     </div>
@@ -74,10 +83,10 @@ function renderCategoryDropdown(state) {
   return `
     <div class="category-filter-dropdown" role="dialog" aria-label="Filtrar categorías">
       <div class="audit-dropdown-head"><strong>Categorías</strong><button class="icon-button compact" data-category-filter-close aria-label="Cerrar selector">${icon('x')}</button></div>
-      <div class="category-filter-options">
+      <div class="category-filter-options" id="category-filter-options">
         ${state.categories.length ? state.categories.map(category => {
           const included = selected.includes(category.name);
-          return `<button class="category-filter-option ${included ? 'selected' : ''}" data-category-filter-toggle="${html(category.name)}"><span>${html(category.name)}</span>${included ? icon('check') : ''}</button>`;
+          return `<button type="button" class="category-filter-option ${included ? 'selected' : ''}" data-category-filter-toggle="${html(category.name)}" aria-pressed="${included}"><span>${html(category.name)}</span>${included ? `<span data-option-selected-indicator aria-hidden="true">${icon('check')}</span>` : ''}</button>`;
         }).join('') : '<div class="empty-state">Sin categorías</div>'}
       </div>
       <div class="audit-dropdown-footer"><button class="audit-dropdown-clear" data-category-filter-clear>Limpiar</button><button class="secondary-button compact" data-category-filter-close>Listo</button></div>
@@ -85,15 +94,16 @@ function renderCategoryDropdown(state) {
   `;
 }
 
-function categoryCard(row, expanded, showComparison) {
+function categoryCard(row, expanded, showComparison, index) {
   const pct = row.planned ? Math.min(999, row.spent / row.planned * 100) : 0;
   const over = row.planned && row.spent > row.planned;
-  const color = row.color || '#0A8FE8';
+  const color = safeColor(row.color || '#0A8FE8');
+  const detailId = `category-detail-${index}`;
   return card(`
-    <button class="row-card interactive" data-cat-expand="${row.name}">
+    <button type="button" class="row-card interactive" data-cat-expand="${html(row.name)}" aria-expanded="${expanded}" aria-controls="${detailId}">
       <span class="row-icon" style="background:${softColor(color)};color:${color}">${icon(row.icon || 'folder')}</span>
       <span class="row-main">
-        <span class="row-title">${row.name}</span>
+        <span class="row-title">${html(row.name)}</span>
         <span class="row-subtitle">${row.planned ? `${formatMoney(row.spent)} / ${formatMoney(row.planned)}` : `${formatMoney(row.spent)} sin presupuesto`}</span>
       </span>
       <span class="row-amount ${over ? 'danger' : ''}">${formatMoney(row.spent)}<small class="row-amount-note" style="--amount-note-color:${over ? 'var(--red)' : 'var(--green)'}">${row.planned ? `${pct.toFixed(0)}%` : 'sin ppto'}</small></span>
@@ -101,8 +111,13 @@ function categoryCard(row, expanded, showComparison) {
     <div class="progress"><span style="width:${row.planned ? Math.min(100, pct) : 100}%;background:${over ? 'var(--red)' : color}"></span></div>
     ${showComparison ? renderComparisonNote(row) : ''}
     ${over ? `<div class="row-subtitle mt-sm">Exceso: <strong class="danger">${formatMoney(row.spent - row.planned)}</strong></div>` : ''}
-    ${expanded ? `<div class="subrows">${row.subcategories.length ? row.subcategories.map(sub => `<div class="subrow"><span>${sub.name}</span><strong>${formatMoney(sub.spent)} / ${formatMoney(sub.planned)}</strong></div>`).join('') : '<div class="row-subtitle">Sin subcategorías</div>'}</div>` : ''}
+    <div class="subrows" id="${detailId}" data-category-details ${expanded ? '' : 'hidden'}>${row.subcategories.length ? row.subcategories.map(sub => `<div class="subrow"><span>${html(sub.name)}</span><strong>${formatMoney(sub.spent)} / ${formatMoney(sub.planned)}</strong></div>`).join('') : '<div class="row-subtitle">Sin subcategorías</div>'}</div>
   `, 'category-card');
+}
+
+function categoryEmptyState(hasFilters) {
+  if (!hasFilters) return emptyState('grid', 'Sin datos en este período', 'Ajusta fechas o carga datos');
+  return `<div class="category-empty-filtered">${emptyState('search', 'Sin coincidencias', 'Prueba otra búsqueda o limpia los filtros')}<button type="button" class="secondary-button compact" data-clear-cat-filters>Limpiar filtros</button></div>`;
 }
 
 function renderComparisonNote(row) {

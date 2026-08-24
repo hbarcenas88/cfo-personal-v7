@@ -1,7 +1,7 @@
 import { icon } from '../icons.js';
 import { accountBalances, kpis, provisionAssigned, provisionReserve } from '../services/financeService.js';
 import { card, emptyState, iconBubble, metricCard } from '../components/ui.js';
-import { formatDate, formatMoney, formatSignedMoney, monthEnd } from '../utils/format.js';
+import { formatDate, formatMoney, formatSignedMoney, html, monthEnd, safeColor } from '../utils/format.js';
 
 export function renderBalances(state) {
   const data = kpis(state);
@@ -71,17 +71,20 @@ function renderHiddenAccounts(accounts, balances) {
 }
 
 function accountRow(account, balance) {
-  const color = account.color || '#0A8FE8';
+  const color = safeColor(account.color, '#0A8FE8');
+  const accountName = html(account.name);
   return `
-    <button class="row-card account-balance-row" data-audit-account="${account.name}">
+    <div class="row-card account-balance-row">
       ${iconBubble(account.icon || 'landmark', color, true, 'row-icon solid-icon')}
       <span class="row-main">
-        <span class="row-title">${account.name}</span>
-        <span class="row-subtitle stacked"><span>${account.type || 'Cuenta'}</span><em>doble toque audita</em></span>
+        <span class="row-title">${accountName}</span>
+        <span class="row-subtitle">${html(account.type || 'Cuenta')}</span>
       </span>
-      <span class="row-amount ${balance < 0 ? 'neg' : ''}">${balance < 0 ? '-' : ''}${formatMoney(balance)}</span>
-      <span class="chevron">${icon('chevronRight')}</span>
-    </button>
+      <span class="account-balance-actions">
+        <span class="row-amount ${balance < 0 ? 'neg' : ''}">${balance < 0 ? '-' : ''}${formatMoney(balance)}</span>
+        <button class="text-button account-audit-action" data-audit-account="${accountName}">Auditar saldo</button>
+      </span>
+    </div>
   `;
 }
 
@@ -95,12 +98,13 @@ function renderProvisionCard(state) {
   const available = reserve - assigned;
   const provisions = state.provisions;
   const segments = provisions.length ? provisions : [{ name: 'Sin provisiones', balance: 0, color: '#BFD0DF' }];
+  const hasReserve = reserve > 0;
   return card(`
     <div class="provision-layout">
-      <div class="donut" style="${donutStyle(segments)}"></div>
+      <div class="donut${hasReserve ? '' : ' empty'}" role="img" aria-label="${hasReserve ? `Provisiones: ${formatMoney(reserve)}` : `Sin provisiones: ${formatMoney(0)}`}" style="${donutStyle(segments)}"></div>
       <div class="legend-list">
         <div><strong>Reserva acumulada</strong><div class="row-amount success text-left">${formatMoney(reserve)}</div></div>
-        ${segments.slice(0, 4).map(p => `<div class="legend-item"><span class="legend-dot" style="background:${p.color || '#0A8FE8'}"></span><span>${p.name}</span><strong>${formatMoney(p.balance || 0)}</strong></div>`).join('')}
+        ${segments.slice(0, 4).map(p => `<div class="legend-item"><span class="legend-dot" style="background:${safeColor(p.color, '#0A8FE8')}"></span><span>${html(p.name)}</span><strong>${formatMoney(p.balance || 0)}</strong></div>`).join('')}
       </div>
     </div>
     <div class="progress provision-progress"><span style="width:${reserve ? Math.min(100, assigned / reserve * 100) : 0}%;background:${available < 0 ? 'var(--red)' : 'var(--amber)'}"></span></div>
@@ -131,12 +135,13 @@ function renderUpcoming(state) {
     .slice()
     .sort((a, b) => a.day - b.day)
     .map(item => {
-      const status = done[item.id] ? 'Completo' : dueStatus(item.day, month);
+      const completed = Boolean(done[item.id]);
+      const status = completed ? 'Completo' : dueStatus(item.day, month);
       return `
         <div class="row-card upcoming-row">
           ${iconBubble(item.icon || 'calendarClock', item.color || '#0A8FE8', false, 'row-icon')}
           <span class="row-main"><span class="row-title">${item.name}</span><span class="row-subtitle">${item.account || 'Sin cuenta'} · ${item.day} de ${monthName(month)}</span></span>
-          <span class="upcoming-state">${item.amount ? `<strong class="row-amount">${formatMoney(item.amount)}</strong>` : ''}<button class="check-pill" data-recurring-done="${item.id}">${status}</button></span>
+          <span class="upcoming-state">${item.amount ? `<strong class="row-amount">${formatMoney(item.amount)}</strong>` : ''}<button class="check-pill${completed ? ' selected' : ''}" data-recurring-done="${html(item.id)}" aria-pressed="${completed}">${completed ? icon('check') : ''}${status}</button></span>
         </div>
       `;
     }).join('');

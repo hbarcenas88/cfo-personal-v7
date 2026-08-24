@@ -52,6 +52,10 @@ La fecha de Registro se edita en un calendario propio: cuadrícula, navegación 
 
 Auditoría permite buscar, combinar filtros y abrir acciones de un movimiento. La edición debe persistir al recargar y conservar las reglas de cada tipo de movimiento.
 
+La búsqueda y los filtros tienen responsabilidades separadas: la X limpia sólo el texto y `Limpiar todos` limpia sólo Cuenta, Tipo, Categoría y Subcategoría. Los cuatro filtros admiten selección múltiple y conservan consulta, foco y desplazamiento interno al elegir más de una opción. Categorías aplica el mismo principio de actualización localizada: cambiar búsqueda, selección, segmento o expansión no debe devolver la página al inicio. Sus estados vacíos distinguen entre ausencia de datos y ausencia de coincidencias.
+
+Balances ofrece en cada cuenta una acción visible `Auditar saldo`. Esta acción abre Auditoría con la cuenta correspondiente ya filtrada; no crea movimientos, ajustes ni una segunda ruta de cálculo.
+
 ### Períodos y comparación analítica
 
 Balances, Resumen y Categorías comparten un período global confirmado por la persona usuaria. Su selector trabaja con un borrador hasta `Aplicar`; `Cancelar`, Escape o tocar fuera descartan ese borrador sin alterar el período confirmado ni los datos visibles. `Desde` y `Hasta` sólo aparecen al elegir `Personalizado`. La navegación anterior/siguiente preserva el modo elegido: mes, año o rango de igual duración.
@@ -76,7 +80,13 @@ La primera versión no lee PDF ni imágenes, no conserva archivos bancarios orig
 
 Planeación es el único lugar para administrar presupuestos, provisiones conceptuales y recurrentes. Los presupuestos se consultan con un filtro propio por mes: la lista sólo muestra el período elegido y no usa `<select>` nativo. Una provisión puede guardar planeación mensual y, de forma opcional, monto objetivo y fecha de liberación. Esa fecha acepta únicamente `AAAA-MM-DD`; una fecha importada inválida se señala y se normaliza como vacía. Los CSV históricos que no contienen objetivo o fecha siguen siendo válidos. Las exportaciones de provisiones incluyen `monto_objetivo` y `fecha_liberacion`; el respaldo JSON conserva el catálogo y sus `provisionEvents` conceptuales.
 
+La entrada de Planeación es un hub compacto con Presupuestos, Provisiones y Recurrentes; no apila los tres gestores. Cada tipo abre una subvista con una decisión para consultar lo planeado y otra para crear. El gestor conserva siempre una acción de creación visible. Presupuestos mantiene el filtro mensual; Provisiones separa `Activas`, `Liberadas` y `Todas`; Recurrentes separa `Vigentes` y `Completos` cuando existe ese estado. Esta navegación vive en estado de sesión y no modifica la persistencia ni las reglas financieras de los registros.
+
 Liberar una provisión lleva su saldo conceptual a cero y registra un evento conceptual con importe y fecha. La reserva acumulada de un período sólo descuenta liberaciones ocurridas en o antes de su fecha de corte; los eventos históricos sin fecha reconocible continúan descontándose para no reactivar reservas legacy. Borrar el catálogo después de liberar conserva el evento y tampoco reactiva la reserva. La liberación reduce la liquidez utilizable y la capacidad que se reservaba para esa provisión, pero no toca cuentas, movimientos, ingresos, gastos, presupuestos, transferencias ni auditoría bancaria. Una futura provisión real continúa fuera de alcance y requiere una decisión de producto separada.
+
+### Jerarquía de Ajustes
+
+Ajustes separa acciones normales, avanzadas y destructivas. Las capacidades futuras permanecen deshabilitadas y no aparentan ser navegables. `Borrar todos los datos` conserva tratamiento de peligro y confirmación explícita; una revisión visual nunca autoriza ejecutar esa acción.
 
 ### Proteger los datos
 

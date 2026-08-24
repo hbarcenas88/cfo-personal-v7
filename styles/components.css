@@ -1,3 +1,7 @@
+[hidden] {
+  display: none !important;
+}
+
 .app {
   position: relative;
   height: 100%;
@@ -98,6 +102,21 @@
   width: var(--button-icon-size);
   height: var(--button-icon-size);
   flex: 0 0 var(--button-icon-size);
+}
+
+.icon-only-button,
+.icon-button.compact,
+.ghost-icon.compact {
+  min-width: var(--control-md);
+  min-height: var(--control-md);
+}
+
+.icon-only-button svg,
+.icon-button.compact svg,
+.ghost-icon.compact svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: 0 0 var(--icon-md);
 }
 
 .period-pill {
@@ -666,10 +685,18 @@ svg.icon-xl {
   font-weight: 760;
 }
 
-.segmented button.active {
+.segmented button.active,
+.segmented button[aria-pressed="true"] {
   background: var(--blue);
   color: #fff;
   box-shadow: 0 8px 16px rgba(10, 143, 232, .18);
+}
+
+.category-view-segmented button[aria-pressed="true"]::before {
+  content: '✓';
+  margin-right: 4px;
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .primary-button,
@@ -1001,6 +1028,20 @@ textarea[aria-invalid="true"] {
   min-width: 0;
 }
 
+.trailing-icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--icon-md);
+  color: var(--text-muted);
+}
+
+.trailing-icon svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
 .empty-state {
   display: grid;
   place-items: center;
@@ -1064,6 +1105,14 @@ textarea[aria-invalid="true"] {
   background: transparent;
   color: #7dd3ff;
   font-weight: 820;
+}
+
+.toast .toast-dismiss {
+  width: var(--control-md);
+  height: var(--control-md);
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
 }
 
 .center-picker-pill {

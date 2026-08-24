@@ -1,7 +1,7 @@
 import { icon } from '../icons.js';
 import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
-import { renderSearchActivator } from '../components/searchableOptions.js';
+import { filterSearchableOptions, renderSearchActivator } from '../components/searchableOptions.js';
 import { canon, formatDate, formatMoney, html } from '../utils/format.js';
 import { renderAuditCloseEntry, renderAuditCloseList } from './auditClose.js';
 
@@ -43,20 +43,22 @@ function renderComparisonCard(comparison) {
 }
 
 function renderFilters(state, filters) {
-  const activeCount = ['accounts', 'types', 'categories', 'subcategories']
-    .reduce((count, key) => count + filters[key].length, 0);
+  const activeCount = auditActiveFilterCount(filters);
   const filterLabel = activeCount ? `Filtros (${activeCount})` : 'Filtros';
   return card(`
-    <div class="audit-filter-head"><strong>Registros</strong><button class="chip dense audit-filter-toggle" data-toggle-audit-filters aria-expanded="${Boolean(state.ui.auditFiltersOpen)}">${filterLabel}</button></div>
+    <div class="audit-filter-head"><strong>Registros</strong><button type="button" class="chip dense audit-filter-toggle" data-toggle-audit-filters aria-expanded="${Boolean(state.ui.auditFiltersOpen)}" aria-controls="audit-filter-panel"><span data-audit-filter-label>${filterLabel}</span></button></div>
     <div class="search-panel audit-search-panel">
-      <input class="input" data-audit-search placeholder="Buscar movimientos..." value="${filters.text || ''}">
-      <button class="filter-button audit-clear-button" data-audit-clear aria-label="Limpiar búsqueda y filtros">${icon('x')}</button>
+      <input class="input" data-audit-search data-interaction-key="audit-search" placeholder="Buscar movimientos..." aria-label="Buscar movimientos" value="${html(filters.text || '')}">
+      <button type="button" class="filter-button audit-clear-button" data-audit-clear-search aria-label="Limpiar búsqueda" ${filters.text ? '' : 'hidden'}>${icon('x')}</button>
     </div>
-    <div class="chip-row audit-active-filters">
-      ${filterChips(filters)}
+    <div class="audit-active-summary">
+      <div class="chip-row audit-active-filters" data-audit-active-filters>
+        ${renderAuditFilterChips(filters)}
+      </div>
+      <button type="button" class="text-button audit-clear-filters" data-audit-clear-filters ${activeCount ? '' : 'hidden'}>Limpiar todos</button>
     </div>
     ${state.ui.auditFiltersOpen ? `
-      <div class="audit-filter-panel">
+      <div class="audit-filter-panel" id="audit-filter-panel">
         <div class="chip-row audit-filter-selectors">
           ${selectorChip('Cuenta', 'account', state)}
           ${selectorChip('Tipo', 'type', state)}
@@ -70,9 +72,10 @@ function renderFilters(state, filters) {
 
 function selectorChip(label, type, state) {
   const alignRight = ['type', 'subcategory'].includes(type) ? ' audit-selector-align-right' : '';
+  const controls = `audit-filter-${type}`;
   return `
     <div class="audit-selector${alignRight}">
-      <button class="chip dense audit-filter-control" data-open-filter="${type}" aria-expanded="${state.ui.auditDropdown === type}"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
+      <button type="button" class="chip dense audit-filter-control" data-open-filter="${type}" aria-expanded="${state.ui.auditDropdown === type}" aria-controls="${controls}" aria-haspopup="dialog"><span class="chip-label">${label}</span> ${icon('chevronDown')}</button>
       ${state.ui.auditDropdown === type ? renderAuditDropdown(state) : ''}
     </div>
   `;
@@ -84,14 +87,18 @@ function renderAuditDropdown(state) {
   const key = { account: 'accounts', type: 'types', category: 'categories', subcategory: 'subcategories' }[type];
   const options = auditDropdownOptions(state, type);
   const searchable = options.length > 8;
+  const visibleOptions = new Set(filterSearchableOptions(
+    options.map(value => ({ value, label: value })),
+    state.ui.auditDropdownSearch || ''
+  ).map(option => option.value));
   return `
-    <div class="audit-dropdown" role="dialog" aria-label="Opciones de filtro">
+    <div class="audit-dropdown" id="audit-filter-${type}" role="dialog" aria-label="Opciones de ${auditDropdownTitle(type)}">
       <div class="audit-dropdown-head"><strong>${auditDropdownTitle(type)}</strong><button class="icon-button compact" data-audit-dropdown-close aria-label="Cerrar selector">${icon('x')}</button></div>
-      ${searchable ? renderAuditSearchActivator(state.ui.auditDropdownSearchActive) : ''}
-      <div class="audit-dropdown-options">
+      ${searchable ? renderAuditSearchActivator(state.ui.auditDropdownSearchActive, state.ui.auditDropdownSearch || '', `audit-filter-${type}-options`) : ''}
+      <div class="audit-dropdown-options" id="audit-filter-${type}-options">
         ${options.map(value => `
-          <button class="audit-dropdown-option ${state.filters.audit[key].includes(value) ? 'selected' : ''}" data-audit-dropdown-toggle="${type}:${html(value)}" data-audit-dropdown-option="${html(value)}">
-            <span>${html(value)}</span>${state.filters.audit[key].includes(value) ? icon('check') : ''}
+          <button type="button" class="audit-dropdown-option ${state.filters.audit[key].includes(value) ? 'selected' : ''}" data-audit-dropdown-toggle data-audit-filter-type="${type}" data-audit-dropdown-option="${html(value)}" aria-pressed="${state.filters.audit[key].includes(value)}" ${visibleOptions.has(value) ? '' : 'hidden'}>
+            <span>${html(value)}</span>${state.filters.audit[key].includes(value) ? `<span data-option-selected-indicator aria-hidden="true">${icon('check')}</span>` : ''}
           </button>
         `).join('') || '<div class="empty-state">Sin opciones</div>'}
       </div>
@@ -100,8 +107,8 @@ function renderAuditDropdown(state) {
   `;
 }
 
-function renderAuditSearchActivator(active) {
-  return renderSearchActivator(active)
+function renderAuditSearchActivator(active, query, controls) {
+  return renderSearchActivator(active, { query, label: 'Buscar opciones de filtro', controls })
     .replace('data-option-search-open', 'data-audit-dropdown-search-open')
     .replace('data-option-search', 'data-audit-dropdown-search')
     .replace('option-search-trigger', 'option-search-trigger audit-dropdown-search-trigger');
@@ -121,13 +128,18 @@ function auditDropdownTitle(type) {
   return { account: 'Cuenta', type: 'Tipo', category: 'Categoría', subcategory: 'Subcategoría' }[type] || 'Filtro';
 }
 
-function filterChips(filters) {
+export function auditActiveFilterCount(filters) {
+  return ['accounts', 'types', 'categories', 'subcategories']
+    .reduce((count, key) => count + (filters[key]?.length || 0), 0);
+}
+
+export function renderAuditFilterChips(filters) {
   const chips = [];
   filters.accounts.forEach(value => chips.push(['accounts', value]));
   filters.types.forEach(value => chips.push(['types', value]));
   filters.categories.forEach(value => chips.push(['categories', value]));
   filters.subcategories.forEach(value => chips.push(['subcategories', value]));
-  return chips.map(([type, value]) => `<button class="chip dense active audit-filter-active" data-filter-remove="${type}:${value}"><span class="chip-label">${value}</span> ${icon('x')}</button>`).join('') || '<span class="row-subtitle">Sin filtros activos</span>';
+  return chips.map(([type, value]) => `<button type="button" class="chip dense active audit-filter-active" data-filter-remove data-filter-key="${type}" data-filter-value="${html(value)}" aria-label="Quitar filtro ${html(value)}"><span class="chip-label">${html(value)}</span> ${icon('x')}</button>`).join('') || '<span class="row-subtitle">Sin filtros activos</span>';
 }
 
 function transactionCard(tx, state) {
@@ -138,12 +150,12 @@ function transactionCard(tx, state) {
     <div class="audit-card">
       ${iconBubble(category?.icon || txIcon(tx), color, false, 'row-icon')}
       <span class="row-main">
-        <span class="row-title">${tx.description || tx.movement}</span>
-        <span class="row-subtitle">${tx.category || tx.movement}${tx.subcategory ? ` · ${tx.subcategory}` : ''}</span>
-        <span class="row-subtitle audit-meta">${formatDate(tx.date)} · ${tx.account}</span>
-        ${tx.transferId ? `<span class="transfer-link">${tx.account} ${icon('link')} ${tx.accountTo || 'Cuenta vinculada'}</span>` : ''}
+        <span class="row-title">${html(tx.description || tx.movement)}</span>
+        <span class="row-subtitle">${html(tx.category || tx.movement)}${tx.subcategory ? ` · ${html(tx.subcategory)}` : ''}</span>
+        <span class="row-subtitle audit-meta">${formatDate(tx.date)} · ${html(tx.account)}</span>
+        ${tx.transferId ? `<span class="transfer-link">${html(tx.account)} ${icon('link')} ${html(tx.accountTo || 'Cuenta vinculada')}</span>` : ''}
       </span>
-      <span class="audit-side"><span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span><button class="menu-button" data-tx-menu="${tx.id}" aria-label="Abrir acciones">${icon('more')}</button></span>
+      <span class="audit-side"><span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span><button class="menu-button" data-tx-menu="${html(tx.id)}" aria-label="Abrir acciones">${icon('more')}</button></span>
     </div>
   `, 'audit-card-wrap');
 }

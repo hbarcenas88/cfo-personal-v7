@@ -21,6 +21,18 @@ export function html(value) {
   }[char]));
 }
 
+export function safeColor(value, fallback = 'var(--blue)') {
+  const normalized = String(value ?? '').trim();
+  if (isSafeColor(normalized)) return normalized;
+  const safeFallback = String(fallback ?? '').trim();
+  return isSafeColor(safeFallback) ? safeFallback : 'var(--blue)';
+}
+
+function isSafeColor(value) {
+  return /^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(value)
+    || /^var\(--[a-z][a-z0-9-]*\)$/i.test(value);
+}
+
 export function jsString(value) {
   return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
 }

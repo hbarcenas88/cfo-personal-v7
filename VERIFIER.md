@@ -1,5 +1,32 @@
 # CFO Personal V7 - Verificador de entrega
 
+## Oleada 3 — auditoría visual, interacción y Planeación compacta — cierre local en curso
+
+### Contratos, implementación y revisiones aprobadas — 2026-08-24
+
+- [x] Task 1: geometría compartida de iconos/targets, `safeColor`, escape de texto y lifecycle de overlays con foco/scroll por identidad. La revisión independiente cerró dos rondas sobre el retorno al disparador real con `SPEC PASS / QUALITY APPROVED`.
+- [x] Task 2: hub compacto de Planeación, subvistas y gestores exclusivos, filtros semánticos y navegación de sesión sin cambios financieros. El target recurrente corregido mide 44 px; la revisión independiente terminó `SPEC PASS / QUALITY APPROVED`.
+- [x] Task 3: Auditoría y Categorías separan búsqueda/limpieza, conservan consulta/foco/scroll mediante actualización localizada, escapan contenido y presentan geometría/semántica accesible. Los clears condicionados, `Limpiar todos` y los 12 targets de acciones se corrigieron y la revisión independiente terminó `SPEC PASS / QUALITY APPROVED` a 390 × 844 con datos sintéticos.
+- [x] Task 4: V3-01…V3-09, incluida la corrección de importes extremos en Balances, quedaron cubiertos por contratos y re-revisión independiente a 390 × 844 y 1280 × 900. Veredicto final: `SPEC PASS / QUALITY APPROVED`.
+- [x] TDD de PWA: `pwa-cache-parity.test.mjs` falló primero porque el worker exponía `cfo-personal-v7-cache-46`; después del cambio mínimo confirma `cache-47`, inventario completo de assets de aplicación, una sola ocurrencia por asset y ausencia de tests, documentación, datos o artefactos de herramientas en `APP_SHELL`.
+- [x] Fuentes de verdad actualizadas con el comportamiento implementado y aprobado. `.superdesign` no generó código de producto ni constituye evidencia Browser.
+
+### Verificación integral de Task 5
+
+- [x] Suite serial fresca: 31/31 archivos `tests/*.test.mjs`, cero fallos.
+- [x] Sintaxis fresca: 14/14 archivos JavaScript de producción modificados, derivados del diff real.
+- [x] `git diff --check` completo con código 0; escaneo de 39 archivos candidatos sin secretos ni archivos CSV/XLSX/JSON de datos, backups o capturas. `.superdesign/**` y `.superpowers/sdd/**` permanecen fuera de los archivos propuestos para el commit.
+- [x] QA renderizado acumulado del mismo worktree en 390 × 844 y escritorio: Tasks 2–4 cubren Planeación, Auditoría/Categorías, Balances/Resumen/Ajustes y overlays; la comprobación final confirmó identidad/cache-47 y Registro fresco sin guardar datos. En Registro, `1 → 12 → 12. → 12.5` apareció inmediatamente, borrar actuó al instante, Cuenta/Categoría/Fecha conservaron el monto y el calendario propio mantuvo targets ≥44 px, acciones inferiores alcanzables, foco de retorno, overflow 0 y consola limpia.
+- [x] Reviewer final independiente de la Oleada 3 dentro del máximo de 40 minutos: `SPEC PASS / QUALITY APPROVED`, cero Critical y cero Important abiertos. La matriz no se fingió como una sola sesión ininterrumpida; el informe identifica qué evidencia proviene de cada revisión aprobada.
+- [x] Commit local único de la Oleada 3, limitado a producto, contratos, fuentes de verdad y plan/spec; sin datos, capturas ni artefactos de herramientas.
+
+### Pendientes externos — no sustituidos por evidencia local
+
+- [ ] Autorización textual fresca para publicar el SHA final en `https://github.com/hbarcenas88/cfo-personal-v7.git`.
+- [ ] Verificación de GitHub Pages después de la publicación autorizada.
+- [ ] Validación en teléfono físico y aceptación de la PWA instalada.
+- [ ] Recorrido no destructivo con datos reales respaldados. Las pruebas y datos sintéticos no sustituyen esta aceptación.
+
 ## Oleada 2 — Planeación administrable — corrección final local
 
 ### Evidencia automatizada — 2026-08-16

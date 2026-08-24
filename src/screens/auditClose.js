@@ -13,7 +13,7 @@ export function renderAuditCloseEntry(state) {
         <strong>Auditoría guiada</strong>
         <small>${openCount ? `${openCount} cierres por revisar` : 'Compara una cuenta con su estado de cuenta'}</small>
       </div>
-      <button class="primary-button compact guided-audit-action" data-open-audit-close>Nuevo cierre</button>
+      <button class="primary-button compact guided-audit-action" data-open-audit-close data-interaction-key="guided-audit-new-close">Nuevo cierre</button>
     </div>
   `);
 }
@@ -82,8 +82,8 @@ export function renderAuditCloseDeleteSheet(state) {
           <h2 class="sheet-title">Eliminar cierre</h2>
           <span></span>
         </div>
-        <p>EliminarÃ¡s la evidencia de este cierre. Los movimientos, saldos, presupuestos y transferencias no cambiarÃ¡n.</p>
-        <div class="sheet-actions">
+        <p>Eliminarás la evidencia de este cierre. Los movimientos, saldos, presupuestos y transferencias no cambiarán.</p>
+        <div class="sheet-actions guided-audit-delete-actions">
           <button class="secondary-button" data-sheet-close>Cancelar</button>
           <button class="danger-button" data-confirm-delete-audit-close="${html(close.id)}">Eliminar cierre</button>
         </div>

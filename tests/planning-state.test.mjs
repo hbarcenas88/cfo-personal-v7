@@ -64,6 +64,16 @@ globalThis.window = {
 const stateModule = await import('../src/state.js');
 
 await stateModule.initState();
+assert.deepEqual(
+  {
+    view: stateModule.state.ui.planningView,
+    type: stateModule.state.ui.planningType,
+    provisionFilter: stateModule.state.ui.planningProvisionFilter,
+    recurringFilter: stateModule.state.ui.planningRecurringFilter
+  },
+  { view: 'hub', type: '', provisionFilter: 'active', recurringFilter: 'current' },
+  'Planning navigation and filters must start from session defaults'
+);
 stateModule.state.period = { mode: 'month', month: '2026-08' };
 stateModule.state.accounts = [{ id: 'bac', name: 'BAC', kpi: { available: true } }];
 stateModule.state.transactions = [

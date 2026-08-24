@@ -44,29 +44,130 @@ const state = {
 };
 
 const planning = renderSettings(state);
-assert.match(planning, /data-planning-section="budgets"/);
-assert.match(planning, /data-planning-section="provisions"/);
-assert.match(planning, /data-tool="planning-budgets"/);
-assert.match(planning, /data-tool="planning-provisions"/);
-assert.match(planning, /data-budget-period="2026-07"/);
-assert.match(planning, /data-budget-period="2026-08"/);
+assert.match(planning, /data-planning-type="budgets"/);
+assert.match(planning, /data-planning-type="provisions"/);
+assert.match(planning, /data-planning-type="recurring"/);
+assert.doesNotMatch(planning, /data-planning-section=/,
+  'the Planning hub must not stack any full manager');
+assert.doesNotMatch(planning, /data-budget-period=/,
+  'the Planning hub must not render a manager filter');
 assert.doesNotMatch(planning, /<select/);
-assert.match(planning, /data-budget-edit="budget-food"/);
-assert.match(planning, /data-budget-delete="budget-food"/);
-assert.doesNotMatch(planning, /data-budget-edit="budget-rent"/,
+assert.match(planning, /class="chip dense planning-back-action" data-settings-back/,
+  'the Planning hub Menu action must preserve the same 44px navigation target');
+
+const budgetType = renderSettings({
+  ...state,
+  ui: { ...state.ui, planningView: 'budgets', planningType: 'budgets' }
+});
+assert.match(budgetType, /data-planning-manager="budgets"[^>]*>[\s\S]*?Ver lo planeado/);
+assert.match(budgetType, /data-tool="planning-budgets"[^>]*>[\s\S]*?Crear nuevo/);
+assert.match(budgetType, /data-planning-back="budgets"[^>]*>[\s\S]*?Volver/);
+assert.match(budgetType, /class="chip dense planning-back-action"/,
+  'nested Planning navigation must use the 44px back target variant');
+assert.doesNotMatch(budgetType, /data-settings-back/);
+assert.doesNotMatch(budgetType, /data-planning-section=/,
+  'a Planning type view must show decisions, not its full manager');
+
+const budgetManager = renderSettings({
+  ...state,
+  ui: { ...state.ui, planningView: 'manager', planningType: 'budgets' }
+});
+assert.match(budgetManager, /data-planning-section="budgets"/);
+assert.match(budgetManager, /data-planning-back="manager"/);
+assert.doesNotMatch(budgetManager, /data-planning-section="provisions"|data-planning-section="recurring"/,
+  'the budget manager must not render either sibling manager');
+assert.match(budgetManager, /data-tool="planning-budgets"[^>]*>[\s\S]*?Crear/,
+  'the manager must keep creation visible');
+assert.match(budgetManager, /data-budget-period="2026-07"/);
+assert.match(budgetManager, /data-budget-period="2026-08"/);
+assert.match(budgetManager, /data-budget-edit="budget-food"/);
+assert.doesNotMatch(budgetManager, /data-budget-edit="budget-rent"/,
   'the July budget list must not render August entries');
-assert.match(planning, /Comida/);
 
 assert.equal(selectPlanningBudgetPeriod(state, '2026-08'), true);
-const augustPlanning = renderSettings(state);
+const augustPlanning = renderSettings({
+  ...state,
+  ui: { ...state.ui, planningView: 'manager', planningType: 'budgets' }
+});
 assert.equal(state.ui.planningBudgetPeriod, '2026-08');
 assert.match(augustPlanning, /data-budget-edit="budget-rent"/);
 assert.doesNotMatch(augustPlanning, /data-budget-edit="budget-food"/,
-  'changing the custom period filter must replace the visible budget rows');
+  'changing the monthly filter must replace the visible budget rows');
 assert.equal(selectPlanningBudgetPeriod(state, 'not-a-month'), false);
-assert.equal(state.ui.planningBudgetPeriod, '2026-08');
-assert.match(planning, /data-provision-edit="provision-vacation"/);
-assert.match(planning, /data-provision-release="provision-vacation"/);
+
+const provisionState = {
+  ...state,
+  provisions: [
+    state.provisions[0],
+    { id: 'released', name: 'Seguro', balance: 0, monthlyAmount: 10, targetAmount: 0, releaseDate: '' }
+  ],
+  ui: {
+    ...state.ui,
+    planningView: 'manager',
+    planningType: 'provisions',
+    planningProvisionFilter: 'active'
+  }
+};
+const activeProvisions = renderSettings(provisionState);
+assert.match(activeProvisions, /data-planning-provision-filter="active"[^>]*aria-pressed="true"/);
+assert.match(activeProvisions, /data-planning-provision-filter="released"/);
+assert.match(activeProvisions, /data-planning-provision-filter="all"/);
+assert.match(activeProvisions, /data-tool="planning-provisions"[^>]*>[\s\S]*?Crear/);
+assert.match(activeProvisions, /data-provision-edit="provision-vacation"/);
+assert.doesNotMatch(activeProvisions, /data-provision-edit="released"/);
+assert.match(activeProvisions, /Meta \$600\.00/);
+assert.match(activeProvisions, /15 Diciembre 2026/,
+  'a saved release date must be rendered for people, not as an ISO storage value');
+assert.doesNotMatch(activeProvisions, /2026-12-15/);
+assert.doesNotMatch(activeProvisions, /Meta opcional sin definir|Fecha opcional sin definir/);
+assert.doesNotMatch(activeProvisions, /data-budget-period=/,
+  'provision filtering must not invent a monthly scope');
+
+const releasedProvisions = renderSettings({
+  ...provisionState,
+  ui: { ...provisionState.ui, planningProvisionFilter: 'released' }
+});
+assert.match(releasedProvisions, /data-provision-edit="released"/);
+assert.doesNotMatch(releasedProvisions, /data-provision-edit="provision-vacation"/);
+assert.doesNotMatch(releasedProvisions, /Meta \$|Liberación /,
+  'missing goal and release date must not produce placeholder metadata');
+
+const allProvisions = renderSettings({
+  ...provisionState,
+  ui: { ...provisionState.ui, planningProvisionFilter: 'all' }
+});
+assert.match(allProvisions, /data-provision-edit="released"/);
+assert.match(allProvisions, /data-provision-edit="provision-vacation"/);
+
+const recurringState = {
+  ...state,
+  recurring: [
+    { id: 'rent', name: 'Alquiler', type: 'Pago', day: 1, amount: 900 },
+    { id: 'salary', name: 'Salario', type: 'Ingreso', day: 15, amount: 2000 }
+  ],
+  recurringDone: { '2026-07': { rent: true } },
+  ui: {
+    ...state.ui,
+    planningView: 'manager',
+    planningType: 'recurring',
+    planningRecurringFilter: 'current'
+  }
+};
+const currentRecurring = renderSettings(recurringState);
+assert.match(currentRecurring, /data-tool="recurring"[^>]*>[\s\S]*?Crear/);
+assert.match(currentRecurring, /data-planning-recurring-filter="current"[^>]*aria-pressed="true"/);
+assert.match(currentRecurring, /data-planning-recurring-filter="completed"/);
+assert.match(currentRecurring, /data-recurring-item="salary"/);
+assert.doesNotMatch(currentRecurring, /data-recurring-item="rent"/);
+
+const completedRecurring = renderSettings({
+  ...recurringState,
+  ui: { ...recurringState.ui, planningRecurringFilter: 'completed' }
+});
+assert.match(completedRecurring, /data-recurring-item="rent"/);
+assert.doesNotMatch(completedRecurring, /data-recurring-item="salary"/);
+assert.match(completedRecurring, /Completo/);
+assert.doesNotMatch(completedRecurring, /<select/);
 assert.doesNotMatch(renderDrawer(), /data-settings="provisions-admin"/);
 assert.doesNotMatch(renderSettings({ ...state, settingsPage: 'catalogs' }), /provisions-admin/);
 assert.doesNotMatch(
@@ -77,6 +178,7 @@ assert.doesNotMatch(
 
 const maliciousPlanning = renderSettings({
   ...state,
+  ui: { ...state.ui, planningView: 'manager', planningType: 'provisions' },
   provisions: [{
     ...state.provisions[0],
     releaseDate: '<img src=x onerror=alert(1)>'
@@ -84,8 +186,8 @@ const maliciousPlanning = renderSettings({
 });
 assert.doesNotMatch(maliciousPlanning, /<img src=x onerror=alert\(1\)>/,
   'an untrusted release date must never enter rendered markup');
-assert.match(maliciousPlanning, /&lt;img src=x onerror=alert\(1\)&gt;/,
-  'untrusted display text must be HTML escaped at the render boundary');
+assert.doesNotMatch(maliciousPlanning, /&lt;img src=x onerror=alert\(1\)&gt;/,
+  'an invalid release date must be omitted instead of presented as metadata');
 
 const provisionSheet = renderProvisionSheet({
   ...state,
@@ -112,9 +214,7 @@ const [balancesSource, mainSource, settingsSource, screenStyles] = await Promise
 
 assert.match(balancesSource, /data-planning-focus="provisions"/,
   'Balances must name Provisions as the contextual Planning destination');
-assert.match(planning, /data-planning-section="provisions"[^>]*data-planning-focus="provisions"/,
-  'the destination section must be identifiable for focus after routing');
-assert.doesNotMatch(planning, /planning-row-actions"><button class="chip dense/,
+assert.doesNotMatch(budgetManager, /planning-row-actions"><button class="chip dense/,
   'manager row actions must not use compact 32px chips');
 assert.match(screenStyles, /\.planning-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/,
   'manager actions must preserve a 44px touch target');

@@ -3,15 +3,19 @@ import { dataHealth } from '../services/healthService.js';
 import { resolveCapacityRules } from '../services/financeService.js';
 import { card, emptyState } from '../components/ui.js';
 import { AUDIT_STATEMENT_TEMPLATE_KIND, templateHeaders, templateMeta } from '../services/importExportService.js';
-import { formatMoney, html } from '../utils/format.js';
+import { formatDate, formatMoney, html, safeColor } from '../utils/format.js';
 import { provisionStatus } from '../services/planningService.js';
 
 export function renderSettings(state) {
   const page = state.settingsPage || 'tools';
+  const planningView = state.ui?.planningView || 'hub';
+  const planningNested = page === 'planning' && planningView !== 'hub';
   return `
     <div class="section-title">
       <h2>${pageTitle(page)}</h2>
-      <button class="chip dense" data-settings-back>${icon('chevronLeft')} Menú</button>
+      ${planningNested
+        ? `<button class="chip dense planning-back-action" data-planning-back="${planningView}">${icon('chevronLeft')} Volver</button>`
+        : `<button class="chip dense${page === 'planning' ? ' planning-back-action' : ''}" data-settings-back>${icon('chevronLeft')} Menú</button>`}
     </div>
     ${page === 'tools' ? renderTools() : ''}
     ${page === 'planning' ? renderPlanning(state) : ''}
@@ -40,16 +44,28 @@ function pageTitle(page) {
 }
 
 function renderTools() {
-  return card(`
-    ${tool('import-transactions', 'fileUp', 'Importar movimientos o presupuesto', 'CSV con preview y validación')}
-    ${tool('import-catalogs', 'database', 'Importar catálogos', 'Cuentas, categorías, provisiones y recurrentes')}
-    ${tool('export-csv', 'download', 'Exportar multi-CSV', 'Movimientos, presupuestos, catálogos y provisiones')}
-    ${tool('templates', 'fileDown', 'Descargar templates', 'Formatos CSV esperados')}
-    ${tool('backup', 'backup', 'Respaldo JSON', 'Archivo completo para restaurar')}
-    ${tool('restore', 'upload', 'Restaurar respaldo', 'Importa un JSON de CFO Personal')}
-    ${tool('debug', 'chart', 'Debug / Storage Inspector', 'Temporal: storage, errores y cache')}
-    ${tool('reset-data', 'trash', 'Borrar toda la data', 'Reinicia V7 en este navegador')}
-  `, 'tool-card');
+  return `
+    ${settingsGroup('normal', 'Datos y respaldos', card(`
+      ${tool('import-transactions', 'fileUp', 'Importar movimientos o presupuesto', 'CSV con vista previa y validación')}
+      ${tool('import-catalogs', 'database', 'Importar catálogos', 'Cuentas, categorías, provisiones y recurrentes')}
+      ${tool('export-csv', 'download', 'Exportar varios CSV', 'Movimientos, presupuestos, catálogos y provisiones')}
+      ${tool('templates', 'fileDown', 'Descargar plantillas', 'Formatos CSV esperados')}
+      ${tool('backup', 'backup', 'Respaldo JSON', 'Archivo completo para restaurar')}
+      ${tool('restore', 'upload', 'Restaurar respaldo', 'Importa un JSON de CFO Personal')}
+    `, 'tool-card'))}
+    ${settingsGroup('advanced', 'Herramientas avanzadas', card(
+      tool('debug', 'chart', 'Depuración / inspector de almacenamiento', 'Temporal: almacenamiento, errores y caché'),
+      'tool-card'
+    ))}
+    ${settingsGroup('danger', 'Zona de riesgo', card(
+      tool('reset-data', 'trash', 'Borrar todos los datos', 'Reinicia V7 en este navegador', { tone: 'danger' }),
+      'tool-card danger-settings-card'
+    ))}
+  `;
+}
+
+function settingsGroup(kind, title, content) {
+  return `<section class="settings-group settings-group-${kind}" data-settings-group="${kind}"><h3 class="settings-group-title">${title}</h3>${content}</section>`;
 }
 
 function createCatalogCard(label, action, iconName = 'plus') {
@@ -63,14 +79,150 @@ function createCatalogCard(label, action, iconName = 'plus') {
 }
 
 function renderPlanning(state) {
+  const view = state.ui?.planningView || 'hub';
+  if (view === 'hub') return renderPlanningHub();
+  const type = view === 'manager' ? state.ui?.planningType : view;
+  if (!['budgets', 'provisions', 'recurring'].includes(type)) return renderPlanningHub();
+  if (view !== 'manager') return renderPlanningType(type);
+  return renderPlanningManager(state, type);
+}
+
+function renderPlanningManager(state, type) {
+  if (type === 'budgets') return renderBudgetManager(state);
+  if (type === 'provisions') return renderProvisionManager(state);
+  return renderRecurringManager(state);
+}
+
+function renderBudgetManager(state) {
   const periods = planningBudgetPeriods(state);
   const selectedPeriod = selectedPlanningBudgetPeriod(state, periods);
   const budgets = state.budgets.filter(budget => budget.month === selectedPeriod);
   return `
-    ${card(`${tool('planning-budgets', 'calendar', 'Presupuestos', 'Administrar planes guardados')}${tool('planning-provisions', 'shield', 'Provisiones', 'Reservas conceptuales y liberación')}${tool('recurring', 'calendarClock', 'Pagos e ingresos recurrentes', 'Recordatorios mensuales')}`, 'tool-card')}
-    <section class="planning-manager" data-planning-section="budgets"><div class="planning-section-head"><div><h3>Presupuestos</h3><p>Impactan el análisis del período, no los saldos de cuenta.</p></div><button class="planning-action" data-tool="planning-budgets">${icon('plus')} Nuevo</button></div>${renderBudgetPeriodFilter(periods, selectedPeriod)}${budgets.length ? budgets.map(budgetRow).join('') : card(emptyState('calendar', `Sin presupuestos para ${selectedPeriod}`, 'Crea un plan mensual para comparar tu gasto.'))}</section>
-    <section class="planning-manager" data-planning-section="provisions" data-planning-focus="provisions" tabindex="-1"><div class="planning-section-head"><div><h3>Provisiones</h3><p>Reservas conceptuales; no son movimientos financieros.</p></div><button class="planning-action" data-tool="planning-provisions">${icon('plus')} Nueva</button></div>${state.provisions.length ? state.provisions.map(provisionManagerRow).join('') : card(emptyState('shield', 'Sin provisiones', 'Crea una reserva conceptual para planificarla.'))}</section>
-    <section class="planning-manager" data-planning-section="recurring">${card(`<h3 class="card-heading">Recurrentes actuales</h3>${state.recurring.length ? state.recurring.map(r => `<div class="row-card"><span class="row-icon solid-icon" style="background:${r.color || '#0A8FE8'};color:#fff;">${icon(r.icon || 'calendarClock')}</span><span class="row-main"><span class="row-title">${html(r.name)}</span><span class="row-subtitle">${r.type} · día ${r.day}${r.amount ? ` · ${formatMoney(r.amount)}` : ''}</span></span></div>`).join('') : emptyState('calendarClock', 'Sin recurrentes')}`)}</section>
+    <section class="planning-manager" data-planning-section="budgets">
+      <div class="planning-section-head"><div><h3>Presupuestos</h3><p>Impactan el análisis del período, no los saldos de cuenta.</p></div><button class="planning-action" data-tool="planning-budgets">${icon('plus')} Crear</button></div>
+      ${renderBudgetPeriodFilter(periods, selectedPeriod)}
+      ${budgets.length ? budgets.map(budgetRow).join('') : card(emptyState('calendar', `Sin presupuestos para ${selectedPeriod}`, 'Crea un plan mensual para comparar tu gasto.'))}
+    </section>
+  `;
+}
+
+function renderPlanningHub() {
+  return card(`
+    ${planningType('budgets', 'calendar', 'Presupuestos', 'Planes mensuales por categoría')}
+    ${planningType('provisions', 'shield', 'Provisiones', 'Reservas conceptuales y liberación')}
+    ${planningType('recurring', 'calendarClock', 'Recurrentes', 'Pagos e ingresos mensuales')}
+  `, 'tool-card planning-hub');
+}
+
+function renderPlanningType(type) {
+  const types = {
+    budgets: {
+      iconName: 'calendar',
+      title: 'Presupuestos',
+      description: 'Define planes mensuales por categoría y compáralos con tu gasto.',
+      action: 'planning-budgets',
+      create: 'Crear nuevo'
+    },
+    provisions: {
+      iconName: 'shield',
+      title: 'Provisiones',
+      description: 'Organiza reservas conceptuales sin alterar cuentas ni movimientos.',
+      action: 'planning-provisions',
+      create: 'Nueva provisión'
+    },
+    recurring: {
+      iconName: 'calendarClock',
+      title: 'Recurrentes',
+      description: 'Revisa pagos e ingresos mensuales y su estado en el período.',
+      action: 'recurring',
+      create: 'Nuevo recurrente'
+    }
+  };
+  const item = types[type];
+  return `
+    <section class="planning-type-view" data-planning-type-view="${type}">
+      <div class="planning-type-intro">
+        <span class="row-icon">${icon(item.iconName)}</span>
+        <div><h3>${item.title}</h3><p>${item.description}</p></div>
+      </div>
+      <div class="planning-decisions">
+        <button class="settings-row planning-decision" data-planning-manager="${type}">
+          <span class="row-icon">${icon('listChecks')}</span>
+          <span><strong>Ver lo planeado</strong><small>Consulta y administra lo que ya guardaste.</small></span>
+          ${icon('chevronRight')}
+        </button>
+        <button class="settings-row planning-decision" data-tool="${item.action}">
+          <span class="row-icon">${icon('plus')}</span>
+          <span><strong>${item.create}</strong><small>Abre el formulario guiado.</small></span>
+          ${icon('chevronRight')}
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderProvisionManager(state) {
+  const filter = ['active', 'released', 'all'].includes(state.ui?.planningProvisionFilter)
+    ? state.ui.planningProvisionFilter
+    : 'active';
+  const provisions = (state.provisions || []).filter(provision => {
+    if (filter === 'active') return Number(provision.balance) > 0;
+    if (filter === 'released') return Number(provision.balance) <= 0;
+    return true;
+  });
+  const emptyTitles = {
+    active: 'Sin provisiones activas',
+    released: 'Sin provisiones liberadas',
+    all: 'Sin provisiones'
+  };
+  return `
+    <section class="planning-manager" data-planning-section="provisions">
+      <div class="planning-section-head"><div><h3>Provisiones</h3><p>Reservas conceptuales; no son movimientos financieros.</p></div><button class="planning-action" data-tool="planning-provisions">${icon('plus')} Crear</button></div>
+      ${renderPlanningFilter('provision', filter, [['active', 'Activas'], ['released', 'Liberadas'], ['all', 'Todas']])}
+      ${provisions.length ? provisions.map(provisionManagerRow).join('') : card(emptyState('shield', emptyTitles[filter], 'Crea una reserva conceptual para planificarla.'))}
+    </section>
+  `;
+}
+
+function renderRecurringManager(state) {
+  const month = state.period?.month || '';
+  const done = state.recurringDone?.[month] || {};
+  const hasCompleted = (state.recurring || []).some(item => Boolean(done[item.id]));
+  const filter = hasCompleted && state.ui?.planningRecurringFilter === 'completed' ? 'completed' : 'current';
+  const recurring = (state.recurring || []).filter(item => !hasCompleted || (filter === 'completed') === Boolean(done[item.id]));
+  const emptyTitle = filter === 'completed' ? 'Sin recurrentes completos' : 'Sin recurrentes vigentes';
+  return `
+    <section class="planning-manager" data-planning-section="recurring">
+      <div class="planning-section-head"><div><h3>Recurrentes</h3><p>Estado del período ${html(month)}.</p></div><button class="planning-action" data-tool="recurring">${icon('plus')} Crear</button></div>
+      ${hasCompleted ? renderPlanningFilter('recurring', filter, [['current', 'Vigentes'], ['completed', 'Completos']]) : ''}
+      ${recurring.length ? recurring.map(item => recurringManagerRow(item, Boolean(done[item.id]))).join('') : card(emptyState('calendarClock', emptyTitle))}
+    </section>
+  `;
+}
+
+function renderPlanningFilter(kind, selected, options) {
+  const label = kind === 'provision' ? 'provisiones' : 'recurrentes';
+  return `<div class="planning-status-filter" role="group" aria-label="Filtrar ${label}">${options.map(([value, optionLabel]) => `<button class="planning-period-option ${selected === value ? 'active' : ''}" data-planning-${kind}-filter="${value}" aria-pressed="${selected === value}">${optionLabel}</button>`).join('')}</div>`;
+}
+
+function recurringManagerRow(item, completed) {
+  const color = safeColor(item.color, '#0A8FE8');
+  return card(`
+    <div class="row-card planning-recurring-row" data-recurring-item="${html(item.id)}">
+      <span class="row-icon solid-icon" style="background:${color};color:#fff;">${icon(item.icon || 'calendarClock')}</span>
+      <span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(item.type || 'Recurrente')} · día ${html(String(item.day || ''))}${item.amount ? ` · ${formatMoney(item.amount)}` : ''}</span></span>
+      <button class="check-pill${completed ? ' selected' : ''}" data-recurring-done="${html(item.id)}" aria-pressed="${completed}">${completed ? icon('check') : ''}${completed ? 'Completo' : 'Vigente'}</button>
+    </div>
+  `, 'planning-entry');
+}
+
+function planningType(type, iconName, title, subtitle) {
+  return `
+    <button class="settings-row" data-planning-type="${type}">
+      <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
+      <span><strong>${title}</strong><small>${subtitle}</small></span>
+      ${icon('chevronRight')}
+    </button>
   `;
 }
 
@@ -98,14 +250,18 @@ function renderBudgetPeriodFilter(periods, selectedPeriod) {
 }
 
 function budgetRow(budget) {
-  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(budget.category || 'Sin categoría')}</span><span class="row-subtitle">${html(budget.month || '')} · ${html(budget.subcategory || 'Sin subcategoría')} · Impacta el análisis presupuestario</span></span><strong class="row-amount blue">${formatMoney(budget.amount)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-budget-edit="${budget.id}">Editar</button><button class="planning-action danger" data-budget-delete="${budget.id}">Eliminar</button></div>`, 'planning-entry');
+  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(budget.category || 'Sin categoría')}</span><span class="row-subtitle">${html(budget.month || '')} · ${html(budget.subcategory || 'Sin subcategoría')} · Impacta el análisis presupuestario</span></span><strong class="row-amount blue">${formatMoney(budget.amount)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-budget-edit="${html(budget.id)}">Editar</button><button class="planning-action danger" data-budget-delete="${html(budget.id)}">Eliminar</button></div>`, 'planning-entry');
 }
 
 function provisionManagerRow(provision) {
   const canRelease = Number(provision.balance) > 0;
-  const goal = Number(provision.targetAmount) > 0 ? `Meta ${formatMoney(provision.targetAmount)}` : 'Meta opcional sin definir';
-  const date = provision.releaseDate || 'Fecha opcional sin definir';
-  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(provision.name)}</span><span class="row-subtitle"><span class="provision-status">${provisionStatus(provision)}</span> · ${goal}<br>${html(date)} · ${formatMoney(provision.monthlyAmount || 0)}/mes</span></span><strong class="row-amount blue">${formatMoney(provision.balance)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-provision-edit="${provision.id}">Editar</button>${canRelease ? `<button class="planning-action" data-provision-release="${provision.id}">Liberar</button>` : ''}<button class="planning-action danger" data-provision-delete="${provision.id}" ${canRelease ? 'disabled title="Libera el saldo antes de eliminar"' : ''}>Eliminar</button></div>`, 'planning-entry');
+  const releaseDate = provision.releaseDate ? formatDate(provision.releaseDate, true) : '';
+  const details = [`<span class="provision-status">${provisionStatus(provision)}</span>`];
+  if (Number(provision.targetAmount) > 0) details.push(`Meta ${formatMoney(provision.targetAmount)}`);
+  if (releaseDate && releaseDate !== 'Sin fecha') details.push(`Liberación ${html(releaseDate)}`);
+  if (Number(provision.monthlyAmount) > 0) details.push(`${formatMoney(provision.monthlyAmount)}/mes`);
+  const id = html(provision.id);
+  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(provision.name)}</span><span class="row-subtitle">${details.join(' · ')}</span></span><strong class="row-amount blue">${formatMoney(provision.balance)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-provision-edit="${id}">Editar</button>${canRelease ? `<button class="planning-action" data-provision-release="${id}">Liberar</button>` : ''}<button class="planning-action danger" data-provision-delete="${id}" ${canRelease ? 'disabled title="Libera el saldo antes de eliminar"' : ''}>Eliminar</button></div>`, 'planning-entry');
 }
 
 export function renderBudgetSheet(state) {
@@ -228,7 +384,10 @@ function renderHealth(state) {
 }
 
 function renderPreferences(state) {
-  return card(`${settingsLink('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${settingsLink('capacity', 'wallet', 'Capacidad de pago', 'Cuentas, provisiones y deuda que participan en la proyección')}${tool('appearance', 'sparkles', 'Temas y apariencia', 'Próximamente')}${tool('security', 'shield', 'Seguridad', 'Próximamente')}${tool('cloud', 'backup', 'Sincronización en la nube', 'Próximamente')}`, 'tool-card');
+  return `
+    ${settingsGroup('normal', 'Configuración', card(`${settingsLink('rules', 'settings', 'Reglas y KPIs', 'Cómo impacta cada tipo de movimiento')}${settingsLink('capacity', 'wallet', 'Capacidad de pago', 'Cuentas, provisiones y deuda que participan en la proyección')}`, 'tool-card'))}
+    ${settingsGroup('future', 'Próximamente', card(`${tool('appearance', 'sparkles', 'Temas y apariencia', 'Disponible en una futura versión', { disabled: true })}${tool('security', 'shield', 'Seguridad', 'Disponible en una futura versión', { disabled: true })}${tool('cloud', 'backup', 'Sincronización en la nube', 'Disponible en una futura versión', { disabled: true })}`, 'tool-card future-settings-card'))}
+  `;
 }
 
 function renderCapacitySettings(state) {
@@ -298,12 +457,16 @@ function ruleChip(label, enabled) {
   return `<span class="rule-chip ${enabled ? 'on' : 'off'}">${label}: ${enabled ? 'Sí' : 'No'}</span>`;
 }
 
-function tool(action, iconName, title, subtitle) {
+function tool(action, iconName, title, subtitle, { disabled = false, tone = '' } = {}) {
+  const rowClass = `settings-row${tone === 'danger' ? ' danger-action-row' : ''}${disabled ? ' future-action-row' : ''}`;
+  const iconStyle = tone === 'danger'
+    ? 'background:var(--red-soft);color:var(--red)'
+    : 'background:var(--blue-soft);color:var(--blue)';
   return `
-    <button class="settings-row" data-tool="${action}">
-      <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon(iconName)}</span>
+    <button class="${rowClass}" data-tool="${action}" ${disabled ? 'disabled aria-disabled="true"' : ''}>
+      <span class="row-icon" style="${iconStyle}">${icon(iconName)}</span>
       <span><strong>${title}</strong><small>${subtitle}</small></span>
-      ${icon('chevronRight')}
+      ${disabled ? '' : icon('chevronRight')}
     </button>
   `;
 }
@@ -320,7 +483,7 @@ function settingsLink(page, iconName, title, subtitle) {
 
 function catalogRow(item, type) {
   if (type === 'category') {
-    return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">Editar nombre, icono, color y subcategorias</span></span><button class="ghost-icon compact-edit" data-category-actions="${item.id}" aria-label="Editar categoria">${icon('edit')}</button></div>`;
+    return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">Editar nombre, icono, color y subcategorías</span></span><button class="ghost-icon compact-edit" data-category-actions="${item.id}" aria-label="Editar categoría">${icon('edit')}</button></div>`;
   }
   const subtitle = item.type || 'Cuenta';
   return `<div class="row-card catalog-row"><span class="row-icon solid-icon" style="background:${item.color || '#0A8FE8'};color:#fff;">${icon(item.icon || 'folder')}</span><span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(subtitle)}</span></span><button class="chip dense" data-open-icon="${type}:${item.id}">Icono</button></div>`;
@@ -336,7 +499,7 @@ export function renderTemplateSheet(state = {}) {
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet wide" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
-        <h2 class="sheet-title">Templates CSV</h2>
+        <h2 class="sheet-title">Plantillas CSV</h2>
         ${Object.entries(templateHeaders).map(([kind, headers]) => {
           const meta = templateMeta(kind);
           const hasInfo = kind === AUDIT_STATEMENT_TEMPLATE_KIND;

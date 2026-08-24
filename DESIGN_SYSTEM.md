@@ -19,6 +19,7 @@ Los tokens definidos en `styles/base.css` son la fuente de verdad. No introducir
 - Espaciado: usar la escala `--space-*`.
 - Forma: tarjetas y controles redondeados usando `--radius-*`; las píldoras sólo para chips y estados compactos.
 - Controles: los tamaños estándar son `--control-sm`, `--control-md` y `--control-lg`. Los objetivos táctiles primarios no deben ser menores a 44 px.
+- Iconos funcionales: el SVG estándar mide 20 px y vive dentro de un target de al menos 44 × 44 px. Los iconos finales usan una columna estable; nunca heredan el tamaño del contenedor ni alteran la simetría de la fila.
 
 ## Layout y navegación
 
@@ -37,6 +38,8 @@ Las tarjetas agrupan información relacionada. Una fila de movimiento debe prior
 
 Usar el componente o clase existente antes de crear una variante. Los botones sólo-icono requieren etiqueta accesible y un área táctil completa. El color no puede ser la única señal de significado.
 
+Acciones equivalentes comparten altura, radio, separación y jerarquía. Los importes financieros largos deben envolver o redistribuirse dentro de su tarjeta; no se admite ocultarlos con elipsis, recortarlos ni reducir el target táctil. Los estados como `Completo` combinan texto, semántica presionada e icono/check.
+
 ### Formularios, keypad y pickers
 
 Los flujos móviles usan campos propios, keypad y pickers/sheets. No usar `<select>` nativos. Etiquetas, valor actual, estado requerido y error deben permanecer visibles o claramente asociados.
@@ -48,6 +51,10 @@ El calendario abierto desde la fecha de Registro ordena cuadrícula, navegación
 ### Filtros y selectores
 
 Los filtros de auditoría usan dropdowns propios, compactos y anclados a su disparador. Admiten chips activos, selección múltiple y búsqueda cuando la lista es larga. Sólo puede haber un dropdown abierto; se cierra con el mismo disparador, Escape, toque fuera, cerrar o “Listo”.
+
+La X de búsqueda aparece sólo cuando hay texto y no modifica filtros. La acción `Limpiar todos` aparece sólo cuando existen filtros activos y no modifica la consulta. En Categorías, `Limpiar filtros` aparece únicamente cuando hay búsqueda o selección. Los pares de filtros y los segmentados usan geometría simétrica, nombre accesible y estado que no depende sólo del color. Las actualizaciones de resultados son localizadas: conservan el nodo de búsqueda o dropdown, el foco y el desplazamiento relevante.
+
+Todo texto persistido o importado se escapa en la frontera de render. Un color guardado sólo puede interpolarse después de validarse contra los formatos aceptados; cualquier valor inválido usa un fallback seguro.
 
 ### Períodos y comparación por contexto
 
@@ -71,13 +78,25 @@ En Ajustes → Descargar templates, `Auditoría — estado de cuenta` es una fil
 
 Planeación reúne Presupuestos, Provisiones y Recurrentes; no debe conservar una ruta paralela de Provisiones. Presupuestos usa un filtro propio de períodos en píldoras desplazables, con target mínimo de 44 px, `aria-pressed` y sin `<select>` nativo; sólo las filas del período activo permanecen en la lista. Las filas de provisión priorizan saldo conceptual, planeación y estado compacto; objetivo y fecha sólo aparecen cuando existen, y cualquier texto persistido se escapa al renderizar. Editar, liberar y eliminar se expresan como acciones distinguibles y alcanzables. La confirmación de liberación nombra el importe y el saldo resultante en cero, e incluye siempre `No modifica ninguna cuenta`; al ser una decisión que altera datos conceptuales se resuelve en un sheet explícito, no con un toast.
 
+La pantalla inicial muestra sólo un hub compacto de tres destinos. Cada destino abre una subvista con `Ver lo planeado` y una acción de creación; el gestor correspondiente aparece únicamente después de elegir consultar. Volver retrocede un nivel, mantiene targets de 44 px y devuelve el foco al control exacto sin desplazar la página. Presupuestos, Provisiones y Recurrentes conservan sus filtros semánticos propios; no se inventa un filtro mensual común.
+
+### Overlays, foco y render localizado
+
+Sheets y dropdowns afectados comparten cierre visible, Escape y toque exterior. Al abrir, el foco entra en el título o control designado; al cerrar, vuelve al disparador semántico exacto, incluso cuando el render sustituyó el nodo o existe una sheet hija. El descriptor debe ser único y fallar cerrado ante identidades vacías o ambiguas.
+
+La restauración de foco y scroll pertenece a la identidad del mismo overlay. Nunca se transfiere entre superficies distintas. Cambiar una selección, expansión o filtro actualiza sólo la región necesaria y usa `preventScroll` cuando devuelve foco; un refresh de información no justifica reconstruir toda la pantalla ni mandar a la persona al inicio.
+
+### Jerarquía de Ajustes
+
+Las acciones normales, avanzadas y destructivas viven en grupos visuales distintos. Las funciones futuras se muestran deshabilitadas, con `disabled` y `aria-disabled`, sin chevrón ni apariencia de navegación disponible. Las acciones destructivas usan la variante de peligro y una confirmación inequívoca; no comparten tratamiento con una acción primaria azul.
+
 ### Feedback
 
 Usar toast para confirmaciones breves no bloqueantes. Usar un sheet o confirmación explícita para borrar, restaurar, reiniciar o realizar una acción que pueda alterar datos.
 
 ## Estados de interfaz
 
-- Vacío: explica qué falta y ofrece una siguiente acción concreta.
+- Vacío: explica qué falta y ofrece una siguiente acción concreta. Una visualización sin datos usa una presentación neutral —por ejemplo, un donut sin gradiente— y no inventa proporciones. Un filtro sin coincidencias se distingue de una colección realmente vacía y ofrece limpiar sólo cuando corresponde.
 - Carga: preservar el contexto; no mostrar una pantalla aparentemente rota.
 - Error: explicar el problema en lenguaje claro y cómo recuperarse, sin exponer detalles técnicos o datos sensibles.
 - Deshabilitado: indicar qué condición falta cuando sea necesario para avanzar.
@@ -120,7 +139,7 @@ La armonización se hace por flujos, no por pantallas aisladas. Resumen y Catego
 - Un dropdown abierto puede cubrir contenido posterior, pero nunca quedar recortado, iniciar fuera de pantalla ni ocultar su título, opciones o acción `Listo`.
 - Todo sheet o dropdown debe cerrarse con control visible, Escape, toque fuera y, cuando hay selección múltiple, `Listo`.
 - A 390 px, el sheet de período se ordena verticalmente: accesos rápidos, fechas sólo para `Personalizado`, comparación contextual y pie fijo con `Cancelar`/`Aplicar`. Su superficie exterior no cambia de altura al alternar rango/año y sólo el contenido central puede desplazarse. No usar una pestaña de comparación meramente informativa.
-- Auditoría prioriza búsqueda a ancho completo, resumen de filtros activos y un disparador compacto `Filtros`; los selectores propios se abren después sin desplazar ni recortar el contenido.
+- Auditoría prioriza búsqueda a ancho completo, resumen de filtros activos y cuatro disparadores simétricos en dos columnas; los selectores propios se abren sin desplazar ni recortar el contenido.
 - Mientras `Comparar` está activo en Categorías, cada tarjeta puede añadir una línea secundaria de variación de gasto; con la opción apagada conserva su densidad normal. La comparación no se expresa en la vista `Solo presupuesto`.
 - En Registro, la fecha se edita desde su campo de formulario. La calculadora no duplica el affordance de calendario y el monto mantiene la jerarquía principal.
 
@@ -130,6 +149,6 @@ La armonización se hace por flujos, no por pantallas aisladas. Resumen y Catego
 | --- | --- | --- |
 | Resumen | Tarjetas de decisión, gráficos operativos, análisis en sheet | Validar con datos reales y densidad mensual |
 | Categorías | Detalle por categoría sin bloque global | Revisar filtros y lógica de presupuesto por categoría |
-| Auditoría | Filtros anclados compactos y tarjetas de movimiento | Marcas masivas de extraordinarios en etapa 2 |
-| Balances | Patrón V7 previo | Adoptar jerarquía y superficies de Resumen en etapa 2 |
-| Registro y ajustes | Flujos V7 previos | Unificar sheets, formularios y estados en etapa 3 |
+| Auditoría | Búsqueda y cuatro filtros localizados; tarjetas con acciones táctiles de 44 px | Marcas masivas de extraordinarios en etapa posterior |
+| Balances | Jerarquía V7, provisión vacía neutral, importes extremos contenidos y `Auditar saldo` visible | Validar densidad con datos reales respaldados |
+| Registro y ajustes | Keypad estable, sheets compartidos y Ajustes agrupados por normal/avanzado/peligro | Validar en dispositivo/PWA instalado |

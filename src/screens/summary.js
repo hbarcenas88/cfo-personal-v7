@@ -81,7 +81,6 @@ function renderOperationalChart(rows, analysis) {
     <div class="summary-card-head">
       ${iconBubble('barChart', 'var(--blue)', false, 'summary-card-icon')}
       <div class="card-heading-block"><h2 class="card-heading">Gasto operativo por categoría</h2><div class="metric-note">${details.length ? details.join(' · ') : 'Gastos registrados del período.'}</div></div>
-      <button class="ghost-icon" data-open-summary-analysis aria-label="Ajustar análisis">${icon('settings')}</button>
     </div>
     ${topRows.length ? `
       <div class="operational-chart-total">
@@ -90,7 +89,7 @@ function renderOperationalChart(rows, analysis) {
       </div>
       <div class="chart-bars summary-chart-bars">${topRows.map(row => operationalBarRow(row)).join('')}</div>
     ` : emptyState('barChart', 'Sin gasto operativo', 'Registra gastos o revisa los filtros de análisis.')}
-    <div class="summary-card-actions"><button class="text-button" data-open-summary-analysis>${icon('settings')} Análisis</button><button class="text-button" data-view-categories>Ver categorías ${icon('chevronRight')}</button></div>
+    <div class="summary-card-actions"><button class="text-button" data-open-summary-analysis data-interaction-key="summary-analysis">${icon('settings')} Análisis</button><button class="text-button" data-view-categories>Ver categorías ${icon('chevronRight')}</button></div>
   `, 'chart-card summary-chart-card');
 }
 

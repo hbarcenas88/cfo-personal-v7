@@ -75,7 +75,10 @@ export const initialState = {
     filterSearch: '',
     categoryDraft: null,
     planningDraft: null,
-    planningFocus: ''
+    planningView: 'hub',
+    planningType: '',
+    planningProvisionFilter: 'active',
+    planningRecurringFilter: 'current'
   }
 };
 

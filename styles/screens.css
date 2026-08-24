@@ -73,7 +73,7 @@
 }
 
 .account-balance-row {
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-height: 62px;
   padding-block: 11px;
 }
@@ -129,6 +129,18 @@
   position: relative;
 }
 
+.account-balance-actions {
+  min-width: 0;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.donut.empty {
+  background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
 .donut::after {
   content: "";
   position: absolute;
@@ -174,6 +186,20 @@
   border-radius: 999px;
   padding: 7px 10px;
   color: var(--text-muted);
+}
+
+.check-pill.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.check-pill.selected svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-right: 4px;
+  vertical-align: -3px;
 }
 
 .chart-bars {
@@ -417,8 +443,8 @@
   background: var(--surface-soft);
   color: var(--text-muted);
   padding: 0;
-  width: var(--control-sm);
-  height: var(--control-sm);
+  width: var(--control-md);
+  height: var(--control-md);
   border-radius: var(--radius-sm);
   display: inline-grid;
   place-items: center;
@@ -466,6 +492,24 @@
   margin-bottom: 10px;
 }
 
+.audit-active-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.audit-active-summary .audit-active-filters {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.audit-clear-filters {
+  flex: 0 0 auto;
+  min-height: var(--control-md);
+}
+
 .audit-search-panel {
   grid-template-columns: minmax(0, 1fr) var(--control-md);
   gap: 8px;
@@ -502,13 +546,21 @@
 
 .audit-selector {
   position: relative;
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
 }
 
 .audit-filter-selectors {
   position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.audit-filter-selectors .audit-filter-control {
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
 }
 
 .audit-filter-panel {
@@ -629,23 +681,30 @@
 
 .category-view-segmented > button {
   min-height: var(--control-md);
+  min-width: 0;
+  padding-inline: 6px;
+  white-space: nowrap;
 }
 
 .category-filter-controls {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: center;
 }
 
 .category-selector {
   position: static;
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
 }
 
 .category-filter-trigger {
-  max-width: 150px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  justify-content: space-between;
   white-space: nowrap;
 }
 
@@ -698,10 +757,25 @@
   flex: 0 0 18px;
 }
 
-.icon-button.compact,
 .secondary-button.compact {
   min-width: 36px;
   height: 36px;
+}
+
+.category-card .row-card {
+  gap: var(--space-sm);
+}
+
+.category-card .row-amount,
+.audit-side .row-amount {
+  max-width: 132px;
+  overflow-wrap: anywhere;
+}
+
+.category-empty-filtered {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
 }
 
 .audit-dropdown-head .icon-button.compact {
@@ -909,6 +983,10 @@
 .record-field-pair,
 .record-chip-row {
   margin-top: 6px;
+}
+
+.record-chip-row .chip {
+  min-height: var(--control-md);
 }
 
 .record-amount-value {
@@ -1205,8 +1283,8 @@
 }
 
 .account-order-row .chip {
-  min-height: 36px;
-  min-width: 36px;
+  min-height: var(--control-md);
+  min-width: var(--control-md);
   justify-content: center;
 }
 
@@ -1954,9 +2032,9 @@
 
 .summary-stat strong {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.25;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
@@ -1989,6 +2067,10 @@
   margin-top: 14px;
 }
 
+.summary-card-actions .text-button {
+  min-height: var(--control-md);
+}
+
 .text-button {
   min-height: var(--control-sm);
   padding: 6px 0;
@@ -2000,6 +2082,10 @@
   align-items: center;
   gap: 6px;
   text-align: left;
+}
+
+.text-button.audit-clear-filters {
+  min-height: var(--control-md);
 }
 
 .text-button svg {
@@ -2038,6 +2124,8 @@
 .operational-chart-total .money {
   font-size: 18px;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 .operational-chart-row:first-child { border-top: 0; padding-top: 2px; }
@@ -2404,7 +2492,7 @@
 }
 
 .role-segmented button {
-  min-height: 38px;
+  min-height: var(--control-md);
   border: 0;
   border-radius: 10px;
   background: transparent;
@@ -2429,6 +2517,88 @@
   margin-top: var(--space-lg);
 }
 
+.account-audit-action {
+  min-height: var(--control-md);
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.settings-group + .settings-group {
+  margin-top: var(--space-lg);
+}
+
+.settings-group-title {
+  margin: 0 0 var(--space-xs);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.danger-settings-card {
+  border-color: #f3bdca;
+  background: var(--red-soft);
+}
+
+.future-action-row:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+.planning-hub {
+  overflow: hidden;
+}
+
+.chip.dense.planning-back-action {
+  min-height: var(--control-md);
+}
+
+.planning-type-view {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.planning-type-intro {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 2px;
+}
+
+.planning-type-intro h3,
+.planning-type-intro p {
+  margin: 0;
+}
+
+.planning-type-intro p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.planning-decisions {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.planning-decision {
+  width: 100%;
+  min-height: var(--control-lg);
+}
+
+.planning-status-filter {
+  display: flex;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding: 2px 0 var(--space-xs);
+  scrollbar-width: thin;
+}
+
 .planning-section-head,
 .planning-row,
 .planning-row-actions {
@@ -2439,6 +2609,10 @@
 
 .planning-section-head {
   justify-content: space-between;
+}
+
+.planning-section-head > div {
+  min-width: 0;
 }
 
 .planning-section-head h3,
@@ -2498,6 +2672,15 @@
 .planning-row-actions {
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.planning-recurring-row {
+  min-width: 0;
+}
+
+.planning-recurring-row .check-pill {
+  flex: none;
+  min-height: var(--control-md);
 }
 
 .planning-action {
@@ -2745,6 +2928,12 @@
   opacity: 0;
 }
 
+.guided-audit-file:focus-within {
+  outline: 3px solid rgba(10, 143, 232, .28);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 1px var(--blue);
+}
+
 .guided-audit-file small {
   display: block;
   margin-top: 3px;
@@ -2890,7 +3079,19 @@
   margin-top: var(--space-sm);
 }
 
+.guided-audit-decisions > button {
+  min-height: var(--control-md);
+}
+
 .guided-audit-decisions .text-button {
+  min-height: var(--control-md);
+}
+
+.guided-audit-delete-actions {
+  gap: var(--space-sm);
+}
+
+.guided-audit-delete-actions > button {
   min-height: var(--control-md);
 }
 
@@ -3010,6 +3211,26 @@
 
   .metric-value {
     font-size: 26px;
+  }
+
+  .balances-metrics .balance-combo-item {
+    min-width: 0;
+  }
+
+  .balances-metrics .balance-combo-item .metric-value {
+    min-width: 0;
+    max-width: 100%;
+    font-size: clamp(20px, 5.4vw, 24px);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+
+  .balances-metrics .metric-card.compact .metric-value {
+    min-width: 0;
+    max-width: 100%;
+    font-size: clamp(20px, 5.4vw, 24px);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
   }
 
   .provision-layout {

@@ -120,19 +120,48 @@ for (const [attribute, value] of [
 {
   const oldSheet = fakeElement({ classes: ['sheet'], scrollTop: 146, scrollLeft: 7 });
   const oldPeriodContent = fakeElement({ classes: ['period-sheet-content'], scrollTop: 82 });
-  const snapshot = captureInteractionState(fakeRoot([oldSheet, oldPeriodContent], null));
+  const snapshot = captureInteractionState(fakeRoot([oldSheet, oldPeriodContent], null), 'period');
 
   const newSheet = fakeElement({ classes: ['sheet'] });
   const newPeriodContent = fakeElement({ classes: ['period-sheet-content'] });
   const newRoot = fakeRoot([newSheet, newPeriodContent], null);
 
-  restoreInteractionState(snapshot, newRoot);
+  restoreInteractionState(snapshot, newRoot, 'period');
 
   assert.equal(newSheet.scrollTop, 146, 'the active sheet must retain vertical scroll');
   assert.equal(newSheet.scrollLeft, 7, 'the active sheet must retain horizontal scroll');
   assert.equal(newPeriodContent.scrollTop, 82, 'period sheet content must retain its own scroll');
 
   assert.doesNotThrow(() => restoreInteractionState(snapshot, fakeRoot([], null)), 'removed elements must be ignored safely');
+}
+
+{
+  const oldInput = fakeElement({
+    localName: 'input',
+    attributes: { 'data-interaction-key': 'query' },
+    scrollTop: 31
+  });
+  const oldSheet = fakeElement({ classes: ['sheet'], scrollTop: 219 });
+  const snapshot = captureInteractionState(fakeRoot([oldInput, oldSheet], oldInput), 'account-actions');
+
+  let focused = false;
+  const unrelatedInput = fakeElement({
+    localName: 'input',
+    attributes: { 'data-interaction-key': 'query' },
+    focus: () => { focused = true; }
+  });
+  const unrelatedSheet = fakeElement({ classes: ['sheet'] });
+
+  restoreInteractionState(
+    snapshot,
+    fakeRoot([unrelatedInput, unrelatedSheet], null),
+    'category-actions'
+  );
+
+  assert.equal(focused, false,
+    'changing the overlay identity must not transfer focus to a semantically similar control');
+  assert.equal(unrelatedSheet.scrollTop, 0,
+    'changing the overlay identity must not transfer .sheet scroll to a different surface');
 }
 
 {

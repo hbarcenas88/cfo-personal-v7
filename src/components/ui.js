@@ -1,6 +1,6 @@
 import { icon, renderIcons } from '../icons.js';
 import { dismissToast, setSettingsPage, setView, state, undo } from '../state.js';
-import { periodLabel } from '../utils/format.js';
+import { html, periodLabel, safeColor } from '../utils/format.js';
 
 export function ensureShell() {
   const app = document.getElementById('app');
@@ -131,7 +131,7 @@ function settingsRow(page, iconName, title, subtitle) {
     <button class="drawer-row" data-settings="${page}">
       ${iconBubble(iconName)}
       <span><strong>${title}</strong><small>${subtitle}</small></span>
-      ${icon('chevronRight')}
+      ${trailingIcon()}
     </button>
   `;
 }
@@ -185,40 +185,48 @@ export function card(children, classes = '') {
 }
 
 export function iconBubble(iconName, color = 'var(--blue)', solid = false, classes = '') {
-  const bg = solid ? color : softColor(color);
-  const fg = solid ? '#fff' : color;
+  const safe = safeColor(color);
+  const bg = solid ? safe : softColor(safe);
+  const fg = solid ? '#fff' : safe;
   return `<span class="icon-bubble ${solid ? 'solid' : ''} ${classes}" style="--icon-bg:${bg};--icon-fg:${fg};">${icon(iconName)}</span>`;
 }
 
 export function metricCard({ title, value, note, iconName, color = 'var(--blue)', wide = false, compact = false, delta = null }) {
+  const safe = safeColor(color);
   const deltaText = delta === null ? '' : `<div class="metric-note ${delta >= 0 ? 'success' : 'danger'}">${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(1)}%</div>`;
   return card(`
     <div class="metric-top">
-      ${iconBubble(iconName, color, false, 'metric-icon')}
+      ${iconBubble(iconName, safe, false, 'metric-icon')}
       ${deltaText}
     </div>
-    <div class="metric-title">${title}</div>
-    <div class="metric-value money" style="color:${color}">${value}</div>
-    <div class="metric-note">${note || ''}</div>
-    ${sparkline(color)}
+    <div class="metric-title">${html(title)}</div>
+    <div class="metric-value money" style="color:${safe}">${html(value)}</div>
+    <div class="metric-note">${html(note || '')}</div>
+    ${sparkline(safe)}
   `, `metric-card ${wide ? 'wide' : ''} ${compact ? 'compact' : ''}`);
 }
 
 export function softColor(color) {
-  if (color.startsWith('#')) return `${color}18`;
-  if (color.includes('green')) return 'var(--green-soft)';
-  if (color.includes('red')) return 'var(--red-soft)';
+  const safe = safeColor(color);
+  if (/^#[\da-f]{6}$/i.test(safe)) return `${safe}18`;
+  if (safe.includes('green')) return 'var(--green-soft)';
+  if (safe.includes('red')) return 'var(--red-soft)';
   return 'var(--blue-soft)';
 }
 
 function sparkline(color) {
+  const safe = safeColor(color);
   return `<svg class="sparkline" viewBox="0 0 120 32">
-    <path d="M2 25 C18 19 18 14 31 17 S47 28 62 18 S83 12 95 18 S108 13 118 7" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>
+    <path d="M2 25 C18 19 18 14 31 17 S47 28 62 18 S83 12 95 18 S108 13 118 7" fill="none" stroke="${safe}" stroke-width="3" stroke-linecap="round"/>
   </svg>`;
 }
 
 export function emptyState(iconName, title, subtitle = '') {
-  return `<div class="empty-state">${icon(iconName)}<strong>${title}</strong>${subtitle ? `<small>${subtitle}</small>` : ''}</div>`;
+  return `<div class="empty-state">${icon(iconName)}<strong>${html(title)}</strong>${subtitle ? `<small>${html(subtitle)}</small>` : ''}</div>`;
+}
+
+export function trailingIcon(iconName = 'chevronRight') {
+  return `<span class="trailing-icon" aria-hidden="true">${icon(iconName)}</span>`;
 }
 
 export function toastRoot() {
@@ -227,10 +235,10 @@ export function toastRoot() {
   if (!root) return;
   root.innerHTML = toast ? `
     <div class="toast show">
-      <span>${toast.message}</span>
+      <span>${html(toast.message)}</span>
       <span class="toast-actions">
-        ${toast.action ? `<button data-toast-action>${toast.action.label}</button>` : ''}
-        <button data-toast-dismiss>${icon('x')}</button>
+        ${toast.action ? `<button data-toast-action>${html(toast.action.label)}</button>` : ''}
+        <button class="icon-only-button toast-dismiss" data-toast-dismiss aria-label="Cerrar notificación">${icon('x')}</button>
       </span>
     </div>
   ` : '';

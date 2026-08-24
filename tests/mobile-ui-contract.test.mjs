@@ -6,11 +6,14 @@ import { renderPeriodSheet } from '../src/components/periodPicker.js';
 import { renderAuditCloseEntry, renderAuditCloseSheet } from '../src/screens/auditClose.js';
 import { renderTemplateSheet } from '../src/screens/settings.js';
 import { state } from '../src/state.js';
+import { html, safeColor } from '../src/utils/format.js';
+import { icon } from '../src/icons.js';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
 const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
+const baseStyles = await readFile(new URL('../styles/base.css', import.meta.url), 'utf8');
 const componentStyles = await readFile(new URL('../styles/components.css', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../styles/screens.css', import.meta.url), 'utf8');
 const periodPicker = await readFile(new URL('../src/components/periodPicker.js', import.meta.url), 'utf8');
@@ -217,6 +220,26 @@ assert.match(auditClose, /Advertencia de fecha/);
 assert.doesNotMatch(auditClose, /<select\b/i);
 assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
 assert.match(styles, /\.guided-audit-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
+assert.match(styles, /\.guided-audit-decisions\s*>\s*button\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
+assert.match(styles, /\.guided-audit-delete-actions\s*\{[\s\S]*?gap:\s*var\(--space-sm\)/);
+assert.match(styles, /\.guided-audit-file:focus-within\s*\{[\s\S]*?(?:outline|box-shadow):/);
+assert.match(auditClose, /class="sheet-actions guided-audit-delete-actions"/);
+assert.doesNotMatch(auditClose, /Ã/, 'guided Audit copy must not expose mojibake');
+assert.match(auditClose, /Eliminarás la evidencia/);
+const categorySelectedSignal = extractCssRuleBody(componentStyles, '.category-view-segmented button[aria-pressed="true"]::before');
+assert.match(baseStyles, /--control-md:\s*44px;/, 'the medium control token must retain a 44px touch target');
+const auditClearTouchTarget = extractCssRuleBody(styles, '.text-button.audit-clear-filters');
+assert.match(auditClearTouchTarget, /min-height:\s*var\(--control-md\);/, 'Limpiar todos must keep a 44px minimum touch target after the text-button rule');
+const hiddenContract = extractCssRuleBody(componentStyles, '[hidden]');
+assert.match(hiddenContract, /display:\s*none\s*!important;/, 'hidden conditional actions must override author display rules');
+const auditTransactionMenuTarget = extractCssRuleBody(styles, '.audit-card .menu-button');
+assert.match(auditTransactionMenuTarget, /width:\s*var\(--control-md\);/, 'Audit transaction actions must expose a 44px-wide hit area');
+assert.match(auditTransactionMenuTarget, /height:\s*var\(--control-md\);/, 'Audit transaction actions must expose a 44px-tall hit area');
+const auditTransactionMenuIcon = extractCssRuleBody(styles, '.audit-card .menu-button svg');
+assert.match(auditTransactionMenuIcon, /width:\s*var\(--icon-md\);/, 'Audit transaction action SVGs must remain visually 20px wide');
+assert.match(auditTransactionMenuIcon, /height:\s*var\(--icon-md\);/, 'Audit transaction action SVGs must remain visually 20px tall');
+assert.match(baseStyles, /--icon-md:\s*20px;/, 'the medium icon token must remain 20px');
+assert.match(categorySelectedSignal, /content:\s*['"]✓['"]/, 'the selected category view must not rely on color alone');
 assertSavedAuditCloseStyles(styles);
 
 const savedAuditStyleMutations = [
@@ -709,6 +732,14 @@ function extractFunction(source, signature) {
   const iconRoots = [];
   const capturedRoots = [];
   const restoredRoots = [];
+  const capturedIdentities = [];
+  const restoredIdentities = [];
+  const initiallyFocusedRoots = [];
+  const restoredTriggers = [];
+  const dismissalRoots = [];
+  const trigger = { id: 'search-trigger', focus: () => {} };
+  const triggerReference = { rootId: 'app', focus: { selector: '#search-trigger', selection: null } };
+  const renderState = { ui: { activeSheet: 'search' } };
   const appRoot = { id: 'app' };
   const recordRoot = {
     id: 'record-root',
@@ -716,6 +747,7 @@ function extractFunction(source, signature) {
   };
   const sheetRoot = {
     id: 'sheet-root',
+    dataset: { overlayId: '' },
     set innerHTML(value) { sheetReplacements++; this.markup = value; }
   };
   const roots = new Map([
@@ -726,9 +758,29 @@ function extractFunction(source, signature) {
   const renderScopes = runInNewContext(`${renderScopesSource}\nrenderScopes;`, {
     Set,
     ensureShell: () => {},
-    document: { getElementById: id => roots.get(id) || null },
-    captureInteractionState: root => { capturedRoots.push(root); return { root }; },
-    restoreInteractionState: (snapshot, root) => { restoredRoots.push(root); },
+    document: { activeElement: trigger, getElementById: id => roots.get(id) || null },
+    captureInteractionState: (root, identity) => {
+      capturedRoots.push(root);
+      capturedIdentities.push(identity);
+      return { root, identity };
+    },
+    captureFocusReference: element => element === trigger ? triggerReference : null,
+    restoreInteractionState: (snapshot, root, identity) => {
+      restoredRoots.push(root);
+      restoredIdentities.push(identity);
+    },
+    bindOverlayDismissal: root => {
+      dismissalRoots.push(root);
+      return () => {};
+    },
+    dismissActiveSheet: () => {},
+    focusInitialOverlay: root => { initiallyFocusedRoots.push(root); },
+    restoreFocus: target => { restoredTriggers.push(target); },
+    restoreFocusReference: reference => {
+      if (reference !== triggerReference) return false;
+      restoredTriggers.push(trigger);
+      return true;
+    },
     updateShellState: () => { shellUpdates++; },
     setScreenActive: () => {},
     renderActiveScreen: () => { screenRenders++; },
@@ -738,7 +790,7 @@ function extractFunction(source, signature) {
     toastRoot: () => { toastRenders++; },
     bindDynamicEvents: root => { boundRoots.push(root); },
     renderIcons: root => { iconRoots.push(root); },
-    state: {}
+    state: renderState
   });
 
   renderScopes(['sheet']);
@@ -754,6 +806,18 @@ function extractFunction(source, signature) {
   assert.deepEqual(iconRoots, [sheetRoot], 'sheet icons must be limited to sheet-root');
   assert.deepEqual(capturedRoots, [sheetRoot]);
   assert.deepEqual(restoredRoots, [sheetRoot]);
+  assert.deepEqual(capturedIdentities, [''], 'sheet capture must use the identity rendered before replacement');
+  assert.deepEqual(restoredIdentities, ['search'], 'sheet restore must use the newly rendered identity');
+  assert.deepEqual(initiallyFocusedRoots, [sheetRoot], 'a newly opened sheet must receive initial focus');
+  assert.deepEqual(dismissalRoots, [sheetRoot], 'a newly opened sheet must bind the shared dismissal lifecycle');
+  assert.equal(sheetRoot._overlayFocusStack.length, 1, 'opening a sheet must create one focus-return layer');
+  assert.equal(sheetRoot._overlayFocusStack[0].identity, 'search');
+  assert.strictEqual(sheetRoot._overlayFocusStack[0].trigger.element, trigger);
+  assert.strictEqual(sheetRoot._overlayFocusStack[0].trigger.reference, triggerReference);
+
+  renderState.ui.activeSheet = '';
+  renderScopes(['sheet']);
+  assert.deepEqual(restoredTriggers, [trigger], 'closing the sheet must return focus to its exact opener');
 }
 
 {
@@ -857,7 +921,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month
 assert.equal(appliedState.filters.categories.compare, true);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-46/, 'Wave 2 final fixes must activate cache-46');
+assert.match(worker, /cfo-personal-v7-cache-47/, 'Wave 3 final shell must activate cache-47');
 assert.match(worker, /\.\/src\/components\/recordKeypad\.js/, 'Wave 1.1 must precache the record keypad binder');
 assert.equal(
   (worker.match(/\.\/src\/components\/recordKeypad\.js/g) || []).length,
@@ -994,7 +1058,7 @@ assert.deepEqual(
     planningServicePrecached: appShell.includes('https://app.test/src/services/planningService.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-46',
+    cacheName: 'cfo-personal-v7-cache-47',
     renderCoordinatorPrecached: true,
     recordKeypadPrecached: true,
     planningServicePrecached: true
@@ -1025,5 +1089,69 @@ assert.match(designSystem, /target mínimo de 44 px/);
 assert.match(roadmap, /evidencia de dispositivo\/PWA y validación no destructiva con datos reales/);
 assert.doesNotMatch(verifier, /- \[x\] Sesi.n (controlada|sint.tica):/);
 assert.match(verifier, /- \[ \] Adjuntar captura visual duradera o completar validación móvil del usuario antes de tratar esta revisión como evidencia de entrega\./);
+
+{
+  const compactIconTarget = extractCssRuleBody(componentStyles, '.icon-only-button,\n.icon-button.compact,\n.ghost-icon.compact');
+  assert.match(compactIconTarget, /min-width:\s*var\(--control-md\);/,
+    'shrinking a shared icon-only target below 44px must break the mobile geometry contract');
+  assert.match(compactIconTarget, /min-height:\s*var\(--control-md\);/,
+    'shared icon-only targets must preserve a 44px minimum height');
+  assert.doesNotMatch(styles, /\.icon-button\.compact,\s*\.secondary-button\.compact\s*\{[^}]*min-width:\s*36px;[^}]*height:\s*36px;/,
+    'a later screen rule must not shrink the shared icon-only target back to 36px');
+
+  const trailingIconRule = extractCssRuleBody(componentStyles, '.trailing-icon');
+  assert.match(trailingIconRule, /width:\s*var\(--icon-md\);/,
+    'trailing icons must keep a stable 20px column');
+  assert.match(trailingIconRule, /height:\s*var\(--icon-md\);/,
+    'trailing icons must not inherit row height');
+}
+
+{
+  const planningDecision = extractCssRuleBody(styles, '.planning-decision');
+  assert.match(planningDecision, /min-height:\s*var\(--control-lg\);/,
+    'Planning decisions must remain comfortably reachable at 390px');
+  assert.match(planningDecision, /width:\s*100%;/,
+    'Planning decisions must use the available mobile width');
+
+  const planningStatusFilter = extractCssRuleBody(styles, '.planning-status-filter');
+  assert.match(planningStatusFilter, /display:\s*flex;/);
+  assert.match(planningStatusFilter, /overflow-x:\s*auto;/,
+    'semantic Planning filters must remain reachable without wrapping or clipping');
+
+  const planningRecurringRow = extractCssRuleBody(styles, '.planning-recurring-row');
+  assert.match(planningRecurringRow, /min-width:\s*0;/,
+    'long recurring names must not force horizontal overflow');
+
+  const planningRecurringControl = extractCssRuleBody(styles, '.planning-recurring-row .check-pill');
+  assert.match(planningRecurringControl, /min-height:\s*var\(--control-md\);/,
+    'the recurring status control must preserve a real 44px mobile target');
+
+  const planningBackAction = extractCssRuleBody(styles, '.chip.dense.planning-back-action');
+  assert.match(planningBackAction, /min-height:\s*var\(--control-md\);/,
+    'the nested Planning back action must keep a 44px mobile target');
+}
+
+{
+  const accountActionsSheetSource = extractFunction(main, 'function accountActionsSheet()');
+  const markup = runInNewContext(`${accountActionsSheetSource}\naccountActionsSheet();`, {
+    accountActionRow: () => '',
+    html,
+    icon,
+    safeColor,
+    selectedAccount: () => ({
+      name: 'Casa "A"',
+      type: 'A&B',
+      icon: 'wallet',
+      color: 'red; background:url(https://attacker.invalid/pixel)'
+    })
+  });
+
+  assert.doesNotMatch(markup, /attacker\.invalid/,
+    'accepting an imported account color in a real sheet must break the inline-style safety contract');
+  assert.match(markup, /style="background:var\(--blue\);color:#fff;"/,
+    'invalid account colors must render with the safe shared fallback');
+  assert.match(markup, /Casa &quot;A&quot;/, 'persisted account names must remain literal in the sheet');
+  assert.match(markup, /A&amp;B/, 'persisted account types must remain literal in the sheet');
+}
 
 console.log('mobile-ui-contract.test.mjs passed');

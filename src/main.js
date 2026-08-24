@@ -6,8 +6,8 @@ import { renderPeriodSheet } from './components/periodPicker.js';
 import { renderOnboarding } from './screens/onboarding.js';
 import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
-import { renderCategories, renderCategoriesResults } from './screens/categories.js';
-import { renderAudit, renderAuditResults } from './screens/audit.js';
+import { renderCategories, renderCategoriesResults, renderCategoryCards } from './screens/categories.js';
+import { auditActiveFilterCount, renderAudit, renderAuditFilterChips, renderAuditResults } from './screens/audit.js';
 import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderBudgetSheet, renderProvisionSheet, renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet, selectPlanningBudgetPeriod } from './screens/settings.js';
 import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
@@ -19,9 +19,9 @@ import { dataHealth } from './services/healthService.js';
 import { readStatementFile, suggestedStatementMapping, validateStatementMapping } from './services/statementFileService.js';
 import { applyDraftPreset, createPeriodDraft, hasVisibleDraftSelection, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
-import { canon, formatMoney, html, parseAmount, periodLabel, todayISO, uid } from './utils/format.js';
-import { captureInteractionState, createRenderCoordinator, restoreInteractionState } from './utils/renderCoordinator.js';
-import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows } from './components/searchableOptions.js';
+import { canon, formatMoney, html, parseAmount, periodLabel, safeColor, todayISO, uid } from './utils/format.js';
+import { bindOverlayDismissal, captureFocusReference, captureInteractionState, createRenderCoordinator, focusInitialOverlay, restoreFocus, restoreFocusReference, restoreInteractionState } from './utils/renderCoordinator.js';
+import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows, setSearchableOptionSelected } from './components/searchableOptions.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
 
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
@@ -71,7 +71,7 @@ function replaceSearchResults(selector, markup) {
   if (target) target.innerHTML = markup;
   if (target?.matches('[data-global-search-results]')) bindGlobalSearchResults(target);
   if (target?.matches('[data-audit-results]')) bindAuditSearchResults(target);
-  if (target?.matches('[data-categories-results]')) bindCategoriesSearchResults(target);
+  if (target?.matches('[data-categories-results], [data-category-card-results]')) bindCategoriesSearchResults(target);
 }
 
 function bindGlobalSearchResults(target) {
@@ -98,15 +98,81 @@ function bindAuditSearchResults(target) {
 function bindCategoriesSearchResults(target) {
   target.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.view = button.dataset.catView;
-    state.ui.auditFiltersOpen = false;
-    renderAndPersistFilters();
+    target.querySelectorAll('[data-cat-view]').forEach(option => {
+      const selected = option.dataset.catView === state.filters.categories.view;
+      option.classList.toggle('active', selected);
+      option.setAttribute('aria-pressed', String(selected));
+    });
+    persistFiltersSoon();
+    replaceSearchResults('[data-category-card-results]', renderCategoryCards(state));
   }));
   target.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
     const list = state.filters.categories.expanded;
     const name = button.dataset.catExpand;
-    state.filters.categories.expanded = list.includes(name) ? list.filter(value => value !== name) : [...list, name];
-    renderAndPersistFilters();
+    const expanded = !list.includes(name);
+    state.filters.categories.expanded = expanded ? [...list, name] : list.filter(value => value !== name);
+    button.setAttribute('aria-expanded', String(expanded));
+    const details = target.querySelector(`#${button.getAttribute('aria-controls')}`);
+    if (details) details.hidden = !expanded;
+    persistFiltersSoon();
   }));
+  target.querySelectorAll('[data-clear-cat-filters]').forEach(button => button.addEventListener('click', () => clearCategoryFilters()));
+}
+
+function bindAuditFilterRemovals(context) {
+  context.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
+    const key = button.dataset.filterKey;
+    const value = button.dataset.filterValue;
+    if (!Array.isArray(state.filters.audit[key])) return;
+    state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
+    updateAuditFilterChrome(context);
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
+  }));
+}
+
+function updateAuditFilterChrome(context) {
+  const activeCount = auditActiveFilterCount(state.filters.audit);
+  const label = context.querySelector('[data-audit-filter-label]');
+  if (label) label.textContent = activeCount ? `Filtros (${activeCount})` : 'Filtros';
+  const chips = context.querySelector('[data-audit-active-filters]');
+  if (chips) {
+    chips.innerHTML = renderAuditFilterChips(state.filters.audit);
+    renderIcons(chips);
+  }
+  const clear = context.querySelector('[data-audit-clear-filters]');
+  if (clear) clear.hidden = activeCount === 0;
+  bindAuditFilterRemovals(context);
+}
+
+function updateCategoryFilterChrome(context) {
+  const filters = state.filters.categories;
+  const count = filters.categories.length;
+  const label = context.querySelector('[data-category-filter-label]');
+  if (label) label.textContent = count ? `Categorías (${count})` : 'Todas las categorías';
+  context.querySelectorAll('[data-clear-cat-filters]').forEach(button => {
+    button.hidden = !filters.text && count === 0;
+  });
+}
+
+function clearCategoryFilters() {
+  state.filters.categories.text = '';
+  state.filters.categories.categories = [];
+  const search = document.querySelector('[data-cat-search]');
+  if (search) search.value = '';
+  document.querySelectorAll('[data-category-filter-toggle]').forEach(button => setSearchableOptionSelected(button, false));
+  updateCategoryFilterChrome(document);
+  persistFiltersSoon();
+  replaceSearchResults('[data-category-card-results]', renderCategoryCards(state));
+}
+
+function closeCategoryDropdown(context = document) {
+  const trigger = context.querySelector('[data-open-category-filter]');
+  if (!state.ui.categoryDropdown && !context.querySelector('.category-filter-dropdown')) return false;
+  state.ui.categoryDropdown = false;
+  context.querySelector('.category-filter-dropdown')?.remove();
+  trigger?.setAttribute('aria-expanded', 'false');
+  return restoreFocus(trigger);
 }
 
 await initState();
@@ -161,11 +227,65 @@ function render(scopes = 'all') {
   requestRender(scopes);
 }
 
+function focusAfterNextRender(selector) {
+  queueMicrotask(() => restoreFocus(document.querySelector(selector)));
+}
+
+function renderAndFocus(selector) {
+  render();
+  focusAfterNextRender(selector);
+}
+
 function renderScopes(scopes) {
   ensureShell();
   const requested = new Set(scopes);
   if (requested.has('all')) {
     ['shell', 'screen', 'sheet', 'record', 'toast'].forEach(scope => requested.add(scope));
+  }
+
+  let overlayPreviousIdentity = '';
+  let overlayNextIdentity = '';
+  let overlayReturnTarget = null;
+  if (requested.has('sheet')) {
+    const overlayRoot = document.getElementById('sheet-root');
+    overlayPreviousIdentity = overlayRoot?.dataset?.overlayId || '';
+    overlayNextIdentity = state.ui?.activeSheet || '';
+    if (overlayRoot && overlayPreviousIdentity !== overlayNextIdentity) {
+      const stack = Array.isArray(overlayRoot._overlayFocusStack)
+        ? overlayRoot._overlayFocusStack
+        : [];
+      let returnIndex = -1;
+      if (overlayNextIdentity) {
+        for (let index = stack.length - 1; index >= 0; index--) {
+          if (stack[index].identity === overlayNextIdentity) {
+            returnIndex = index;
+            break;
+          }
+        }
+      }
+
+      if (!overlayNextIdentity) {
+        overlayReturnTarget = stack[0]?.trigger || null;
+        stack.length = 0;
+      } else if (returnIndex >= 0) {
+        overlayReturnTarget = stack[returnIndex + 1]?.trigger || null;
+        stack.splice(returnIndex + 1);
+      } else {
+        const activeScreenRoot = document.getElementById(`screen-${state.activeView}`);
+        const triggerElement = document.activeElement;
+        const triggerReference = captureFocusReference(triggerElement, [
+          overlayRoot,
+          document.getElementById('record-root'),
+          activeScreenRoot,
+          document.getElementById('app')
+        ]);
+        stack.push({
+          identity: overlayNextIdentity,
+          trigger: { element: triggerElement, reference: triggerReference }
+        });
+      }
+      overlayRoot._overlayFocusStack = stack;
+    }
   }
 
   if (requested.has('shell')) {
@@ -182,7 +302,6 @@ function renderScopes(scopes) {
       bindDynamicEvents(screenRoot);
       renderIcons(screenRoot);
       restoreInteractionState(snapshot, screenRoot);
-      focusPlanningSection(screenRoot);
     }
   }
 
@@ -197,11 +316,24 @@ function renderScopes(scopes) {
 
   if (requested.has('sheet')) {
     const sheetRoot = document.getElementById('sheet-root');
-    const snapshot = captureInteractionState(sheetRoot);
+    const snapshot = captureInteractionState(sheetRoot, overlayPreviousIdentity);
     sheetRoot.innerHTML = renderActiveSheet();
+    if (sheetRoot.dataset) sheetRoot.dataset.overlayId = overlayNextIdentity;
+    else sheetRoot.setAttribute?.('data-overlay-id', overlayNextIdentity);
     bindDynamicEvents(sheetRoot);
     renderIcons(sheetRoot);
-    restoreInteractionState(snapshot, sheetRoot);
+    sheetRoot._unbindOverlayDismissal?.();
+    sheetRoot._unbindOverlayDismissal = overlayNextIdentity
+      ? bindOverlayDismissal(sheetRoot, { onDismiss: dismissActiveSheet })
+      : null;
+    restoreInteractionState(snapshot, sheetRoot, overlayNextIdentity);
+    if (overlayReturnTarget) {
+      const restored = restoreFocusReference(overlayReturnTarget.reference, document)
+        || restoreFocus(overlayReturnTarget.element);
+      if (!restored && overlayNextIdentity) focusInitialOverlay(sheetRoot);
+    } else if (overlayNextIdentity && overlayPreviousIdentity !== overlayNextIdentity) {
+      focusInitialOverlay(sheetRoot);
+    }
   }
 
   if (requested.has('toast')) toastRoot();
@@ -245,7 +377,7 @@ function injectDebugTool() {
   firstToolCard.insertAdjacentHTML('beforeend', `
     <button class="settings-row" data-tool="debug">
       <span class="row-icon" style="background:var(--blue-soft);color:var(--blue)">${icon('chart')}</span>
-      <span><strong>Debug / Storage Inspector</strong><small>Temporal: storage, errores y cache</small></span>
+      <span><strong>Depuración / inspector de almacenamiento</strong><small>Temporal: almacenamiento, errores y caché</small></span>
       ${icon('chevronRight')}
     </button>
   `);
@@ -410,30 +542,53 @@ function bindDynamicEvents(root) {
   root.querySelectorAll('[data-settings]').forEach(button => {
     button.addEventListener('click', () => setSettingsPage(button.dataset.settings));
   });
+  root.querySelectorAll('[data-planning-type]').forEach(button => button.addEventListener('click', () => {
+    const type = button.dataset.planningType;
+    if (!['budgets', 'provisions', 'recurring'].includes(type)) return;
+    state.ui.planningType = type;
+    state.ui.planningView = type;
+    renderAndFocus(`[data-planning-manager="${type}"]`);
+  }));
+  root.querySelectorAll('[data-planning-manager]').forEach(button => button.addEventListener('click', () => {
+    const type = button.dataset.planningManager;
+    if (!['budgets', 'provisions', 'recurring'].includes(type)) return;
+    state.ui.planningType = type;
+    state.ui.planningView = 'manager';
+    renderAndFocus('[data-planning-back="manager"]');
+  }));
+  root.querySelectorAll('[data-planning-back]').forEach(button => button.addEventListener('click', () => {
+    const previousView = state.ui.planningView;
+    const type = state.ui.planningType || 'hub';
+    state.ui.planningView = state.ui.planningView === 'manager'
+      ? type
+      : 'hub';
+    renderAndFocus(previousView === 'manager'
+      ? `[data-planning-manager="${type}"]`
+      : `[data-planning-type="${type}"]`);
+  }));
+  root.querySelectorAll('[data-planning-provision-filter]').forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.planningProvisionFilter;
+    if (!['active', 'released', 'all'].includes(filter)) return;
+    state.ui.planningProvisionFilter = filter;
+    render();
+  }));
+  root.querySelectorAll('[data-planning-recurring-filter]').forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.planningRecurringFilter;
+    if (!['current', 'completed'].includes(filter)) return;
+    state.ui.planningRecurringFilter = filter;
+    render();
+  }));
   root.querySelectorAll('[data-planning-focus]').forEach(button => button.addEventListener('click', () => {
-    state.ui.planningFocus = button.dataset.planningFocus;
+    const type = button.dataset.planningFocus;
+    if (!['budgets', 'provisions', 'recurring'].includes(type)) return;
+    state.ui.planningType = type;
+    state.ui.planningView = type;
     setSettingsPage('planning');
+    focusAfterNextRender(`[data-planning-manager="${type}"]`);
   }));
   root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     handleTool(button.dataset.tool).catch(error => captureError(`tool:${button.dataset.tool}`, error));
-  }));
-  root.querySelectorAll('[data-sheet-close]').forEach(el => el.addEventListener('click', event => {
-    if (event.currentTarget === event.target || el.tagName === 'BUTTON') {
-      if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
-        state.ui.activeSheet = 'period';
-        state.ui.calendarTarget = null;
-        render();
-        return;
-      }
-      if (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.returnSheet) {
-        state.ui.activeSheet = state.ui.optionPicker.returnSheet;
-        state.ui.optionPicker = null;
-        render();
-      } else {
-        closeSheet();
-      }
-    }
   }));
   bindSheetDragClose(root);
 
@@ -443,6 +598,24 @@ function bindDynamicEvents(root) {
   bindFilters(root);
   bindTools(root);
   bindSheetActions(root);
+}
+
+function dismissActiveSheet() {
+  if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
+    returnToPeriodSheet();
+    return;
+  }
+  if (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.returnSheet) {
+    state.ui.activeSheet = state.ui.optionPicker.returnSheet;
+    state.ui.optionPicker = null;
+    render();
+    return;
+  }
+  if (state.ui.activeSheet === 'period') {
+    cancelPeriodDraft();
+    return;
+  }
+  closeSheet();
 }
 
 function bindSheetDragClose(root) {
@@ -675,28 +848,39 @@ function bindFilters(root) {
     document.addEventListener('keydown', handleGlobalEscape);
     document.addEventListener('click', event => {
       if ((!state.ui.auditDropdown && !state.ui.categoryDropdown) || event.target.closest('.audit-dropdown, .category-filter-dropdown, [data-open-filter], [data-open-category-filter], [data-toggle-audit-filters]')) return;
+      const categoryWasOpen = state.ui.categoryDropdown;
       state.ui.auditDropdown = '';
-      state.ui.categoryDropdown = false;
       state.ui.auditDropdownSearch = '';
       state.ui.auditDropdownSearchActive = false;
-      render();
+      if (categoryWasOpen) closeCategoryDropdown(document);
+      else render();
     });
   }
   document.querySelector('[data-cat-search]')?.addEventListener('input', event => {
     state.filters.categories.text = event.target.value;
+    updateCategoryFilterChrome(document);
     persistFiltersSoon();
-    replaceSearchResults('[data-categories-results]', renderCategoriesResults(state));
+    replaceSearchResults('[data-category-card-results]', renderCategoryCards(state));
   });
   document.querySelectorAll('[data-cat-view]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.view = button.dataset.catView;
-    state.ui.auditFiltersOpen = false;
-    renderAndPersistFilters();
+    document.querySelectorAll('[data-cat-view]').forEach(option => {
+      const selected = option.dataset.catView === state.filters.categories.view;
+      option.classList.toggle('active', selected);
+      option.setAttribute('aria-pressed', String(selected));
+    });
+    persistFiltersSoon();
+    replaceSearchResults('[data-category-card-results]', renderCategoryCards(state));
   }));
   document.querySelectorAll('[data-cat-expand]').forEach(button => button.addEventListener('click', () => {
     const list = state.filters.categories.expanded;
     const name = button.dataset.catExpand;
-    state.filters.categories.expanded = list.includes(name) ? list.filter(x => x !== name) : [...list, name];
-    renderAndPersistFilters();
+    const expanded = !list.includes(name);
+    state.filters.categories.expanded = expanded ? [...list, name] : list.filter(value => value !== name);
+    button.setAttribute('aria-expanded', String(expanded));
+    const details = document.querySelector(`#${button.getAttribute('aria-controls')}`);
+    if (details) details.hidden = !expanded;
+    persistFiltersSoon();
   }));
   document.querySelectorAll('[data-add-cat-filter]').forEach(button => button.addEventListener('click', () => {
     state.filters.categories.categories.push(button.dataset.addCatFilter);
@@ -706,12 +890,7 @@ function bindFilters(root) {
     state.filters.categories.categories = state.filters.categories.categories.filter(v => v !== button.dataset.removeCatFilter);
     renderAndPersistFilters();
   }));
-  document.querySelector('[data-clear-cat-filters]')?.addEventListener('click', () => {
-    state.filters.categories.text = '';
-    state.filters.categories.categories = [];
-    state.ui.categoryDropdown = false;
-    renderAndPersistFilters();
-  });
+  document.querySelectorAll('[data-clear-cat-filters]').forEach(button => button.addEventListener('click', () => clearCategoryFilters()));
   document.querySelector('[data-open-category-filter]')?.addEventListener('click', () => {
     state.ui.categoryDropdown = !state.ui.categoryDropdown;
     state.ui.auditDropdown = '';
@@ -720,16 +899,22 @@ function bindFilters(root) {
   document.querySelectorAll('[data-category-filter-toggle]').forEach(button => button.addEventListener('click', () => {
     const name = button.dataset.categoryFilterToggle;
     const selected = state.filters.categories.categories;
-    state.filters.categories.categories = selected.includes(name) ? selected.filter(value => value !== name) : [...selected, name];
-    renderAndPersistFilters();
+    const included = !selected.includes(name);
+    state.filters.categories.categories = included ? [...selected, name] : selected.filter(value => value !== name);
+    setSearchableOptionSelected(button, included);
+    updateCategoryFilterChrome(document);
+    persistFiltersSoon();
+    replaceSearchResults('[data-category-card-results]', renderCategoryCards(state));
   }));
   document.querySelector('[data-category-filter-clear]')?.addEventListener('click', () => {
     state.filters.categories.categories = [];
-    renderAndPersistFilters();
+    document.querySelectorAll('[data-category-filter-toggle]').forEach(button => setSearchableOptionSelected(button, false));
+    updateCategoryFilterChrome(document);
+    persistFiltersSoon();
+    replaceSearchResults('[data-category-card-results]', renderCategoryCards(state));
   });
   document.querySelectorAll('[data-category-filter-close]').forEach(button => button.addEventListener('click', () => {
-    state.ui.categoryDropdown = false;
-    render();
+    closeCategoryDropdown(document);
   }));
   document.querySelectorAll('[data-open-summary-analysis]').forEach(button => button.addEventListener('click', () => openSheet('summary-analysis')));
   document.querySelectorAll('[data-open-capacity-calculation]').forEach(button => button.addEventListener('click', () => openSheet('capacity-calculation')));
@@ -759,22 +944,30 @@ function bindFilters(root) {
   }));
   document.querySelector('[data-audit-search]')?.addEventListener('input', event => {
     state.filters.audit.text = event.target.value;
+    const clearSearch = document.querySelector('[data-audit-clear-search]');
+    if (clearSearch) clearSearch.hidden = !state.filters.audit.text;
     persistFiltersSoon();
     replaceSearchResults('[data-audit-results]', renderAuditResults(state));
   });
-  document.querySelector('[data-audit-clear]')?.addEventListener('click', () => {
-    state.filters.audit = { text: '', accounts: [], types: [], categories: [], subcategories: [] };
-    state.ui.auditFiltersOpen = false;
-    state.ui.auditDropdown = '';
-    state.ui.auditDropdownSearch = '';
-    state.ui.auditDropdownSearchActive = false;
-    renderAndPersistFilters();
+  document.querySelector('[data-audit-clear-search]')?.addEventListener('click', event => {
+    state.filters.audit.text = '';
+    const search = document.querySelector('[data-audit-search]');
+    if (search) search.value = '';
+    event.currentTarget.hidden = true;
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
   });
-  document.querySelectorAll('[data-filter-remove]').forEach(button => button.addEventListener('click', () => {
-    const [key, value] = splitPair(button.dataset.filterRemove);
-    state.filters.audit[key] = state.filters.audit[key].filter(item => item !== value);
-    renderAndPersistFilters();
-  }));
+  document.querySelector('[data-audit-clear-filters]')?.addEventListener('click', () => {
+    state.filters.audit.accounts = [];
+    state.filters.audit.types = [];
+    state.filters.audit.categories = [];
+    state.filters.audit.subcategories = [];
+    document.querySelectorAll('[data-audit-dropdown-option]').forEach(button => setSearchableOptionSelected(button, false));
+    updateAuditFilterChrome(document);
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
+  });
+  bindAuditFilterRemovals(document);
   document.querySelector('[data-toggle-audit-filters]')?.addEventListener('click', () => {
     state.ui.auditFiltersOpen = !state.ui.auditFiltersOpen;
     state.ui.auditDropdown = '';
@@ -805,17 +998,25 @@ function bindFilters(root) {
     });
   });
   document.querySelectorAll('[data-audit-dropdown-toggle]').forEach(button => button.addEventListener('click', () => {
-    const [type, value] = splitPair(button.dataset.auditDropdownToggle);
+    const type = button.dataset.auditFilterType;
+    const value = button.dataset.auditDropdownOption;
     const key = auditFilterKey(type);
     if (!key || !value) return;
     const selected = state.filters.audit[key];
-    state.filters.audit[key] = selected.includes(value) ? selected.filter(item => item !== value) : [...selected, value];
-    renderAndPersistFilters();
+    const included = !selected.includes(value);
+    state.filters.audit[key] = included ? [...selected, value] : selected.filter(item => item !== value);
+    setSearchableOptionSelected(button, included);
+    updateAuditFilterChrome(document);
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
   }));
   document.querySelectorAll('[data-audit-dropdown-clear]').forEach(button => button.addEventListener('click', () => {
     const key = auditFilterKey(button.dataset.auditDropdownClear);
     if (key) state.filters.audit[key] = [];
-    renderAndPersistFilters();
+    document.querySelectorAll(`[data-audit-filter-type="${button.dataset.auditDropdownClear}"]`).forEach(option => setSearchableOptionSelected(option, false));
+    updateAuditFilterChrome(document);
+    persistFiltersSoon();
+    replaceSearchResults('[data-audit-results]', renderAuditResults(state));
   }));
   document.querySelectorAll('[data-audit-dropdown-close]').forEach(button => button.addEventListener('click', () => {
     state.ui.auditDropdown = '';
@@ -828,12 +1029,14 @@ function bindFilters(root) {
     showToast('Auditoría abierta. Filtra gastos no presupuestados o excesos por categoría.');
   });
   document.querySelectorAll('[data-audit-account]').forEach(button => {
-    button.addEventListener('dblclick', () => {
-      state.filters.audit.accounts = [button.dataset.auditAccount];
-      setView('audit');
-      renderAndPersistFilters();
-    });
+    button.addEventListener('click', () => openAccountAudit(button.dataset.auditAccount));
   });
+}
+
+function openAccountAudit(accountName) {
+  state.filters.audit.accounts = [accountName];
+  setView('audit');
+  persistFiltersSoon();
 }
 
 function handleGlobalEscape(event) {
@@ -841,17 +1044,20 @@ function handleGlobalEscape(event) {
   const periodCalendarOpen = state.ui.activeSheet === 'calendar'
     && String(state.ui.calendarTarget || '').startsWith('period:');
   if (state.ui.activeSheet === 'period' || periodCalendarOpen) {
+    event.preventDefault?.();
+    event.stopImmediatePropagation?.();
     state.ui.calendarTarget = null;
     cancelPeriodDraft();
     return;
   }
   if (!state.ui.auditDropdown && !state.ui.categoryDropdown && !state.ui.auditFiltersOpen) return;
+  const categoryWasOpen = state.ui.categoryDropdown;
   state.ui.auditDropdown = '';
-  state.ui.categoryDropdown = false;
   state.ui.auditDropdownSearch = '';
   state.ui.auditDropdownSearchActive = false;
   state.ui.auditFiltersOpen = false;
-  render();
+  if (categoryWasOpen) closeCategoryDropdown(document);
+  else render();
 }
 
 function bindTools(root) {
@@ -1087,7 +1293,7 @@ function bindSheetActions(root) {
     const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
     const field = target.slice('mapping.'.length);
     openOptionPicker({
-      title: `Columna: ${field === 'date' ? 'fecha' : field === 'description' ? 'descripciÃ³n' : field === 'amount' ? 'importe' : field === 'debit' ? 'dÃ©bito' : 'crÃ©dito'}`,
+      title: `Columna: ${field === 'date' ? 'fecha' : field === 'description' ? 'descripción' : field === 'amount' ? 'importe' : field === 'debit' ? 'débito' : 'crédito'}`,
       target: `auditClose.mapping.${field}`,
       options,
       value: ensureAuditCloseDraft().mapping?.[field] || '',
@@ -1261,7 +1467,7 @@ function bindSheetActions(root) {
     const sheet = button.closest('.sheet');
     const draft = isCategoryDraftSheet() ? ensureCategoryDraft() : ensureAccountDraft();
     draft.icon = value;
-    const color = draft.color || sheet?.querySelector('[data-create-field="color"]')?.value || '#0A8FE8';
+    const color = safeColor(draft.color || sheet?.querySelector('[data-create-field="color"]')?.value);
     const iconInput = sheet?.querySelector('[data-create-field="icon"]');
     if (iconInput) iconInput.value = value;
     sheet?.querySelectorAll('[data-form-icon]').forEach(item => {
@@ -1274,7 +1480,7 @@ function bindSheetActions(root) {
   }));
   document.querySelectorAll('[data-form-color]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
-    const value = button.dataset.formColor;
+    const value = safeColor(button.dataset.formColor);
     const draft = isCategoryDraftSheet() ? ensureCategoryDraft() : ensureAccountDraft();
     draft.color = value;
     const sheet = button.closest('.sheet');
@@ -1473,17 +1679,6 @@ async function reorderAccountTo(sourceId, targetId) {
 function planningFormPayload(root) {
   return Object.fromEntries([...root.querySelectorAll('[data-planning-field]')]
     .map(input => [input.dataset.planningField, input.value.trim()]));
-}
-
-function focusPlanningSection(root) {
-  const focus = state.activeView === 'settings' && state.settingsPage === 'planning'
-    ? state.ui.planningFocus
-    : '';
-  if (!focus) return;
-  const target = root.querySelector(`[data-planning-focus="${focus}"]`);
-  target?.scrollIntoView({ block: 'start' });
-  target?.focus({ preventScroll: true });
-  state.ui.planningFocus = '';
 }
 
 function numericProvisionPayload(payload) {
@@ -1908,12 +2103,12 @@ function categoryActionsSheet() {
       <section class="sheet" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <div class="account-form-preview">
-          <span class="icon-preview-medium" style="background:${category.color || '#0A8FE8'};color:#fff;">${icon(category.icon || 'folder')}</span>
-          <div><strong>${html(category.name)}</strong><small>${(category.subcategories || []).length} subcategorias</small></div>
+          <span class="icon-preview-medium" style="background:${safeColor(category.color)};color:#fff;">${icon(category.icon || 'folder')}</span>
+          <div><strong>${html(category.name)}</strong><small>${(category.subcategories || []).length} subcategorías</small></div>
         </div>
-        ${categoryActionRow('category-visual', 'sparkles', 'Cambiar icono y color', 'Preview antes de guardar')}
+        ${categoryActionRow('category-visual', 'sparkles', 'Cambiar icono y color', 'Vista previa antes de guardar')}
         ${categoryActionRow('category-name', 'edit', 'Cambiar nombre', 'Renombra categoria y registros asociados')}
-        ${categoryActionRow('category-subcategories', 'listChecks', 'Editar subcategorias', 'Agregar, renombrar o eliminar subcategorias')}
+        ${categoryActionRow('category-subcategories', 'listChecks', 'Editar subcategorías', 'Agregar, renombrar o eliminar subcategorías')}
         ${categoryActionRow('confirm-delete-category', 'trash', 'Borrar categoria', 'Elimina sus movimientos y presupuestos', 'danger-action-row')}
         <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
       </section>
@@ -1961,18 +2156,18 @@ function categorySubcategoriesSheet() {
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
-      <h2 class="sheet-title">Subcategorias</h2>
-      <div class="card import-summary"><strong>${rows.length}</strong><small>subcategorias en esta categoria</small></div>
+      <h2 class="sheet-title">Subcategorías</h2>
+      <div class="card import-summary"><strong>${rows.length}</strong><small>subcategorías en esta categoría</small></div>
       <div class="subcat-edit-list">
         ${rows.map((sub, index) => `
           <div class="subcat-edit-row">
             <input class="input" data-category-sub-input="${index}" value="${html(sub.name || '')}" placeholder="Subcategoria">
             <button class="ghost-icon compact-edit" data-category-sub-delete="${html(sub.name || '')}" aria-label="Eliminar subcategoria">${icon('trash')}</button>
           </div>
-        `).join('') || '<div class="empty-state compact-empty">Sin subcategorias</div>'}
+        `).join('') || '<div class="empty-state compact-empty">Sin subcategorías</div>'}
       </div>
       <button class="create-action-button create-action-button-muted" data-category-sub-add><span class="create-icon">${icon('plus')}</span><span><strong>Agregar subcategoria</strong><small>Incluye una nueva opcion dentro de esta categoria.</small></span>${icon('chevronRight')}</button>
-      <button class="primary-button mt-sm" data-save-category-section="subcategories">Guardar subcategorias</button>
+      <button class="primary-button mt-sm" data-save-category-section="subcategories">Guardar subcategorías</button>
       <button class="secondary-button mt-sm" data-category-action="category-actions">Volver</button>
     </section></div>
   `;
@@ -2020,11 +2215,11 @@ function accountActionsSheet() {
       <section class="sheet" onclick="event.stopPropagation()">
         <div class="sheet-handle"></div>
         <div class="account-form-preview">
-          <span class="icon-preview-medium" style="background:${account.color || '#0A8FE8'};color:#fff;">${icon(account.icon || 'landmark')}</span>
+          <span class="icon-preview-medium" style="background:${safeColor(account.color)};color:#fff;">${icon(account.icon || 'landmark')}</span>
           <div><strong>${html(account.name)}</strong><small>${html(account.type || 'Cuenta Corriente')}</small></div>
         </div>
         ${accountActionRow('account-kpis', 'settings', 'KPIs', 'Define qué métricas impacta esta cuenta')}
-        ${accountActionRow('account-visual', 'sparkles', 'Icono y color', 'Biblioteca completa y preview antes de guardar')}
+        ${accountActionRow('account-visual', 'sparkles', 'Icono y color', 'Biblioteca completa y vista previa antes de guardar')}
         ${accountActionRow('account-name-type', 'edit', 'Nombre y tipo', 'Edita nombre y clasificación')}
         ${accountActionRow('account-adjust', 'badgeDollar', 'Ajustar saldo', 'Crea movimiento auditable')}
         ${accountActionRow('confirm-delete-account', 'trash', 'Eliminar cuenta', 'Borra la cuenta y sus registros asociados', 'danger-action-row')}
@@ -2040,7 +2235,7 @@ function accountActionRow(sheet, iconName, title, subtitle, extraClass = '') {
 
 function renderDraftIconColorPicker(draft, kind, showPreview = true) {
   const iconName = draft.icon || (kind === 'category' ? 'folder' : 'landmark');
-  const color = draft.color || '#0A8FE8';
+  const color = safeColor(draft.color);
   return renderIconColorPickerContent({
     iconName,
     color,
@@ -2128,7 +2323,7 @@ function confirmDeleteAccountSheet() {
       <div class="sheet-handle"></div>
       <h2 class="sheet-title">Eliminar cuenta</h2>
       <div class="account-form-preview">
-        <span class="icon-preview-medium" style="background:${account.color || '#0A8FE8'};color:#fff;">${icon(account.icon || 'landmark')}</span>
+        <span class="icon-preview-medium" style="background:${safeColor(account.color)};color:#fff;">${icon(account.icon || 'landmark')}</span>
         <div><strong>${html(account.name)}</strong><small>${html(account.type || 'Cuenta Corriente')}</small></div>
       </div>
       <p class="muted">Eliminar esta cuenta borrará sus movimientos asociados y puede cambiar balances, ingresos, gastos y presupuesto histórico. Las transferencias vinculadas se eliminarán completas para evitar registros huérfanos. Las recurrencias quedarán sin cuenta.</p>
@@ -2150,7 +2345,7 @@ function accountSheetV704() {
   const knownTypes = [...new Set([...(state.accountTypes || []), 'Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'])];
   const typeOptions = optionObjects(knownTypes);
   const iconName = draft.icon || inferIcon(draft.name || '', 'account');
-  const color = draft.color || '#0A8FE8';
+  const color = safeColor(draft.color);
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
@@ -2168,7 +2363,7 @@ function accountSheetV704() {
         <div class="field"><label>Otro tipo</label><input class="input" data-account-draft-field="customType" value="${html(draft.customType || '')}" placeholder="Personalizado" ${type === 'Otro' ? '' : 'disabled'}></div>
       </div>
       <div class="inline-picker-card">
-        <div class="inline-picker-head"><strong>Icono y color</strong><small>El preview se actualiza al seleccionar.</small></div>
+        <div class="inline-picker-head"><strong>Icono y color</strong><small>La vista previa se actualiza al seleccionar.</small></div>
         ${renderDraftIconColorPicker(draft, 'account', false)}
       </div>
       <div class="switch-grid">
@@ -2201,7 +2396,7 @@ function accountSheet() {
 function categorySheet() {
   const draft = ensureCategoryDraft();
   const iconName = draft.icon || inferIcon(draft.name || '', 'category');
-  const color = draft.color || '#0A8FE8';
+  const color = safeColor(draft.color);
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
       <div class="sheet-handle"></div>
@@ -2216,7 +2411,7 @@ function categorySheet() {
       <div class="field"><label>Nombre</label><input class="input" data-category-draft-field="name" value="${html(draft.name || '')}" placeholder="Nombre de categoría"></div>
       <div class="field"><label>Subcategorías</label><input class="input" data-category-draft-field="subcategoriesText" value="${html(draft.subcategoriesText || '')}" placeholder="Separadas por coma"></div>
       <div class="inline-picker-card">
-        <div class="inline-picker-head"><strong>Icono y color</strong><small>El preview se actualiza al seleccionar.</small></div>
+        <div class="inline-picker-head"><strong>Icono y color</strong><small>La vista previa se actualiza al seleccionar.</small></div>
         ${renderDraftIconColorPicker(draft, 'category', false)}
       </div>
       <button class="primary-button" data-create-action="create-category">Crear categoría</button>
@@ -2309,7 +2504,7 @@ function debugSheet() {
   const logs = window.CFO_DEBUG?.logs || [];
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet wide" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div><h2 class="sheet-title">Debug / Storage Inspector</h2>
+      <div class="sheet-handle"></div><h2 class="sheet-title">Depuración / inspector de almacenamiento</h2>
       <div class="debug-grid">
         <div class="debug-item"><small>Versión</small><strong>${html(state.version || APP_VERSION)}</strong></div>
         <div class="debug-item"><small>Origen</small><strong>${html(location.origin)}</strong></div>
@@ -2340,7 +2535,7 @@ function debugSheet() {
         <strong>Logs temporales</strong>
         <pre class="debug-log">${html(JSON.stringify(logs.slice(-12), null, 2))}</pre>
       </div>
-      <button class="primary-button" data-debug-action="storage-test">Probar escritura/lectura storage</button>
+      <button class="primary-button" data-debug-action="storage-test">Probar escritura/lectura del almacenamiento</button>
       <button class="secondary-button mt-sm" data-debug-action="refresh">Refrescar inspector</button>
       <button class="danger-button mt-sm" data-debug-action="clear-cache">Limpiar service worker/cache de esta app</button>
       <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
@@ -2364,9 +2559,9 @@ function restoreSheet() {
 function confirmResetSheet() {
   return `
     <div class="sheet-backdrop open" data-sheet-close><section class="sheet" onclick="event.stopPropagation()">
-      <div class="sheet-handle"></div><h2 class="sheet-title">Borrar toda la data</h2>
+      <div class="sheet-handle"></div><h2 class="sheet-title">Borrar todos los datos</h2>
       <p class="muted">Esto elimina datos locales de V7 en este navegador. No afecta V6.</p>
-      <button class="danger-button" data-confirm-reset>Borrar data</button><button class="secondary-button mt-sm" data-sheet-close>Cancelar</button>
+      <button class="danger-button" data-confirm-reset>Borrar todos los datos</button><button class="secondary-button mt-sm" data-sheet-close>Cancelar</button>
     </section></div>
   `;
 }

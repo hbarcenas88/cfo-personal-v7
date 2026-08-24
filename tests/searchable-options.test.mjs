@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows } from '../src/components/searchableOptions.js';
+import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows, setSearchableOptionSelected } from '../src/components/searchableOptions.js';
 import { icon } from '../src/icons.js';
 import { renderAudit } from '../src/screens/audit.js';
 
@@ -12,6 +12,30 @@ assert.doesNotMatch(renderSearchActivator(true), /autofocus/);
 assert.match(renderSearchableOptionRows(options, ['BAC']), /data-option-value="BAC"/);
 assert.match(renderSearchableOptionRows(options, ['BAC']), /option-row selected/);
 assert.ok(renderSearchableOptionRows(options, ['BAC']).includes(icon('check')));
+
+{
+  const classes = new Set();
+  let indicator = null;
+  const button = {
+    attributes: {},
+    classList: { toggle: (name, active) => active ? classes.add(name) : classes.delete(name) },
+    setAttribute(name, value) { this.attributes[name] = value; },
+    querySelector: () => indicator,
+    insertAdjacentHTML: () => {
+      indicator = { remove: () => { indicator = null; } };
+    }
+  };
+
+  setSearchableOptionSelected(button, true);
+  assert.equal(classes.has('selected'), true);
+  assert.equal(button.attributes['aria-pressed'], 'true');
+  assert.ok(indicator, 'selected options must expose a non-textual check indicator');
+
+  setSearchableOptionSelected(button, false);
+  assert.equal(classes.has('selected'), false);
+  assert.equal(button.attributes['aria-pressed'], 'false');
+  assert.equal(indicator, null);
+}
 
 const auditCategories = Array.from({ length: 81 }, (_, index) => ({ name: `Categoría ${index + 1}`, subcategories: [] }));
 const auditMarkup = renderAudit({
