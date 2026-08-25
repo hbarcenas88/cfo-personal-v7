@@ -1,6 +1,6 @@
 # CFO Personal V7 - Verificador de entrega
 
-## Oleada 3 — auditoría visual, interacción y Planeación compacta — cierre local en curso
+## Oleada 3 — auditoría visual, interacción y Planeación compacta — publicada y aceptada
 
 ### Contratos, implementación y revisiones aprobadas — 2026-08-24
 
@@ -20,12 +20,12 @@
 - [x] Reviewer final independiente de la Oleada 3 dentro del máximo de 40 minutos: `SPEC PASS / QUALITY APPROVED`, cero Critical y cero Important abiertos. La matriz no se fingió como una sola sesión ininterrumpida; el informe identifica qué evidencia proviene de cada revisión aprobada.
 - [x] Commit local único de la Oleada 3, limitado a producto, contratos, fuentes de verdad y plan/spec; sin datos, capturas ni artefactos de herramientas.
 
-### Pendientes externos — no sustituidos por evidencia local
+### Publicación y aceptación externa — 2026-08-24
 
-- [ ] Autorización textual fresca para publicar el SHA final en `https://github.com/hbarcenas88/cfo-personal-v7.git`.
-- [ ] Verificación de GitHub Pages después de la publicación autorizada.
-- [ ] Validación en teléfono físico y aceptación de la PWA instalada.
-- [ ] Recorrido no destructivo con datos reales respaldados. Las pruebas y datos sintéticos no sustituyen esta aceptación.
+- [x] Autorización textual recibida y SHA `3f56cce146d9dc73ab824fe1d32987e861163021` publicado desde `main` en `https://github.com/hbarcenas88/cfo-personal-v7.git`.
+- [x] GitHub Pages verificado: contenido público, `cfo-personal-v7-cache-47`, viewport 390 × 844, navegación básica, targets visibles, cero overflow y consola limpia.
+- [x] Validación en teléfono físico y aceptación de la PWA cerradas por la persona usuaria. Las observaciones visuales menores se difieren de forma explícita a una oleada independiente.
+- [ ] Recorrido financiero no destructivo con datos reales respaldados. Las pruebas y datos sintéticos no sustituyen esta validación transversal.
 
 ## Oleada 2 — Planeación administrable — corrección final local
 
