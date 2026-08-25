@@ -14,18 +14,19 @@ export function backupPayload(state) {
     version: state.version || '7.0.0',
     exportedAt: new Date().toISOString(),
     data: {
-      accounts: state.accounts,
-      categories: state.categories,
-      transactions: state.transactions,
-      budgets: state.budgets,
-      provisions: state.provisions,
-      provisionEvents: state.provisionEvents,
-      recurring: state.recurring,
-      recurringDone: state.recurringDone,
-      rules: state.rules,
-      period: state.period,
-      filters: state.filters,
-      healthDismissed: state.healthDismissed
+      accounts: structuredClone(state.accounts || []),
+      categories: structuredClone(state.categories || []),
+      transactions: structuredClone(state.transactions || []),
+      budgets: structuredClone(state.budgets || []),
+      provisions: structuredClone(state.provisions || []),
+      provisionEvents: structuredClone(state.provisionEvents || []),
+      importBatches: structuredClone(state.importBatches || []),
+      recurring: structuredClone(state.recurring || []),
+      recurringDone: structuredClone(state.recurringDone || {}),
+      rules: structuredClone(state.rules || {}),
+      period: structuredClone(state.period || {}),
+      filters: structuredClone(state.filters || {}),
+      healthDismissed: structuredClone(state.healthDismissed || {})
     }
   };
 }

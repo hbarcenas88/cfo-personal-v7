@@ -1,5 +1,9 @@
 # CFO Personal V7 - Sistema de diseño
 
+## Importación asistida (Oleada 4)
+
+La revisión de importación asistida se presenta como un flujo de borrador, decisiones y confirmación. Las tarjetas de grupos muestran el valor original, el número de equivalentes y una acción masiva deseleccionada hasta confirmarla; las excepciones tienen controles propios para corregir, aprobar duplicados o descartar. El resumen final separa filas a importar, catálogos a crear y filas descartadas. Las acciones usan controles propios, targets mínimos de 44 px, texto escapado y actualizaciones localizadas que conservan foco y scroll; no se usan `<select>` nativos.
+
 Estado: referencia canónica de experiencia e interfaz para V7. Actualizar cuando se introduzca un patrón reutilizable, un token visual o una regla de interacción.
 
 ## Principios de experiencia

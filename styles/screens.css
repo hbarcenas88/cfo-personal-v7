@@ -1719,6 +1719,61 @@
   gap: 10px;
 }
 
+.assisted-import-review {
+  overflow-wrap: anywhere;
+}
+
+.assisted-import-summary,
+.assisted-import-confirmation,
+.assisted-import-group-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.assisted-import-group-list h3 {
+  margin: var(--space-sm) 0 0;
+  font-size: 16px;
+}
+
+.assisted-import-group,
+.assisted-import-row-card {
+  display: grid;
+  gap: 10px;
+}
+
+.assisted-import-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.assisted-import-group-head span {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.assisted-import-group-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.assisted-import-group,
+.assisted-import-row-action {
+  min-height: 44px;
+}
+
+.assisted-import-row-action,
+.assisted-import-one-action .tertiary-button {
+  min-height: 44px;
+  white-space: normal;
+}
+
+.assisted-import-error {
+  color: var(--red);
+}
+
 .create-action-card,
 .account-create-card {
   padding: 0;

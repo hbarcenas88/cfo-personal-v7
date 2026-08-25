@@ -11,9 +11,10 @@ import { auditActiveFilterCount, renderAudit, renderAuditFilterChips, renderAudi
 import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderBudgetSheet, renderProvisionSheet, renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet, selectPlanningBudgetPeriod } from './screens/settings.js';
 import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteBudget, deleteCategory, deleteProvision, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, releaseProvision, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, updateAccount, updateBudget, updateCategory, updateProvision, updateTransaction, setView } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, applyAssistedImportPlan, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteBudget, deleteCategory, deleteProvision, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, releaseProvision, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, undoAssistedImportBatch, updateAccount, updateBudget, updateCategory, updateProvision, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
+import { approvePossibleDuplicate, buildAssistedImportPlan, createImportReviewDraft, discardImportRow, resolveImportGroup } from './services/assistedImportService.js';
 import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateStatementRows, validateRowsAgainstRange } from './services/guidedAuditService.js';
 import { dataHealth } from './services/healthService.js';
 import { readStatementFile, suggestedStatementMapping, validateStatementMapping } from './services/statementFileService.js';
@@ -27,6 +28,7 @@ import { icon, inferIcon, renderIcons } from './icons.js';
 let calendarDraft = { selectedDate: todayISO(), visibleMonth: todayISO().slice(0, 7) };
 let draggedAccountId = '';
 let pointerDragAccount = null;
+let assistedImportReturnInteraction = null;
 let auditDropdownDismissBound = false;
 let filterPersistTimer = 0;
 const APP_VERSION = '7.0.5';
@@ -177,6 +179,12 @@ function closeCategoryDropdown(context = document) {
 
 await initState();
 state.version = APP_VERSION;
+window.addEventListener('cfo-assisted-import-undo', event => {
+  undoAssistedImportBatch(event.detail?.batchId).then(result => {
+    showToast(result.ok ? 'Importación CSV deshecha' : (result.errors?.[0] || 'No se pudo deshacer la importación'));
+    render();
+  }).catch(error => captureError('undo assisted import', error));
+});
 debugLog('state loaded', {
   accounts: state.accounts.length,
   transactions: state.transactions.length,
@@ -606,9 +614,16 @@ function dismissActiveSheet() {
     return;
   }
   if (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.returnSheet) {
+    const returnSheet = state.ui.optionPicker.returnSheet;
     state.ui.activeSheet = state.ui.optionPicker.returnSheet;
     state.ui.optionPicker = null;
-    render();
+    const interactionSnapshot = assistedImportReturnInteraction;
+    assistedImportReturnInteraction = null;
+    if (interactionSnapshot && returnSheet === 'import-transactions') {
+      renderAssistedImportPreservingInteraction(interactionSnapshot);
+    } else {
+      render();
+    }
     return;
   }
   if (state.ui.activeSheet === 'period') {
@@ -1536,6 +1551,61 @@ function bindSheetActions(root) {
   document.querySelectorAll('[data-import-confirm]').forEach(button => button.addEventListener('click', () => {
     confirmImportDraft().catch(error => captureError('confirm import', error));
   }));
+  document.querySelectorAll('[data-import-confirm-review]').forEach(button => button.addEventListener('click', () => {
+    requestAssistedImportConfirmation();
+  }));
+  document.querySelectorAll('[data-import-final-ack]').forEach(input => input.addEventListener('change', () => {
+    if (!state.ui.importConfirmation) return;
+    state.ui.importConfirmation.acknowledged = input.checked;
+    renderAssistedImportPreservingInteraction();
+  }));
+  document.querySelectorAll('[data-import-final-confirm]').forEach(button => button.addEventListener('click', () => {
+    confirmAssistedImportDraft().catch(error => captureError('confirm assisted import', error));
+  }));
+  document.querySelectorAll('[data-import-confirm-review]').forEach(button => {
+    button.hidden = Boolean(state.ui.importConfirmation);
+  });
+  document.querySelectorAll('[data-import-existing-picker]').forEach(button => button.addEventListener('click', () => {
+    openAssistedImportCatalogPicker(button);
+  }));
+  document.querySelectorAll('[data-import-choose-create]').forEach(button => button.addEventListener('click', () => {
+    if (button.closest('[data-import-group]')?.dataset.importGroup && state.ui.importDraft?.groups?.find(group => group.id === button.dataset.importGroupId)?.field === 'account') {
+      openAssistedImportAccountTypePicker(button);
+      return;
+    }
+    resolveAssistedImportGroup(button, true);
+  }));
+  document.querySelectorAll('[data-import-group-resolve]').forEach(button => button.addEventListener('click', () => {
+    resolveAssistedImportGroup(button, button.dataset.importGroupResolve === 'create');
+  }));
+  document.querySelectorAll('[data-import-row-resolve]').forEach(button => button.addEventListener('click', () => {
+    if (button.hasAttribute('data-import-existing-picker')) return;
+    resolveAssistedImportRow(button, button.dataset.importRowResolve === 'create');
+  }));
+  document.querySelectorAll('[data-import-apply-one]').forEach(button => button.addEventListener('click', () => {
+    resolveAssistedImportGroup(button, false, false, Number(button.dataset.importSourceRow));
+  }));
+  document.querySelectorAll('[data-import-row-discard]').forEach(button => button.addEventListener('click', () => {
+    const draft = state.ui.importDraft;
+    if (!draft) return;
+    state.ui.importDraft = discardImportRow(draft, Number(button.dataset.importRowDiscard));
+    state.ui.importConfirmation = null;
+    renderAssistedImportPreservingInteraction();
+  }));
+  document.querySelectorAll('[data-import-duplicate-approve]').forEach(button => button.addEventListener('click', () => {
+    const draft = state.ui.importDraft;
+    if (!draft) return;
+    state.ui.importDraft = approvePossibleDuplicate(draft, Number(button.dataset.importDuplicateApprove));
+    state.ui.importConfirmation = null;
+    renderAssistedImportPreservingInteraction();
+  }));
+  document.querySelectorAll('[data-import-undo-batch]').forEach(button => button.addEventListener('click', () => {
+    undoAssistedImportBatch(button.dataset.importUndoBatch).then(result => {
+      if (result.ok) showToast('Importación CSV deshecha');
+      else showToast(result.errors?.[0] || 'No se pudo deshacer la importación');
+      render();
+    }).catch(error => captureError('undo assisted import', error));
+  }));
   document.querySelectorAll('[data-import-discard]').forEach(button => button.addEventListener('click', () => {
     const draft = state.ui.importDraft;
     if (!draft) return;
@@ -1907,7 +1977,14 @@ function optionPickerSheet() {
 function applyOptionSelection(value) {
   const picker = state.ui.optionPicker;
   if (!picker?.target) return;
-  if (picker.target === 'import.kind') {
+  if (picker.target === 'assisted-import-existing') {
+    applyAssistedImportResolution({ ...picker.resolution, action: 'match', value });
+    return;
+  } else if (picker.target === 'assisted-import-create-account-type') {
+    const pending = state.ui.importPendingResolution;
+    if (pending) applyAssistedImportResolution({ ...pending, action: 'create', typeName: value });
+    return;
+  } else if (picker.target === 'import.kind') {
     state.ui.importDraft = { kind: value, objects: [], issues: [], discardedRows: [] };
   } else if (picker.target === 'account.type') {
     ensureAccountDraft().type = value;
@@ -2030,11 +2107,12 @@ function normalizedCategoryDraft() {
 }
 
 function importSheetV702(defaultKind) {
-  const catalog = state.ui.activeSheet === 'import-catalogs';
+  const catalog = ['accounts', 'categories', 'provisions', 'recurring'].includes(defaultKind);
   const kinds = catalog
     ? [['accounts', 'Cuentas'], ['categories', 'Categorías y subcategorías'], ['provisions', 'Provisiones'], ['recurring', 'Pagos e ingresos recurrentes']]
     : [['transactions', 'Movimientos'], ['budgets', 'Presupuesto']];
   const draft = state.ui.importDraft || { kind: defaultKind, objects: [], issues: [] };
+  if (!catalog && draft.rows) return renderAssistedImportReview(draft);
   const kindOptions = kinds.map(([value, label]) => ({ value, label }));
   const headers = templateHeaders[draft.kind] || [];
   const issues = draft.issues || [];
@@ -2064,6 +2142,235 @@ function importSheetV702(defaultKind) {
       </section>
     </div>
   `;
+}
+
+function renderAssistedImportPreservingInteraction(previousInteraction = null) {
+  const sheetRoot = document.getElementById('sheet-root');
+  const interactionSnapshot = previousInteraction || captureInteractionState(sheetRoot, state.ui.activeSheet);
+  render();
+  queueMicrotask(() => {
+    const nextSheetRoot = document.getElementById('sheet-root');
+    restoreInteractionState(interactionSnapshot, nextSheetRoot, state.ui.activeSheet);
+  });
+}
+
+function renderAssistedImportReview(draft) {
+  const summary = draft.summary || {};
+  const groups = draft.groups || [];
+  const retainedRows = (draft.rows || []).filter(row => row.status !== 'discarded');
+  const duplicateRows = retainedRows.filter(row => row.possibleDuplicate?.kind === 'semantic');
+  const planResult = buildAssistedImportPlan(draft, state);
+  const canConfirm = planResult.ok;
+  const confirmation = state.ui.importConfirmation;
+  const confirmationMatches = Boolean(confirmation
+    && confirmation.batchId === planResult.plan?.batch?.id
+    && confirmation.fingerprint === planResult.plan?.batch?.fingerprint);
+  const label = draft.kind === 'budgets' ? 'presupuestos' : 'movimientos';
+  return `
+    <div class="sheet-backdrop open" data-sheet-close>
+      <section class="sheet wide assisted-import-review" onclick="event.stopPropagation()">
+        <div class="sheet-handle"></div>
+        <h2 class="sheet-title">Revisar ${label}</h2>
+        <div class="card assisted-import-summary">
+          <strong>${summary.total || 0} filas leídas</strong>
+          <small>${summary.ready || 0} listas · ${summary.unresolved || 0} por resolver · ${summary.blocked || 0} bloqueadas · ${summary.discarded || 0} descartadas</small>
+        </div>
+        ${groups.length ? `<div class="assisted-import-group-list"><h3>Decisiones repetidas</h3>${groups.map(group => assistedImportGroupCard(group, draft)).join('')}</div>` : ''}
+        ${duplicateRows.length ? `<div class="assisted-import-group-list"><h3>Posibles duplicados</h3>${duplicateRows.map(row => assistedImportDuplicateCard(row)).join('')}</div>` : ''}
+        ${(draft.rows || []).filter(row => row.status !== 'ready' && !row.possibleDuplicate).length ? `<div class="assisted-import-group-list"><h3>Excepciones por fila</h3>${(draft.rows || []).filter(row => row.status !== 'ready' && !row.possibleDuplicate).slice(0, 40).map(row => assistedImportRowCard(row)).join('')}</div>` : ''}
+        <div class="card assisted-import-confirmation">
+          ${confirmationMatches ? `<label class="field compact-field"><span>ConfirmaciÃ³n explÃ­cita</span><input type="checkbox" data-import-final-ack ${confirmation.acknowledged ? 'checked' : ''}> Confirmo que deseo guardar estas filas.</label><button class="primary-button" data-import-final-confirm ${confirmation.acknowledged ? '' : 'disabled'}>Guardar importaciÃ³n (${retainedRows.length})</button>` : ''}
+          <strong>Resumen antes de guardar</strong>
+          <small>${canConfirm ? `${retainedRows.length} ${label} se agregarán.` : 'Resuelve o descarta las filas pendientes para continuar.'}</small>
+          ${!canConfirm && planResult.errors?.length ? `<small class="assisted-import-error">${html(importPlanError(planResult.errors[0]))}</small>` : ''}
+        </div>
+        <button class="primary-button" data-import-confirm-review ${canConfirm ? '' : 'disabled'}>Confirmar importación (${canConfirm ? retainedRows.length : 0})</button>
+        <button class="secondary-button mt-sm" data-sheet-close>Cerrar</button>
+      </section>
+    </div>
+  `;
+}
+
+function assistedImportGroupCard(group, draft) {
+  const fieldLabel = { account: 'cuenta', category: 'categoría', subcategory: 'subcategoría', movement: 'tipo de movimiento' }[group.field] || group.field;
+  const blocked = group.type === 'blocked';
+  return `
+    <div class="card assisted-import-group" data-import-group="${html(group.id)}">
+      <div class="assisted-import-group-head"><strong>${html(fieldLabel)}</strong><span>${group.count} equivalentes</span></div>
+      <small>Valor original: <b>${html(group.original || 'Sin valor')}</b>${group.context ? ` · ${html(group.context)}` : ''}</small>
+      <label class="field compact-field"><span>${blocked ? 'Corrige el valor bloqueado' : 'Valor a usar'}</span><input class="input" data-import-group-value="${html(group.id)}" value="${html(group.original)}" autocomplete="off"></label>
+      <div class="assisted-import-group-actions">
+        <button class="secondary-button assisted-import-row-action" data-import-choose-existing data-import-existing-picker data-import-group-id="${html(group.id)}">Usar existente en ${group.count} equivalentes</button>
+        <button class="secondary-button assisted-import-row-action" data-import-choose-create data-import-account-type="${group.field === 'account' ? 'required' : 'none'}" data-import-group-id="${html(group.id)}">${group.field === 'account' ? 'Crear cuenta · saldo inicial $0' : 'Crear'} · Aplicar a ${group.count} equivalentes</button>
+      </div>
+      <div class="assisted-import-one-action">
+        ${group.sourceRows.map(sourceRow => `<button class="tertiary-button" data-import-apply-one data-import-group-id="${html(group.id)}" data-import-source-row="${sourceRow}">Aplicar sólo a la fila ${sourceRow}</button>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function assistedImportRowCard(row) {
+  const issue = row.issues?.[0];
+  const field = issue?.field || 'value';
+  const value = row.original?.[field] || '';
+  return `
+    <div class="card assisted-import-row-card">
+      <div class="assisted-import-group-head"><strong>Fila ${row.sourceRow}</strong><span>${html(issueLabel(issue))}</span></div>
+      <small>Original: ${html(value || row.original?.description || 'Sin valor')}</small>
+      <label class="field compact-field"><span>Corrección</span><input class="input" data-import-row-value="${row.sourceRow}:${html(field)}" value="${html(value)}" autocomplete="off"></label>
+      <div class="assisted-import-group-actions">
+        <button class="secondary-button assisted-import-row-action" data-import-row-resolve="match" data-import-row-id="${row.sourceRow}" data-import-row-field="${html(field)}" data-import-existing-picker>Usar existente</button>
+        <button class="secondary-button assisted-import-row-action" data-import-row-resolve="create" data-import-row-id="${row.sourceRow}" data-import-row-field="${html(field)}">Crear valor</button>
+        <button class="tertiary-button" data-import-row-discard="${row.sourceRow}">Descartar fila</button>
+      </div>
+    </div>
+  `;
+}
+
+function assistedImportDuplicateCard(row) {
+  return `
+    <div class="card assisted-import-row-card">
+      <div class="assisted-import-group-head"><strong>Fila ${row.sourceRow}</strong><span>Posible duplicado</span></div>
+      <small>La fila coincide con un movimiento ya registrado. Revísala antes de conservarla.</small>
+      <div class="assisted-import-group-actions">
+        <button class="secondary-button assisted-import-row-action" data-import-duplicate-approve="${row.sourceRow}">Importar de todos modos</button>
+        <button class="tertiary-button" data-import-row-discard="${row.sourceRow}">Descartar fila</button>
+      </div>
+    </div>
+  `;
+}
+
+function issueLabel(issue = {}) {
+  if (issue.code === 'blocked' && issue.field === 'movement') return 'Transferencia o provisión no se puede importar aquí';
+  if (issue.code === 'invalid') return `Valor inválido: ${issue.field}`;
+  return `Requiere resolver: ${issue.field}`;
+}
+
+function importPlanError(error = {}) {
+  const issue = error.issues?.[0];
+  return issue ? issueLabel(issue) : 'Hay filas pendientes de revisión.';
+}
+
+function assistedImportValue(button, selector) {
+  return button.closest(selector)?.querySelector('input')?.value?.trim() || '';
+}
+
+function resolveAssistedImportGroup(button, create, applyToEquivalent = true, sourceRow = null, extra = {}) {
+  const draft = state.ui.importDraft;
+  const groupId = button.dataset.importGroupId;
+  const group = draft?.groups?.find(item => item.id === groupId);
+  if (!draft || !group) return;
+  const value = assistedImportValue(button, '[data-import-group]');
+  if (!value) return showToast('Escribe un valor antes de resolver');
+  state.ui.importDraft = resolveImportGroup(draft, groupId, { action: create ? 'create' : 'match', value, sourceRow: sourceRow || group.sourceRows[0], ...extra }, applyToEquivalent);
+  state.ui.importConfirmation = null;
+  renderAssistedImportPreservingInteraction();
+}
+
+function resolveAssistedImportRow(button, create) {
+  const draft = state.ui.importDraft;
+  const sourceRow = Number(button.dataset.importRowId);
+  const field = button.dataset.importRowField;
+  const value = assistedImportValue(button, '.assisted-import-row-card');
+  if (!draft || !value) return showToast('Escribe una corrección antes de resolver');
+  const group = draft.groups.find(item => item.field === field && item.sourceRows.includes(sourceRow));
+  if (!group) return;
+  state.ui.importDraft = resolveImportGroup(draft, group.id, { action: create ? 'create' : 'match', value, sourceRow }, false);
+  state.ui.importConfirmation = null;
+  renderAssistedImportPreservingInteraction();
+}
+
+function assistedImportCatalogOptions(group) {
+  if (group.field === 'account') return optionObjects(state.accounts.map(item => item.name));
+  if (group.field === 'category') return optionObjects(state.categories.map(item => item.name));
+  if (group.field === 'subcategory') {
+    const category = state.categories.find(item => canon(item.name) === canon(group.context));
+    return optionObjects((category?.subcategories || []).map(item => item.name || item));
+  }
+  return [];
+}
+
+function openAssistedImportCatalogPicker(button) {
+  const draft = state.ui.importDraft;
+  const groupId = button.dataset.importGroupId;
+  const sourceRow = Number(button.dataset.importRowId || button.dataset.importSourceRow || 0) || null;
+  const field = button.dataset.importRowField;
+  const group = groupId
+    ? draft?.groups?.find(item => item.id === groupId)
+    : draft?.groups?.find(item => item.field === field && item.sourceRows.includes(sourceRow));
+  if (!group) return;
+  assistedImportReturnInteraction = captureInteractionState(document.getElementById('sheet-root'), state.ui.activeSheet);
+  state.ui.optionPicker = {
+    title: `Usar ${fieldLabelForAssistedImport(group.field)}`,
+    options: assistedImportCatalogOptions(group),
+    value: '',
+    target: 'assisted-import-existing',
+    resolution: { groupId: group.id, sourceRow, applyToEquivalent: !sourceRow },
+    returnSheet: state.ui.activeSheet,
+    search: '',
+    searchActive: false
+  };
+  state.ui.activeSheet = 'option-picker';
+  render();
+}
+
+function openAssistedImportAccountTypePicker(button) {
+  const draft = state.ui.importDraft;
+  const groupId = button.dataset.importGroupId;
+  const group = draft?.groups?.find(item => item.id === groupId);
+  const value = assistedImportValue(button, '[data-import-group]');
+  if (!group || !value) return showToast('Escribe el nombre de la cuenta antes de crearla');
+  assistedImportReturnInteraction = captureInteractionState(document.getElementById('sheet-root'), state.ui.activeSheet);
+  const knownTypes = [...new Set([...(state.accountTypes || []), 'Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'])];
+  state.ui.importPendingResolution = { groupId, sourceRow: group.sourceRows[0], applyToEquivalent: true, value };
+  state.ui.optionPicker = {
+    title: 'Tipo de cuenta nueva · Saldo inicial: $0',
+    options: optionObjects(knownTypes),
+    value: '',
+    target: 'assisted-import-create-account-type',
+    returnSheet: state.ui.activeSheet,
+    search: '',
+    searchActive: false
+  };
+  state.ui.activeSheet = 'option-picker';
+  render();
+}
+
+function applyAssistedImportResolution(resolution) {
+  const draft = state.ui.importDraft;
+  if (!draft || !resolution?.groupId) return;
+  const group = draft.groups?.find(item => item.id === resolution.groupId);
+  if (!group) return;
+  const interactionSnapshot = assistedImportReturnInteraction;
+  assistedImportReturnInteraction = null;
+  state.ui.importDraft = resolveImportGroup(draft, group.id, resolution, resolution.applyToEquivalent !== false);
+  state.ui.importConfirmation = null;
+  state.ui.importPendingResolution = null;
+  state.ui.optionPicker = null;
+  state.ui.activeSheet = resolution.returnSheet || 'import-transactions';
+  renderAssistedImportPreservingInteraction(interactionSnapshot);
+}
+
+function fieldLabelForAssistedImport(field) {
+  return { account: 'cuenta', category: 'categoría', subcategory: 'subcategoría' }[field] || field;
+}
+
+function requestAssistedImportConfirmation() {
+  const draft = state.ui.importDraft;
+  if (!draft?.rows?.length) return;
+  const result = buildAssistedImportPlan(draft, state);
+  if (!result.ok) {
+    showToast(importPlanError(result.errors?.[0]));
+    renderAssistedImportPreservingInteraction();
+    return;
+  }
+  state.ui.importConfirmation = {
+    batchId: result.plan.batch.id,
+    fingerprint: result.plan.batch.fingerprint,
+    acknowledged: false
+  };
+  renderAssistedImportPreservingInteraction();
 }
 
 function importRowCard(row, index, headers, issue = null) {
@@ -2679,6 +2986,15 @@ async function readImportFile(file) {
   const parsed = parseCSV(text);
   const objects = rowsToObjects(parsed.rows);
   const kind = state.ui.importDraft?.kind || (state.ui.activeSheet === 'import-catalogs' ? 'accounts' : 'transactions');
+  if (kind === 'transactions' || kind === 'budgets') {
+    state.ui.importDraft = createImportReviewDraft(kind, objects, state, {
+      importedAt: new Date().toISOString()
+    });
+    state.ui.importDraft.delimiter = parsed.delimiter;
+    debugLog('assisted import draft created', { kind, rows: objects.length, delimiter: parsed.delimiter });
+    render();
+    return;
+  }
   state.ui.importDraft = {
     kind,
     objects,
@@ -2687,6 +3003,28 @@ async function readImportFile(file) {
     discardedRows: []
   };
   debugLog('import file parsed', { kind, rows: objects.length, issues: state.ui.importDraft.issues.length, delimiter: parsed.delimiter });
+  render();
+}
+
+async function confirmAssistedImportDraft() {
+  const draft = state.ui.importDraft;
+  if (!draft?.rows?.length) return;
+  const result = buildAssistedImportPlan(draft, state);
+  if (!result.ok) {
+    showToast(importPlanError(result.errors?.[0]));
+    render();
+    return;
+  }
+  const applied = await applyAssistedImportPlan(result.plan);
+  if (!applied.ok) {
+    showToast(applied.errors?.[0] || 'No se pudo guardar la importación');
+    render();
+    return;
+  }
+  const batchId = result.plan.batch.id;
+  showToast(`Importación completada: ${applied.imported} filas`, { label: 'Deshacer', type: 'assisted-import', batchId });
+  state.ui.importDraft = null;
+  closeSheet();
   render();
 }
 

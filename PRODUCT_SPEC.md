@@ -1,5 +1,9 @@
 # CFO Personal V7 - Especificación de producto
 
+## Importación asistida (Oleada 4)
+
+La importación asistida de Movimientos y Presupuestos acepta exclusivamente CSV y presenta primero un borrador revisable. Las cuentas, categorías y subcategorías nuevas o ambiguas deben coincidir, resolverse, crearse o descartarse; nunca se guardan como texto libre. Sólo `Ingreso` y `Gasto` son movimientos importables: transferencias, provisiones, tipos desconocidos y filas inválidas quedan bloqueados hasta resolución o descarte. Las decisiones equivalentes indican su cantidad y requieren una acción explícita. La confirmación aplica un lote atómico con un deshacer inmediato único; cada fila conserva `importMeta` con el valor original, la decisión y el lote. Los lotes se respaldan en JSON mediante `importBatches`. XLSX, PDF, OCR, conexión bancaria y mapeo genérico de columnas permanecen fuera de alcance.
+
 Estado: referencia canónica de producto para V7. Actualizar cuando cambie el alcance, una regla financiera o un flujo principal.
 
 ## Propósito

@@ -1,5 +1,15 @@
 # CFO Personal V7 - Verificador de entrega
 
+## Oleada 4 — importación asistida — cierre local en progreso
+
+- [x] Contrato puro de revisión, grupos equivalentes, decisiones, descarte, duplicados y preflight implementado y cubierto por `assisted-import-review.test.mjs`.
+- [x] Persistencia de `importMeta`/`importBatches`, aplicación atómica de lotes, deshacer único, backup/restore legacy y validación de catálogos cubiertos por `assisted-import-commit.test.mjs` y regresiones existentes.
+- [x] Revisión móvil asistida con confirmación separada, acciones seguras, escape de texto, targets mínimos y preservación de foco/scroll cubierta por `assisted-import-ui.test.mjs` y `render-coordinator.test.mjs`.
+- [x] `service-worker.js` usa `cfo-personal-v7-cache-48` y precarga `src/services/assistedImportService.js`; `pwa-cache-parity.test.mjs` confirma inventario único y excluye tests, documentación, datos y capturas.
+- [x] Suite serial final: 31/31 archivos `tests/*.test.mjs`, cero fallos. Sintaxis de 8 archivos JavaScript cambiados, `git diff --check` y revisión de archivos candidatos terminaron con código 0; no se añadieron CSV/XLSX, respaldos, capturas, secretos ni datos financieros.
+- [ ] QA renderizado a 390 × 844 con CSV sintético: grupos, equivalentes, excepción, duplicado, descarte, confirmación, undo, recarga y backup/restore; separar esta evidencia de la validación en teléfono y con datos reales.
+- [ ] Revisión independiente final y único commit local de Oleada 4. Publicación externa requiere autorización fresca para el SHA exacto.
+
 ## Oleada 3 — auditoría visual, interacción y Planeación compacta — publicada y aceptada
 
 ### Contratos, implementación y revisiones aprobadas — 2026-08-24

@@ -20,6 +20,7 @@ export const initialState = {
   accounts: [],
   categories: [],
   transactions: [],
+  importBatches: [],
   auditClosures: [],
   budgets: [],
   provisions: [],
@@ -91,7 +92,7 @@ export async function initState() {
   notify();
 }
 
-function mergeState(saved) {
+export function mergeState(saved) {
   const merged = structuredClone(initialState);
   Object.assign(merged, saved);
   merged.ui = { ...initialState.ui };
@@ -119,6 +120,7 @@ function mergeState(saved) {
   merged.accountTypes = mergeAccountTypes(saved.accountTypes, saved.accounts);
   merged.accounts = migrateAccounts(saved.accounts);
   merged.categories = migrateCategories(saved.categories);
+  merged.importBatches = migrateImportBatches(saved.importBatches);
   merged.transactions = (Array.isArray(saved.transactions) ? saved.transactions : [])
     .filter(tx => parseDate(tx.date || tx.fecha) || !(tx.date || tx.fecha))
     .map(tx => normalizeTransaction(tx, merged));
@@ -201,6 +203,306 @@ function migrateAccounts(accounts = []) {
       visible: account.kpi?.visible !== false
     }
   })).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+function migrateImportBatches(batches = []) {
+  if (!Array.isArray(batches)) return [];
+  return batches.map(batch => {
+    if (!batch || typeof batch !== 'object' || Array.isArray(batch)) return null;
+    if (typeof batch.id !== 'string' || typeof batch.fingerprint !== 'string') return null;
+    const id = batch.id.trim();
+    const fingerprint = batch.fingerprint.trim();
+    if (!id || !fingerprint) return null;
+    const normalized = { id, fingerprint };
+    if (typeof batch.importedAt === 'string' && batch.importedAt.trim()) normalized.importedAt = batch.importedAt;
+    if (batch.kind === 'transactions' || batch.kind === 'budgets') normalized.kind = batch.kind;
+    ['rowCount', 'imported', 'skipped'].forEach(key => {
+      if (Number.isSafeInteger(batch[key]) && batch[key] >= 0) normalized[key] = batch[key];
+    });
+    if (batch.undoSnapshot && typeof batch.undoSnapshot === 'object' && !Array.isArray(batch.undoSnapshot)) {
+      const snapshot = {
+        transactionIds: Array.isArray(batch.undoSnapshot.transactionIds) ? batch.undoSnapshot.transactionIds.filter(id => typeof id === 'string') : [],
+        budgetIds: Array.isArray(batch.undoSnapshot.budgetIds) ? batch.undoSnapshot.budgetIds.filter(id => typeof id === 'string') : [],
+        accountIds: Array.isArray(batch.undoSnapshot.accountIds) ? batch.undoSnapshot.accountIds.filter(id => typeof id === 'string') : [],
+        categoryIds: Array.isArray(batch.undoSnapshot.categoryIds) ? batch.undoSnapshot.categoryIds.filter(id => typeof id === 'string') : [],
+        subcategories: Array.isArray(batch.undoSnapshot.subcategories)
+          ? batch.undoSnapshot.subcategories
+            .filter(item => item && typeof item.categoryId === 'string' && typeof item.name === 'string')
+            .map(item => ({ categoryId: item.categoryId, name: item.name }))
+          : []
+      };
+      snapshot.transactionSnapshots = Array.isArray(batch.undoSnapshot.transactionSnapshots)
+        ? batch.undoSnapshot.transactionSnapshots.filter(row => row && typeof row.id === 'string').map(row => structuredClone(row))
+        : [];
+      snapshot.budgetSnapshots = Array.isArray(batch.undoSnapshot.budgetSnapshots)
+        ? batch.undoSnapshot.budgetSnapshots.filter(row => row && typeof row.id === 'string').map(row => structuredClone(row))
+        : [];
+      snapshot.catalogSnapshots = batch.undoSnapshot.catalogSnapshots && typeof batch.undoSnapshot.catalogSnapshots === 'object'
+        ? structuredClone(batch.undoSnapshot.catalogSnapshots)
+        : { accounts: [], categories: [], subcategories: [] };
+      normalized.undoSnapshot = snapshot;
+    }
+    return normalized;
+  }).filter(Boolean);
+}
+
+function validateAssistedImportPlan(plan) {
+  const errors = [];
+  if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok: false, errors: ['Plan de importación inválido'] };
+  const batch = plan.batch;
+  if (!batch || typeof batch.id !== 'string' || !batch.id.trim()) errors.push('Lote inválido');
+  if (!batch || typeof batch.fingerprint !== 'string' || !batch.fingerprint.trim()) errors.push('Huella del lote inválida');
+  if (!['transactions', 'budgets'].includes(batch?.kind)) errors.push('Tipo de importación no soportado');
+  if (!Array.isArray(plan.transactions) || !Array.isArray(plan.budgets)) errors.push('Filas de importación inválidas');
+  if (!Array.isArray(plan.skippedRows) || !Array.isArray(plan.decisions) || !Array.isArray(plan.duplicateWarnings)) errors.push('Resumen de revisión inválido');
+  const creates = plan.catalogCreates;
+  if (!creates || typeof creates !== 'object' || Array.isArray(creates)
+    || !Array.isArray(creates.accounts) || !Array.isArray(creates.categories) || !Array.isArray(creates.subcategories)) {
+    errors.push('invalid catalogCreates');
+  } else {
+    if (creates.accounts.some(item => !validCatalogItem(item, false))) errors.push('invalid accounts to create');
+    if (creates.categories.some(item => !validCatalogItem(item, false))) errors.push('invalid categories to create');
+    if (creates.subcategories.some(item => !validCatalogItem(item, true))) errors.push('invalid subcategories to create');
+  }
+  const rows = batch?.kind === 'budgets' ? plan.budgets : plan.transactions;
+  const oppositeRows = batch?.kind === 'budgets' ? plan.transactions : plan.budgets;
+  if (Array.isArray(oppositeRows) && oppositeRows.length) errors.push('mixed import row types');
+  const accountNames = new Set((state.accounts || []).map(item => canon(item?.name || item)).filter(Boolean));
+  const categoryNames = new Set((state.categories || []).map(item => canon(item?.name || item)).filter(Boolean));
+  const createdAccounts = new Set((Array.isArray(creates?.accounts) ? creates.accounts : []).map(item => canon(item?.name)).filter(Boolean));
+  const createdCategories = new Set((Array.isArray(creates?.categories) ? creates.categories : []).map(item => canon(item?.name)).filter(Boolean));
+  const createdSubcategories = new Set((Array.isArray(creates?.subcategories) ? creates.subcategories : []).map(item => `${canon(item?.category)}|${canon(item?.name)}`));
+  if (Array.isArray(rows)) rows.forEach(row => {
+    if (!row || !Number.isSafeInteger(row.sourceRow) || row.sourceRow < 1) errors.push('Fila de origen inválida');
+    const amount = parseAmount(row?.amount);
+    if (String(row?.account || '').trim() && !accountNames.has(canon(row.account)) && !createdAccounts.has(canon(row.account))) errors.push(`undeclared account in row ${row?.sourceRow ?? '?'}`);
+    if (String(row?.category || '').trim() && !categoryNames.has(canon(row.category)) && !createdCategories.has(canon(row.category))) errors.push(`undeclared category in row ${row?.sourceRow ?? '?'}`);
+    if (String(row?.subcategory || '').trim()) {
+      const categoryKnown = categoryNames.has(canon(row.category)) || createdCategories.has(canon(row.category));
+      const subcategoryKnown = categoryNames.has(canon(row.category))
+        ? (state.categories || []).some(item => canon(item?.name || item) === canon(row.category)
+          && (item?.subcategories || []).some(sub => canon(sub?.name || sub) === canon(row.subcategory)))
+        : createdSubcategories.has(`${canon(row.category)}|${canon(row.subcategory)}`);
+      if (!categoryKnown || !subcategoryKnown) errors.push(`undeclared subcategory in row ${row?.sourceRow ?? '?'}`);
+    }
+    if (!Number.isFinite(amount) || amount <= 0) errors.push(`Monto inválido en fila ${row?.sourceRow ?? '?'}`);
+    if (!String(row?.account || '').trim() || !String(row?.category || '').trim()) errors.push(`Catálogo incompleto en fila ${row?.sourceRow ?? '?'}`);
+    if (batch.kind === 'transactions') {
+      if (!parseDate(row?.date)) errors.push(`Fecha inválida en fila ${row?.sourceRow ?? '?'}`);
+      if (!['Ingreso', 'Gasto'].includes(row?.movement)) errors.push(`Movimiento inválido en fila ${row?.sourceRow ?? '?'}`);
+    } else if (!parseMonth(row?.month)) errors.push(`Mes inválido en fila ${row?.sourceRow ?? '?'}`);
+  });
+  if ((state.importBatches || []).some(item => item.id === batch?.id || item.fingerprint === batch?.fingerprint)) errors.push('El lote ya fue importado');
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, plan: structuredClone(plan) };
+}
+
+function validCatalogItem(item, subcategory) {
+  if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.name !== 'string' || !item.name.trim()) return false;
+  return !subcategory || (typeof item.category === 'string' && item.category.trim());
+}
+
+function stateForPersistence(value) {
+  const persisted = structuredClone(value);
+  persisted.ui = structuredClone(initialState.ui);
+  return persisted;
+}
+
+function createImportedAccount(candidate, item) {
+  const name = String(item?.name || '').trim();
+  if (!name || candidate.accounts.some(account => canon(account.name) === canon(name))) return null;
+  const id = uid('account');
+  const type = item.type || 'Cuenta Corriente';
+  candidate.accountTypes = candidate.accountTypes || [...DEFAULT_ACCOUNT_TYPES];
+  if (!candidate.accountTypes.some(value => canon(value) === canon(type))) candidate.accountTypes.push(type);
+  candidate.accounts.push({
+    id,
+    name,
+    type,
+    openingBalance: 0,
+    icon: item.icon || inferIcon(name, 'account'),
+    color: item.color || '#0A8FE8',
+    order: Math.max(-1, ...candidate.accounts.map(account => Number(account.order) || 0)) + 1,
+    kpi: { income: true, expense: true, balance: true, available: true, visible: true }
+  });
+  candidate.capacityRules = candidate.capacityRules || { accountRoles: {}, provisionIds: null };
+  candidate.capacityRules.accountRoles = candidate.capacityRules.accountRoles || {};
+  candidate.capacityRules.accountRoles[id] = 'liquidity';
+  return id;
+}
+
+function createImportedCategory(candidate, item) {
+  const name = String(item?.name || '').trim();
+  if (!name) return null;
+  const existing = candidate.categories.find(category => canon(category.name) === canon(name));
+  if (existing) return existing.id;
+  const category = { id: uid('category'), name, icon: item.icon || inferIcon(name, 'category'), color: item.color || '#0A8FE8', subcategories: [] };
+  candidate.categories.push(category);
+  return category.id;
+}
+
+function createImportedSubcategory(candidate, item) {
+  const category = candidate.categories.find(value => canon(value.name) === canon(item?.category));
+  const name = String(item?.name || '').trim();
+  if (!category || !name) return null;
+  if (category.subcategories.some(subcategory => canon(subcategory.name || subcategory) === canon(name))) return null;
+  category.subcategories.push({ id: uid('sub'), name });
+  return { categoryId: category.id, name };
+}
+
+function applyImportedRows(candidate, plan, committedAt) {
+  const importedIds = { transactions: [], budgets: [] };
+  const importMeta = row => ({
+    source: 'CSV',
+    batchId: plan.batch.id,
+    sourceRow: row.sourceRow,
+    original: row.importMeta?.original && typeof row.importMeta.original === 'object' ? structuredClone(row.importMeta.original) : {},
+    resolutions: row.importMeta?.resolutions && typeof row.importMeta.resolutions === 'object' ? structuredClone(row.importMeta.resolutions) : {},
+    importedAt: plan.batch.importedAt || committedAt,
+    committedAt
+  });
+  plan.transactions.forEach(row => {
+    const transaction = normalizeTransaction({ ...row, source: 'CSV', importMeta: importMeta(row) }, candidate);
+    transaction.importMeta.committedAt = transaction.updatedAt;
+    candidate.transactions.push(transaction);
+    importedIds.transactions.push(transaction.id);
+  });
+  plan.budgets.forEach(row => {
+    const budget = normalizeBudget({ ...row, source: 'CSV', importMeta: importMeta(row) }, candidate);
+    budget.importMeta.committedAt = committedAt;
+    candidate.budgets.push(budget);
+    importedIds.budgets.push(budget.id);
+  });
+  return importedIds;
+}
+
+export async function applyAssistedImportPlan(plan) {
+  const validated = validateAssistedImportPlan(plan);
+  if (!validated.ok) return { ok: false, errors: validated.errors };
+  const candidate = structuredClone(state);
+  const committedAt = new Date().toISOString();
+  const createdAccounts = [];
+  const createdCategories = [];
+  const createdSubcategories = [];
+  (validated.plan.catalogCreates?.accounts || []).forEach(item => {
+    const id = createImportedAccount(candidate, item);
+    if (id) createdAccounts.push(id);
+  });
+  (validated.plan.catalogCreates?.categories || []).forEach(item => {
+    const before = candidate.categories.find(category => canon(category.name) === canon(item?.name));
+    const id = createImportedCategory(candidate, item);
+    if (id && !before) createdCategories.push(id);
+  });
+  (validated.plan.catalogCreates?.subcategories || []).forEach(item => {
+    const created = createImportedSubcategory(candidate, item);
+    if (created) createdSubcategories.push(created);
+  });
+  const importedIds = applyImportedRows(candidate, validated.plan, committedAt);
+  const batch = {
+    id: validated.plan.batch.id,
+    fingerprint: validated.plan.batch.fingerprint,
+    importedAt: validated.plan.batch.importedAt || committedAt,
+    kind: validated.plan.batch.kind,
+    rowCount: importedIds.transactions.length + importedIds.budgets.length + validated.plan.skippedRows.length,
+    imported: importedIds.transactions.length + importedIds.budgets.length,
+    skipped: validated.plan.skippedRows.length,
+    undoSnapshot: {
+      transactionIds: importedIds.transactions,
+      budgetIds: importedIds.budgets,
+      accountIds: createdAccounts,
+      categoryIds: createdCategories,
+      subcategories: createdSubcategories,
+      transactionSnapshots: importedIds.transactions.map(id => structuredClone(candidate.transactions.find(row => row.id === id))),
+      budgetSnapshots: importedIds.budgets.map(id => structuredClone(candidate.budgets.find(row => row.id === id))),
+      catalogSnapshots: {
+        accounts: createdAccounts.map(id => structuredClone(candidate.accounts.find(item => item.id === id))),
+        categories: createdCategories.map(id => structuredClone(candidate.categories.find(item => item.id === id))),
+        subcategories: createdSubcategories.map(item => ({
+          categoryId: item.categoryId,
+          name: item.name,
+          subcategories: structuredClone(candidate.categories.find(value => value.id === item.categoryId)?.subcategories || [])
+        }))
+      }
+    }
+  };
+  candidate.importBatches = [...(candidate.importBatches || []), batch];
+  candidate.onboarded = true;
+  try {
+    await saveState(stateForPersistence(candidate));
+  } catch (error) {
+    return { ok: false, errors: [`No se pudo guardar la importación: ${error.message || error}`] };
+  }
+  state = candidate;
+  notify();
+  return {
+    ok: true,
+    imported: batch.imported,
+    createdAccounts: createdAccounts.length,
+    createdCategories: createdCategories.length,
+    createdSubcategories: createdSubcategories.length,
+    skipped: batch.skipped
+  };
+}
+
+export async function undoAssistedImportBatch(batchId) {
+  const batch = (state.importBatches || []).find(item => item.id === batchId);
+  if (!batch?.undoSnapshot) return { ok: false, errors: ['Este lote no tiene un snapshot deshacible'] };
+  const transactionIds = new Set(batch.undoSnapshot.transactionIds || []);
+  const budgetIds = new Set(batch.undoSnapshot.budgetIds || []);
+  const transactionSnapshots = new Map((batch.undoSnapshot.transactionSnapshots || []).map(row => [row.id, JSON.stringify(row)]));
+  const budgetSnapshots = new Map((batch.undoSnapshot.budgetSnapshots || []).map(row => [row.id, JSON.stringify(row)]));
+  const currentTransactions = state.transactions.filter(row => transactionIds.has(row.id));
+  const currentBudgets = state.budgets.filter(row => budgetIds.has(row.id));
+  const expectedImported = new Set([...transactionIds, ...budgetIds]);
+  const batchTaggedRecords = [...state.transactions, ...state.budgets].filter(row => row.importMeta?.batchId === batchId);
+  const missing = currentTransactions.length !== transactionIds.size
+    || currentBudgets.length !== budgetIds.size
+    || [...transactionIds].some(id => !transactionSnapshots.has(id) || !currentTransactions.some(row => row.id === id))
+    || [...budgetIds].some(id => !budgetSnapshots.has(id) || !currentBudgets.some(row => row.id === id));
+  const changed = missing
+    || batchTaggedRecords.some(row => !expectedImported.has(row.id))
+    || currentTransactions.some(row => transactionSnapshots.get(row.id) !== JSON.stringify(row))
+    || currentBudgets.some(row => budgetSnapshots.get(row.id) !== JSON.stringify(row));
+  if (changed) return { ok: false, errors: ['El lote tiene ediciones posteriores y no puede deshacerse automáticamente'] };
+  const candidate = structuredClone(state);
+  const catalogSnapshots = batch.undoSnapshot.catalogSnapshots || {};
+  const createdAccountSnapshots = Array.isArray(catalogSnapshots.accounts) ? catalogSnapshots.accounts : [];
+  const createdCategorySnapshots = Array.isArray(catalogSnapshots.categories) ? catalogSnapshots.categories : [];
+  const createdSubcategorySnapshots = Array.isArray(catalogSnapshots.subcategories) ? catalogSnapshots.subcategories : [];
+  const catalogsChanged = createdAccountSnapshots.some(snapshot => {
+    const current = state.accounts.find(item => item.id === snapshot.id);
+    return !current || JSON.stringify(current) !== JSON.stringify(snapshot);
+  }) || createdCategorySnapshots.some(snapshot => {
+    const current = state.categories.find(item => item.id === snapshot.id);
+    return !current || JSON.stringify(current) !== JSON.stringify(snapshot);
+  }) || createdSubcategorySnapshots.some(snapshot => {
+    const current = state.categories.find(item => item.id === snapshot.categoryId);
+    return !current || JSON.stringify(current.subcategories || []) !== JSON.stringify(snapshot.subcategories || []);
+  });
+  if (catalogsChanged) return { ok: false, errors: ['Created catalogs were edited after import'] };
+  candidate.transactions = candidate.transactions.filter(row => !transactionIds.has(row.id));
+  candidate.budgets = candidate.budgets.filter(row => !budgetIds.has(row.id));
+  const referencedAccounts = new Set(candidate.transactions.flatMap(row => [row.account, row.accountTo]).filter(Boolean).map(canon));
+  const createdAccountIds = new Set(batch.undoSnapshot.accountIds || []);
+  candidate.accounts = candidate.accounts.filter(account => !createdAccountIds.has(account.id) || referencedAccounts.has(canon(account.name)));
+  const createdCategoryIds = new Set(batch.undoSnapshot.categoryIds || []);
+  const referencedCategories = new Set([...candidate.transactions, ...candidate.budgets].map(row => canon(row.category)).filter(Boolean));
+  candidate.categories = candidate.categories.filter(category => !createdCategoryIds.has(category.id) || referencedCategories.has(canon(category.name)));
+  (batch.undoSnapshot.subcategories || []).forEach(item => {
+    const category = candidate.categories.find(value => value.id === item.categoryId);
+    if (category && !candidate.transactions.concat(candidate.budgets).some(row => canon(row.category) === canon(category.name) && canon(row.subcategory) === canon(item.name))) {
+      category.subcategories = category.subcategories.filter(subcategory => canon(subcategory.name || subcategory) !== canon(item.name));
+    }
+  });
+  candidate.importBatches = candidate.importBatches.filter(item => item.id !== batchId);
+  try {
+    await saveState(stateForPersistence(candidate));
+  } catch (error) {
+    return { ok: false, errors: [`No se pudo guardar el deshacer: ${error.message || error}`] };
+  }
+  state = candidate;
+  notify();
+  return { ok: true, undone: true };
 }
 
 export function subscribe(listener) {

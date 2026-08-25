@@ -2,6 +2,10 @@
 
 Estado: esta lista ordena el trabajo pendiente. Toda mejora funcional pasa por descubrimiento, diseño aprobado, implementación y verificación móvil.
 
+## Oleada 4
+
+La revisión asistida de importaciones masivas está implementada localmente y pendiente de cierre/publicación y validación con datos reales. XLSX, PDF, OCR y transferencias importadas permanecen diferidos.
+
 ## Prioridad 0 — Fundamento antes de nueva funcionalidad
 
 1. **Validación integral con datos reales respaldados.** La Oleada 3 corrigió con datos sintéticos la jerarquía de Planeación, filtros, targets, overlays, importes extremos, estados vacíos, acceso `Auditar saldo` y Ajustes. Falta recorrer Balances, Resumen, Categorías, Auditoría, Registro y Ajustes con el respaldo real; validar capacidad de pago, extraordinarios, ritmo presupuestario, edición y persistencia tras recargar.

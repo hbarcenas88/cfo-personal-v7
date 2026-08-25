@@ -245,6 +245,9 @@ export function toastRoot() {
   root.querySelector('[data-toast-dismiss]')?.addEventListener('click', dismissToast);
   root.querySelector('[data-toast-action]')?.addEventListener('click', () => {
     if (toast.action?.type === 'undo') undo();
+    if (toast.action?.type === 'assisted-import') {
+      window.dispatchEvent(new CustomEvent('cfo-assisted-import-undo', { detail: { batchId: toast.action.batchId } }));
+    }
     dismissToast();
   });
 }

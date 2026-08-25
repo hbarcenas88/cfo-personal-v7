@@ -2,6 +2,23 @@ import { canon, clamp, currentMonth, monthEnd, parseAmount, parseDate, parseMont
 import { comparisonPeriod } from './periodService.js';
 import { managedProvisionReserve, releasedProvisionAmount } from './planningService.js';
 
+export function normalizeImportMeta(meta) {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return undefined;
+  if (meta.source !== 'CSV' || typeof meta.batchId !== 'string' || !meta.batchId.trim()) return undefined;
+  const sourceRow = Number(meta.sourceRow);
+  if (!Number.isSafeInteger(sourceRow) || sourceRow < 1) return undefined;
+  if (!meta.original || typeof meta.original !== 'object' || Array.isArray(meta.original)) return undefined;
+  if (!meta.resolutions || typeof meta.resolutions !== 'object' || Array.isArray(meta.resolutions)) return undefined;
+  if (typeof meta.importedAt !== 'string' || !meta.importedAt.trim()) return undefined;
+  try {
+    const normalized = structuredClone(meta);
+    normalized.sourceRow = sourceRow;
+    return normalized;
+  } catch {
+    return undefined;
+  }
+}
+
 export function normalizeTransaction(tx = {}, state) {
   const amount = Math.abs(parseAmount(tx.amount ?? tx.monto ?? 0) || 0);
   const movement = normalizeMovement(tx.movement || tx.movimiento || tx.type || tx.tipo, tx.recordKind || tx.tipoRegistro, amount);
@@ -20,6 +37,7 @@ export function normalizeTransaction(tx = {}, state) {
     description: tx.description || tx.descripcion || tx.descripción || '',
     note: tx.note || tx.nota || '',
     source: tx.source || tx.origen || 'Manual',
+    importMeta: normalizeImportMeta(tx.importMeta),
     transferId: tx.transferId || '',
     linkedId: tx.linkedId || '',
     affectsBalance: tx.affectsBalance !== false,
@@ -45,7 +63,8 @@ export function normalizeBudget(row = {}, state) {
     category: normalizeCategory(row.category || row.categoria || row.categoría || '', state),
     subcategory: normalizeSubcategory(row.subcategory || row.subcategoria || row.subcategoría || '', row.category || row.categoria, state),
     description: row.description || row.descripcion || row.descripción || '',
-    source: row.source || row.origen || 'Manual'
+    source: row.source || row.origen || 'Manual',
+    importMeta: normalizeImportMeta(row.importMeta)
   };
 }
 

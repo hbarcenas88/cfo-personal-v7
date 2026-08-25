@@ -3,6 +3,7 @@ import { normalizeBudget, normalizeTransaction } from './financeService.js';
 import { normalizeReleaseDate } from './planningService.js';
 import { canon, formatDate, parseAmount, parseDate, parseMonth, todayISO } from '../utils/format.js';
 import { inferIcon } from '../icons.js';
+import { createImportReviewDraft } from './assistedImportService.js';
 
 export const AUDIT_STATEMENT_TEMPLATE_KIND = 'audit_statement';
 
@@ -304,6 +305,16 @@ export function importIssues(kind, objects, state) {
 }
 
 export function importIssuesV702(kind, objects, state) {
+  if (kind === 'transactions' || kind === 'budgets') {
+    const draft = createImportReviewDraft(kind, objects, state);
+    return draft.rows.flatMap((row, index) => {
+      const fields = row.issues
+        .map(issue => legacyImportIssueLabel(issue))
+        .filter(Boolean);
+      if (!fields.length) return [];
+      return [{ row: objects[index], fields }];
+    });
+  }
   const issues = [];
   objects.forEach(row => {
     const fields = [];
@@ -335,6 +346,23 @@ export function importIssuesV702(kind, objects, state) {
     if (fields.length) issues.push({ row, fields });
   });
   return issues;
+}
+
+function legacyImportIssueLabel(issue) {
+  const labels = {
+    'invalid:account': 'Cuenta requerida',
+    'invalid:category': 'Categoría requerida',
+    'invalid:amount': 'Monto inválido',
+    'invalid:date': 'Fecha inválida',
+    'invalid:month': 'Mes invalido',
+    'new:account': 'Cuenta nueva',
+    'new:category': 'Categoría nueva',
+    'new:subcategory': 'Subcategoría nueva',
+    'ambiguous:movement': 'Movimiento ambiguo',
+    'blocked:kind': 'Tipo no soportado',
+    'blocked:movement': 'Movimiento bloqueado'
+  };
+  return labels[`${issue.code}:${issue.field}`] || '';
 }
 
 function csvBool(value, fallback = true) {

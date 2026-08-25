@@ -1,5 +1,9 @@
 # CFO Personal V7 - Progreso
 
+## Oleada 4 — importación asistida
+
+Implementación local en cierre, pendiente de commit/publicación: Movimientos y Presupuestos se revisan primero como borrador; las decisiones de cuenta, categoría, subcategoría y movimiento pueden resolverse, crearse o descartarse, con aplicación explícita a equivalentes. Transferencias, provisiones, tipos desconocidos, duplicados no aprobados y filas inválidas quedan bloqueados. La confirmación aplica un lote atómico y permite un deshacer inmediato único; `importMeta` e `importBatches` conservan trazabilidad y entran al respaldo JSON. La carcasa local eleva el worker a `cfo-personal-v7-cache-48` y precarga `assistedImportService.js`. La evidencia automatizada final y la revisión móvil/publicación aún son gates separados.
+
 Actualizado: 2026-08-24
 
 ## Estado actual

@@ -921,7 +921,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month
 assert.equal(appliedState.filters.categories.compare, true);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-47/, 'Wave 3 final shell must activate cache-47');
+assert.match(worker, /cfo-personal-v7-cache-48/, 'Wave 4 final shell must activate cache-48');
 assert.match(worker, /\.\/src\/components\/recordKeypad\.js/, 'Wave 1.1 must precache the record keypad binder');
 assert.equal(
   (worker.match(/\.\/src\/components\/recordKeypad\.js/g) || []).length,
@@ -1058,7 +1058,7 @@ assert.deepEqual(
     planningServicePrecached: appShell.includes('https://app.test/src/services/planningService.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-47',
+    cacheName: 'cfo-personal-v7-cache-48',
     renderCoordinatorPrecached: true,
     recordKeypadPrecached: true,
     planningServicePrecached: true
@@ -1080,7 +1080,7 @@ assert.match(settings, /data-template-info="audit_statement"/);
 assert.doesNotMatch(auditClose, /data-template="audit_statement"/);
 assert.match(importExport, /\['Fecha', 'Descripción', 'Monto'\]/);
 
-assert.match(progress, /GitHub Pages se publicaron con `cfo-personal-v7-cache-40` el 2026-07-28/);
+assert.match(progress, /`main` y `origin\/main` apuntan a la Oleada 3 \(`3f56cce`\) con `cfo-personal-v7-cache-47`, publicada y verificada en GitHub Pages el 2026-08-24\./);
 assert.match(backlog, /plantilla `Auditoría — estado de cuenta` se descarga localmente desde Ajustes y no muta finanzas/);
 assert.match(verifier, /Auditoría — estado de cuenta/);
 assert.match(productSpec, /`Fecha,Descripción,Monto`/);
