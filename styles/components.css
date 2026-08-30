@@ -615,6 +615,10 @@ svg.icon-xl {
   font-weight: 800;
 }
 
+.row-amount.audit-non-balance {
+  color: var(--text-muted);
+}
+
 .chevron {
   color: var(--text-soft);
 }

@@ -41,8 +41,8 @@ const workerContract = runInNewContext(`${workerSource}\n({ cacheName: CACHE_NAM
 
 assert.equal(
   workerContract.cacheName,
-  'cfo-personal-v7-cache-48',
-  'Wave 4 must activate cache-48 before its PWA shell can be released'
+  'cfo-personal-v7-cache-49',
+  'Audit provision reconciliation must activate cache-49 before its PWA shell can be released'
 );
 
 const actualShell = workerContract.appShell.map(asset => {

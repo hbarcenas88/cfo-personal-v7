@@ -130,12 +130,13 @@ export function filterAuditTransactions(rows, filters = {}) {
 }
 
 export function buildAuditComparison(state, period, filters) {
-  const currentRows = filterAuditTransactions(periodTransactions(state, period), filters);
+  const currentRows = filterAuditTransactions(auditRows(state, period), filters);
+  const currentBalanceRows = currentRows.filter(isBalanceAffecting);
   if (!period.compare || period.mode === 'all') {
     return {
       currentRows,
       previousRows: [],
-      currentTotal: sumSigned(currentRows),
+      currentTotal: sumSigned(currentBalanceRows),
       previousTotal: 0,
       delta: 0,
       percent: null,
@@ -143,9 +144,10 @@ export function buildAuditComparison(state, period, filters) {
     };
   }
   const previousPeriod = comparisonPeriod(period);
-  const previousRows = filterAuditTransactions(periodTransactions(state, previousPeriod), filters);
-  const currentTotal = sumSigned(currentRows);
-  const previousTotal = sumSigned(previousRows);
+  const previousRows = filterAuditTransactions(auditRows(state, previousPeriod), filters);
+  const previousBalanceRows = previousRows.filter(isBalanceAffecting);
+  const currentTotal = sumSigned(currentBalanceRows);
+  const previousTotal = sumSigned(previousBalanceRows);
   const delta = currentTotal - previousTotal;
   return {
     currentRows,
@@ -156,6 +158,57 @@ export function buildAuditComparison(state, period, filters) {
     percent: previousTotal === 0 ? null : (delta / Math.abs(previousTotal)) * 100,
     previousPeriod
   };
+}
+
+function auditRows(state, period) {
+  return [
+    ...periodTransactions(state, period),
+    ...periodProvisionReleaseRows(state, period)
+  ];
+}
+
+function periodProvisionReleaseRows(state, period) {
+  const provisions = Array.isArray(state.provisions) ? state.provisions : [];
+  const provisionsById = new Map(provisions.map(provision => [provision.id, provision]));
+  const stateEvents = Array.isArray(state.provisionEvents) ? state.provisionEvents : [];
+  const embeddedEvents = provisions.flatMap(provision =>
+    (Array.isArray(provision.events) ? provision.events : [])
+      .map(event => ({ ...event, provisionId: event.provisionId || provision.id || '' }))
+  );
+  const events = stateEvents.length ? stateEvents : embeddedEvents;
+  const bounds = period?.mode === 'all' ? null : periodBounds(period);
+  return events
+    .filter(event => event.kind === 'release')
+    .map((event, index) => {
+      const date = parseDate(event.date);
+      const provision = provisionsById.get(event.provisionId);
+      if (!date || (bounds && (date < bounds.from || date > bounds.to))) return null;
+      const provisionName = provision?.name || 'Provisión';
+      return {
+        id: event.id || `provision-release-${event.provisionId || 'unknown'}-${event.date || index}`,
+        kind: 'provision-release',
+        movement: 'Provisión',
+        recordKind: 'Provisión',
+        date: event.date,
+        account: '',
+        category: provisionName,
+        subcategory: '',
+        description: 'Liberación de provisión',
+        provisionName,
+        provisionId: event.provisionId || '',
+        amount: Math.abs(Number(event.amount) || 0),
+        affectsBalance: false,
+        affectsIncome: false,
+        affectsExpense: false,
+        affectsBudget: false,
+        source: 'Planeación'
+      };
+    })
+    .filter(Boolean);
+}
+
+function isBalanceAffecting(tx) {
+  return tx?.affectsBalance !== false;
 }
 
 export function transactionsToCutoff(state, period = state.period) {

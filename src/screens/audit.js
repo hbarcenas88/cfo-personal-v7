@@ -144,7 +144,11 @@ export function renderAuditFilterChips(filters) {
 
 function transactionCard(tx, state) {
   const category = state.categories.find(cat => canon(cat.name) === canon(tx.category));
-  const color = category?.color || (tx.movement === 'Ingreso' ? '#07966F' : tx.movement === 'Transferencia' ? '#0A8FE8' : '#DC3F61');
+  const balanceAffecting = tx.affectsBalance !== false;
+  const readOnlyEvidence = tx.kind === 'provision-release';
+  const color = balanceAffecting
+    ? (category?.color || (tx.movement === 'Ingreso' ? '#07966F' : tx.movement === 'Transferencia' ? '#0A8FE8' : '#DC3F61'))
+    : '#718096';
   const amount = signedAmount(tx);
   return card(`
     <div class="audit-card">
@@ -155,7 +159,7 @@ function transactionCard(tx, state) {
         <span class="row-subtitle audit-meta">${formatDate(tx.date)} · ${html(tx.account)}</span>
         ${tx.transferId ? `<span class="transfer-link">${html(tx.account)} ${icon('link')} ${html(tx.accountTo || 'Cuenta vinculada')}</span>` : ''}
       </span>
-      <span class="audit-side"><span class="row-amount ${amount < 0 ? 'danger' : 'success'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}</span><button class="menu-button" data-tx-menu="${html(tx.id)}" aria-label="Abrir acciones">${icon('more')}</button></span>
+      <span class="audit-side"><span class="row-amount ${balanceAffecting ? (amount < 0 ? 'danger' : 'success') : 'audit-non-balance'}">${amount < 0 ? '-' : ''}${formatMoney(amount)}${balanceAffecting ? '' : '<small class="row-amount-note">No afecta saldo</small>'}</span>${readOnlyEvidence ? '' : `<button class="menu-button" data-tx-menu="${html(tx.id)}" aria-label="Abrir acciones">${icon('more')}</button>`}</span>
     </div>
   `, 'audit-card-wrap');
 }
