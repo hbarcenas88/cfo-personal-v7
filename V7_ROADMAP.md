@@ -1,5 +1,22 @@
 # CFO Personal V7 Roadmap
 
+## Ampliación aprobada — presupuesto y retiro de Auditoría guiada (04/10/2026)
+
+Se retira el módulo de Auditoría guiada completo: entrada de Nuevo cierre, lista de cierres, importación CSV/XLSX de estados de cuenta, revisiones de coincidencias, pantallas, rutas y plantilla de estado de cuenta. Auditoría de registros, filtros, comparación por período, edición y acceso por cuenta desde Balances permanecen activos. Los auditClosures históricos se conservan compatibles con almacenamiento y respaldos; retirar la función no purga datos financieros.
+
+Presupuesto base es una plantilla independiente en state.budgetTemplate, sin mes; no es la fila mensual sin subcategoría. Cargar base o copiar anterior completa sólo grupos faltantes, sin sobrescribir ni duplicar. La fila sin subcategoría conserva identidad e importe propios. Crear categorías dentro del editor las mantiene en borrador hasta guardarlas atómicamente con el plan; no se ofrece creación de subcategorías nuevas en esta interfaz.
+
+Ampliación implementada localmente: versión 7.0.7/cache-51. Evidencia nueva del 04/10/2026: 46/46 archivos de pruebas pasan, sintaxis de 30 archivos JavaScript y diff limpios. Revisión GUI independiente a 390 × 844 y 999 × 914; informe en docs/verification/2026-10-04-planning-refinements.md. Offline independiente confirmado con servidor detenido y recarga. Veredicto final: entrega local aprobada sin hallazgos pendientes; últimos ajustes visuales revalidados. Teléfono, datos reales y publicación siguen separados.
+
+
+## Planeación mensual y provisiones — entrega local completada
+
+Al 03/10/2026: oleadas 0–5 completadas localmente en versión 7.0.6/cache-50. Suite fresca 44/44 y recorrido independiente móvil 390 × 844/escritorio 1280 × 900 confirmados. Editor mensual, copia de faltantes, acumulados, edición puntual, aplicación mensual de planeación, liberación parcial y fechas DD/MM/AAAA están disponibles. Informe independiente incorporado en docs/verification/2026-10-03-planning-workspace.md: entrega local aprobada sin hallazgos abiertos. Sintaxis de 33 archivos JavaScript y diff final aprobados.
+
+Plan: docs/superpowers/plans/2026-10-03-planning-workspace.md. El pedido precede al resto de mejoras funcionales diferidas; hallazgos generales permanecen en BACKLOG.md. Teléfono/PWA, datos reales y publicación se mantienen como gates separados.
+
+La importación asistida histórica fue incorporada en a2c92ec (25/08/2026) y corregida en 79928f2 (30/08/2026). Publicación externa actual no verificada. Los apartados siguientes conservan horizonte y evidencia histórica; sus caches no representan la entrega local nueva.
+
 ## Decisiones de alcance
 
 - V7 es la única aplicación operativa de este repositorio y vive en su raíz.
@@ -10,8 +27,6 @@
 
 ## Backlog posterior
 
-- Auditoría guiada por cuenta y fecha: primera versión local implementada; la plantilla `Auditoría — estado de cuenta` se descarga localmente desde Ajustes sin mutar finanzas. Se observó el template en Browser a 390 × 844; siguen pendientes evidencia de dispositivo/PWA y validación no destructiva con datos reales.
-- Auditoría contra estado de cuenta PDF.
 - Alertas financieras configurables.
 - Comparativos de periodos.
 - Sincronización cloud real.
@@ -33,15 +48,9 @@
 - Pendiente antes de considerarlo completado: evidencia de dispositivo/PWA y validación no destructiva con datos reales. El respaldo JSON fue confirmado el 2026-07-26.
 - Este bloque precede a la Etapa 2 y está documentado en `docs/superpowers/specs/2026-07-18-period-scope-and-mobile-density-design.md`.
 
-## Iniciativa analítica independiente — Auditoría guiada
+## Auditoría guiada — retirada del alcance operativo
 
-- Diseño aprobado el 2026-07-19 e implementación local terminada, con evidencia operativa pendiente, documentados en `docs/superpowers/specs/2026-07-19-guided-audit-design.md` y `docs/superpowers/plans/2026-07-19-guided-audit-implementation.md`.
-- Cierre flexible por cuenta y fecha: saldo real, rango declarado, CSV/XLSX normalizado, diferencias y delta persistente.
-- Coincidencias exactas y candidatas requieren decisión humana; un descarte excluye sólo esa relación y una confirmación reserva sus filas.
-- El lector XLSX usa SheetJS 0.20.3 vendorizado localmente, con licencia y procedencia verificables, dentro de `cfo-personal-v7-cache-41`.
-- Comparación analítica y validaciones de revisión separadas de movimientos, saldos, presupuesto y transferencias.
-- No bloqueó su diseño ni implementación; el respaldo JSON ya fue confirmado y falta una validación no destructiva con una cuenta real.
-- PDF/imágenes, conexión bancaria, ajustes para cuadrar y conciliación automática quedan fuera de esta primera versión.
+El diseño del 19/07/2026 y su implementación se conservan como historia documental, no como trabajo pendiente ni función a reactivar. Por decisión del 04/10/2026 se retiran módulo, plantilla y dependencias exclusivas. No se elimina el historial auditClosures. Cualquier futura conciliación bancaria o lectura de estados de cuenta requiere una iniciativa nueva aprobada.
 
 ## Armonización UX gradual
 

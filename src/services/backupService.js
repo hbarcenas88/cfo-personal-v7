@@ -14,10 +14,15 @@ export function backupPayload(state) {
     version: state.version || '7.0.0',
     exportedAt: new Date().toISOString(),
     data: {
+      accountTypes: structuredClone(state.accountTypes || []),
+      auditClosures: structuredClone(state.auditClosures || []),
+      auditPeriod: structuredClone(state.auditPeriod || {}),
+      capacityRules: structuredClone(state.capacityRules || {}),
       accounts: structuredClone(state.accounts || []),
       categories: structuredClone(state.categories || []),
       transactions: structuredClone(state.transactions || []),
       budgets: structuredClone(state.budgets || []),
+      budgetTemplate: structuredClone(state.budgetTemplate || []),
       provisions: structuredClone(state.provisions || []),
       provisionEvents: structuredClone(state.provisionEvents || []),
       importBatches: structuredClone(state.importBatches || []),
@@ -36,6 +41,5 @@ export async function restoreBackupFile(file) {
   const text = await file.text();
   const parsed = JSON.parse(text);
   const data = parsed.data || parsed;
-  await restoreSnapshot(data);
-  return true;
+  return restoreSnapshot(data);
 }

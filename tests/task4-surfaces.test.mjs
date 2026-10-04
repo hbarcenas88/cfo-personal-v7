@@ -4,7 +4,6 @@ import test from 'node:test';
 import { renderBalances } from '../src/screens/balances.js';
 import { renderSummary } from '../src/screens/summary.js';
 import { renderSettings } from '../src/screens/settings.js';
-import { renderAuditCloseEntry } from '../src/screens/auditClose.js';
 
 const screenStyles = await readFile(new URL('../styles/screens.css', import.meta.url), 'utf8');
 
@@ -37,7 +36,6 @@ const summary = renderSummary(baseState);
 const tools = renderSettings(baseState);
 const preferences = renderSettings({ ...baseState, settingsPage: 'settings' });
 const catalogs = renderSettings({ ...baseState, settingsPage: 'categories-admin' });
-const guidedEntry = renderAuditCloseEntry(baseState);
 
 test('V3-03 recurrent complete communicates selected state on both surfaces', () => {
   assert.match(balances, /class="check-pill selected"[^>]*data-recurring-done="rent"[^>]*aria-pressed="true"[^>]*>[\s\S]*?Completo/,
@@ -52,9 +50,11 @@ test('V3-03 recurrent complete communicates selected state on both surfaces', ()
     'completed recurrent controls need a selected signal that is not color alone');
 });
 
-test('V3-04 empty provisions donut is neutral and accessible', () => {
-  assert.match(balances, /class="donut empty"[^>]*aria-label="Sin provisiones: \$0\.00"/,
-    'an empty provisions chart must render a neutral, named zero state instead of the default multicolor donut');
+test('V3-04 provisions use a clear numerical summary', () => {
+  assert.doesNotMatch(balances, /class="donut|conic-gradient|provision-progress/);
+  assert.match(balances, /data-provision-summary="reserve"/);
+  assert.match(balances, /data-provision-summary="assigned"/);
+  assert.match(balances, /data-provision-summary="unassigned"/);
 });
 
 test('V3-05 Summary has readable long amounts and one Analysis entry', () => {
@@ -99,11 +99,6 @@ test('V3-08 touched surfaces use the approved Spanish copy', () => {
   assert.match(tools, /Borrar todos los datos/);
   assert.match(catalogs, /subcategorías/);
   assert.match(catalogs, /aria-label="Editar categoría"/);
-});
-
-test('V3-09 Nuevo cierre has a stable focus return identity', () => {
-  assert.match(guidedEntry, /data-open-audit-close[^>]*data-interaction-key="guided-audit-new-close"/,
-    'Nuevo cierre must expose one stable identity so its sheet can return focus after close');
 });
 
 test('V3-02 only confirmed contextual controls reach 44px', () => {

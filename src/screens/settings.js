@@ -2,8 +2,8 @@ import { COLOR_CATALOG, ICON_CATALOG, icon } from '../icons.js';
 import { dataHealth } from '../services/healthService.js';
 import { resolveCapacityRules } from '../services/financeService.js';
 import { card, emptyState } from '../components/ui.js';
-import { AUDIT_STATEMENT_TEMPLATE_KIND, templateHeaders, templateMeta } from '../services/importExportService.js';
-import { formatDate, formatMoney, html, safeColor } from '../utils/format.js';
+import { templateHeaders, templateMeta } from '../services/importExportService.js';
+import { formatDate, formatMoney, html, monthLabel, safeColor } from '../utils/format.js';
 import { provisionStatus } from '../services/planningService.js';
 
 export function renderSettings(state) {
@@ -97,11 +97,17 @@ function renderBudgetManager(state) {
   const periods = planningBudgetPeriods(state);
   const selectedPeriod = selectedPlanningBudgetPeriod(state, periods);
   const budgets = state.budgets.filter(budget => budget.month === selectedPeriod);
+  const groups = new Map();
+  budgets.forEach(row => {
+    const category = row.category || 'Sin categoría';
+    if (!groups.has(category)) groups.set(category, []);
+    groups.get(category).push(row);
+  });
   return `
     <section class="planning-manager" data-planning-section="budgets">
-      <div class="planning-section-head"><div><h3>Presupuestos</h3><p>Impactan el análisis del período, no los saldos de cuenta.</p></div><button class="planning-action" data-tool="planning-budgets">${icon('plus')} Crear</button></div>
+      <div class="planning-section-head"><div><h3>Presupuestos</h3><p>Impactan el análisis del período, no los saldos de cuenta.</p></div><div class="planning-header-actions"><button class="planning-action" data-open-base-budget>Presupuesto base</button><button class="planning-action" data-tool="planning-budgets">${icon('plus')} Crear</button></div></div>
       ${renderBudgetPeriodFilter(periods, selectedPeriod)}
-      ${budgets.length ? budgets.map(budgetRow).join('') : card(emptyState('calendar', `Sin presupuestos para ${selectedPeriod}`, 'Crea un plan mensual para comparar tu gasto.'))}
+      ${budgets.length ? [...groups].map(([category, rows], index) => budgetGroup(category, rows, index, state)).join('') : card(emptyState('calendar', `Sin presupuestos para ${selectedPeriod}`, 'Crea un plan mensual para comparar tu gasto.'))}
     </section>
   `;
 }
@@ -146,6 +152,7 @@ function renderPlanningType(type) {
         <div><h3>${item.title}</h3><p>${item.description}</p></div>
       </div>
       <div class="planning-decisions">
+        ${type === 'budgets' ? `<button class="settings-row planning-decision" data-open-base-budget><span class="row-icon">${icon('calendar')}</span><span><strong>Presupuesto base</strong><small>Prepara una plantilla para tus próximos meses.</small></span>${icon('chevronRight')}</button>` : ''}
         <button class="settings-row planning-decision" data-planning-manager="${type}">
           <span class="row-icon">${icon('listChecks')}</span>
           <span><strong>Ver lo planeado</strong><small>Consulta y administra lo que ya guardaste.</small></span>
@@ -166,7 +173,7 @@ function renderProvisionManager(state) {
     ? state.ui.planningProvisionFilter
     : 'active';
   const provisions = (state.provisions || []).filter(provision => {
-    if (filter === 'active') return Number(provision.balance) > 0;
+    if (filter === 'active') return Number(provision.balance) > 0 || Number(provision.monthlyAmount) > 0;
     if (filter === 'released') return Number(provision.balance) <= 0;
     return true;
   });
@@ -178,7 +185,7 @@ function renderProvisionManager(state) {
   return `
     <section class="planning-manager" data-planning-section="provisions">
       <div class="planning-section-head"><div><h3>Provisiones</h3><p>Reservas conceptuales; no son movimientos financieros.</p></div><button class="planning-action" data-tool="planning-provisions">${icon('plus')} Crear</button></div>
-      ${renderPlanningFilter('provision', filter, [['active', 'Activas'], ['released', 'Liberadas'], ['all', 'Todas']])}
+      ${renderPlanningFilter('provision', filter, [['active', 'Vigentes'], ['released', 'Sin saldo'], ['all', 'Todas']])}
       ${provisions.length ? provisions.map(provisionManagerRow).join('') : card(emptyState('shield', emptyTitles[filter], 'Crea una reserva conceptual para planificarla.'))}
     </section>
   `;
@@ -193,7 +200,7 @@ function renderRecurringManager(state) {
   const emptyTitle = filter === 'completed' ? 'Sin recurrentes completos' : 'Sin recurrentes vigentes';
   return `
     <section class="planning-manager" data-planning-section="recurring">
-      <div class="planning-section-head"><div><h3>Recurrentes</h3><p>Estado del período ${html(month)}.</p></div><button class="planning-action" data-tool="recurring">${icon('plus')} Crear</button></div>
+      <div class="planning-section-head"><div><h3>Recurrentes</h3><p>Estado del período ${html(monthLabel(month))}.</p></div><button class="planning-action" data-tool="recurring">${icon('plus')} Crear</button></div>
       ${hasCompleted ? renderPlanningFilter('recurring', filter, [['current', 'Vigentes'], ['completed', 'Completos']]) : ''}
       ${recurring.length ? recurring.map(item => recurringManagerRow(item, Boolean(done[item.id]))).join('') : card(emptyState('calendarClock', emptyTitle))}
     </section>
@@ -246,22 +253,30 @@ function selectedPlanningBudgetPeriod(state, periods) {
 }
 
 function renderBudgetPeriodFilter(periods, selectedPeriod) {
-  return `<div class="planning-period-filter" role="group" aria-label="Filtrar presupuestos por período">${periods.map(period => `<button class="planning-period-option ${period === selectedPeriod ? 'active' : ''}" data-budget-period="${period}" aria-pressed="${period === selectedPeriod}">${period}</button>`).join('')}</div>`;
+  return `<div class="planning-period-filter" role="group" aria-label="Filtrar presupuestos por período">${periods.map(period => `<button class="planning-period-option ${period === selectedPeriod ? 'active' : ''}" data-budget-period="${period}" aria-pressed="${period === selectedPeriod}">${html(monthLabel(period))}</button>`).join('')}</div>`;
+}
+
+function budgetGroup(category, rows, index, state) {
+  const expanded = (state.ui?.planningBudgetExpanded || []).includes(category);
+  const total = rows.reduce((sum, row) => sum + Math.round((Number(row.amount) || 0) * 100), 0) / 100;
+  const contentId = `budget-group-${index}`;
+  return card(`<button class="budget-group-toggle" data-budget-group-toggle="${html(category)}" aria-expanded="${expanded}" aria-controls="${contentId}"><span class="row-main"><strong>${html(category)}</strong><small>${rows.length} ${rows.length === 1 ? 'fila' : 'filas'}</small></span><strong class="row-amount blue">${formatMoney(total)}</strong>${icon(expanded ? 'chevronUp' : 'chevronDown')}</button>${expanded ? `<div id="${contentId}" class="budget-group-rows">${rows.map(budgetRow).join('')}</div>` : ''}`, 'budget-category-group');
 }
 
 function budgetRow(budget) {
-  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(budget.category || 'Sin categoría')}</span><span class="row-subtitle">${html(budget.month || '')} · ${html(budget.subcategory || 'Sin subcategoría')} · Impacta el análisis presupuestario</span></span><strong class="row-amount blue">${formatMoney(budget.amount)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-budget-edit="${html(budget.id)}">Editar</button><button class="planning-action danger" data-budget-delete="${html(budget.id)}">Eliminar</button></div>`, 'planning-entry');
+  const accountLabel = !budget.account || budget.account === 'Budget' ? 'Sin cuenta' : budget.account;
+  return `<div class="budget-child-row"><div class="planning-row"><span class="row-main"><span class="row-title">${html(budget.subcategory || 'Sin subcategoría')}</span><span class="row-subtitle">${html(accountLabel)}</span></span><strong class="row-amount blue">${formatMoney(budget.amount)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-budget-edit="${html(budget.id)}">Editar</button><button class="planning-action danger" data-budget-delete="${html(budget.id)}">Eliminar</button></div></div>`;
 }
 
 function provisionManagerRow(provision) {
   const canRelease = Number(provision.balance) > 0;
-  const releaseDate = provision.releaseDate ? formatDate(provision.releaseDate, true) : '';
+  const releaseDate = provision.releaseDate ? formatDate(provision.releaseDate) : '';
   const details = [`<span class="provision-status">${provisionStatus(provision)}</span>`];
   if (Number(provision.targetAmount) > 0) details.push(`Meta ${formatMoney(provision.targetAmount)}`);
   if (releaseDate && releaseDate !== 'Sin fecha') details.push(`Liberación ${html(releaseDate)}`);
   if (Number(provision.monthlyAmount) > 0) details.push(`${formatMoney(provision.monthlyAmount)}/mes`);
   const id = html(provision.id);
-  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(provision.name)}</span><span class="row-subtitle">${details.join(' · ')}</span></span><strong class="row-amount blue">${formatMoney(provision.balance)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-provision-edit="${id}">Editar</button>${canRelease ? `<button class="planning-action" data-provision-release="${id}">Liberar</button>` : ''}<button class="planning-action danger" data-provision-delete="${id}" ${canRelease ? 'disabled title="Libera el saldo antes de eliminar"' : ''}>Eliminar</button></div>`, 'planning-entry');
+  return card(`<div class="planning-row"><span class="row-main"><span class="row-title">${html(provision.name)}</span><span class="row-subtitle">${details.join(' · ')}</span></span><strong class="row-amount blue">${formatMoney(provision.balance)}</strong></div><div class="planning-row-actions"><button class="planning-action" data-provision-details="${id}">Abrir</button><button class="planning-action" data-provision-edit="${id}">Editar</button>${canRelease ? `<button class="planning-action" data-provision-release="${id}">Liberar</button>` : ''}<button class="planning-action danger" data-provision-delete="${id}" ${canRelease ? 'disabled title="Libera el saldo antes de eliminar"' : ''}>Eliminar</button></div>`, 'planning-entry');
 }
 
 export function renderBudgetSheet(state) {
@@ -281,7 +296,7 @@ export function renderBudgetSheet(state) {
 
 export function renderProvisionSheet(state) {
   const draft = state.ui?.planningDraft || {};
-  const provision = state.provisions.find(item => item.id === draft.provisionId) || {};
+  const provision = { ...(state.provisions.find(item => item.id === draft.provisionId) || {}), ...draft };
   if (state.ui?.activeSheet === 'confirm-release-provision') return confirmProvisionReleaseSheet(provision);
   if (state.ui?.activeSheet === 'confirm-delete-provision') return confirmProvisionDeleteSheet(provision);
   return planningSheet(`${provision.id ? 'Editar' : 'Nueva'} provisión`, `
@@ -300,7 +315,8 @@ function planningSheet(title, content) {
 }
 
 function planningInput(key, label, value, inputmode = '') {
-  return `<div class="field"><label for="planning-${key}">${label}</label><input id="planning-${key}" class="input" data-planning-field="${key}" value="${html(String(value))}" ${inputmode === 'date' ? 'type="date"' : ''} ${inputmode === 'decimal' ? 'inputmode="decimal"' : ''}></div>`;
+  if (inputmode === 'date') return `<div class="field"><label>${label}</label><button class="select-button" data-planning-date>${value ? formatDate(value) : 'Elegir fecha'}</button>${value ? '<button class="chip dense" data-planning-date-clear>Quitar fecha</button>' : ''}<input type="hidden" data-planning-field="${key}" value="${html(String(value))}"></div>`;
+  return `<div class="field"><label for="planning-${key}">${label}</label><input id="planning-${key}" class="input" data-planning-field="${key}" value="${html(String(value))}" ${inputmode === 'decimal' ? 'inputmode="decimal"' : ''}></div>`;
 }
 
 function confirmProvisionReleaseSheet(provision) {
@@ -313,7 +329,7 @@ function confirmProvisionDeleteSheet(provision) {
 }
 
 function confirmBudgetDeleteSheet(budget) {
-  return planningSheet('Eliminar presupuesto', `<p class="planning-confirmation">Eliminar el presupuesto de <strong>${html(budget.category || 'Sin categoría')}</strong> para ${html(budget.month || '')}.</p><p class="planning-note">Dejará de impactar el análisis presupuestario.</p><button class="primary-button danger-action" data-confirm-delete-budget="${budget.id}">Eliminar presupuesto</button>`);
+  return planningSheet('Eliminar presupuesto', `<p class="planning-confirmation">Eliminar el presupuesto de <strong>${html(budget.category || 'Sin categoría')}</strong> para ${html(monthLabel(budget.month))}.</p><p class="planning-note">Dejará de impactar el análisis presupuestario.</p><button class="primary-button danger-action" data-confirm-delete-budget="${budget.id}">Eliminar presupuesto</button>`);
 }
 
 function renderCatalogs(state) {
@@ -494,7 +510,6 @@ function yes(value) {
 }
 
 export function renderTemplateSheet(state = {}) {
-  const templateInfoKind = state.ui?.templateInfoKind || '';
   return `
     <div class="sheet-backdrop open" data-sheet-close>
       <section class="sheet wide" onclick="event.stopPropagation()">
@@ -502,9 +517,6 @@ export function renderTemplateSheet(state = {}) {
         <h2 class="sheet-title">Plantillas CSV</h2>
         ${Object.entries(templateHeaders).map(([kind, headers]) => {
           const meta = templateMeta(kind);
-          const hasInfo = kind === AUDIT_STATEMENT_TEMPLATE_KIND;
-          const infoOpen = templateInfoKind === kind;
-          const infoId = `template-info-${kind}`;
           return `
             <div class="template-entry">
               <button class="settings-row template-row" data-template="${kind}">
@@ -512,8 +524,6 @@ export function renderTemplateSheet(state = {}) {
                 <span><strong>${meta.title}</strong><small><span>${meta.description}</span><span class="template-fields">${headers.join(', ')}</span></small></span>
                 ${icon('download')}
               </button>
-              ${hasInfo ? `<button class="template-info" data-template-info="${kind}" aria-expanded="${infoOpen}" aria-controls="${infoId}" aria-label="Cómo preparar el estado de cuenta">?</button>` : ''}
-              ${hasInfo && infoOpen ? `<div class="template-info-panel" id="${infoId}" role="note" data-template-info-panel="${kind}">${meta.help}</div>` : ''}
             </div>
           `;
         }).join('')}

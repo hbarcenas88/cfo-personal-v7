@@ -1,4 +1,4 @@
-import { periodBounds } from '../utils/format.js';
+import { periodBounds, todayISO } from '../utils/format.js';
 
 export function normalizeProvision(provision = {}) {
   return {
@@ -25,7 +25,7 @@ export function normalizeReleaseDate(value) {
 
 export function provisionStatus(provision, today = new Date()) {
   const normalized = normalizeProvision(provision);
-  if (normalized.balance === 0) return 'Liberada';
+  if (normalized.balance === 0) return normalized.lastReleasedAt || normalized.events.some(event => event.kind === 'release') ? 'Liberada' : 'Sin saldo';
 
   const hasTarget = normalized.targetAmount > 0;
   const hasReleaseDate = Boolean(normalized.releaseDate);
@@ -67,11 +67,48 @@ function releaseOccursBy(event, cutoff) {
 }
 
 function nonNegativeAmount(value) {
-  return Math.max(0, Number(value) || 0);
+  const amount = Number(value);
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
 }
 
 function dateKey(value) {
   if (typeof value === 'string') return value.slice(0, 10);
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
   return '';
+}
+
+
+export function getProvisionPlanningStatus(state, provisionId, today = todayISO()) {
+  const provision = state.provisions?.find(item => item.id === provisionId);
+  const date = normalizeReleaseDate(today);
+  const month = date.slice(0, 7);
+  const amountCents = provisionAmountCents(provision?.monthlyAmount ?? 0);
+  const amount = (amountCents ?? 0) / 100;
+  const balance = (provisionAmountCents(provision?.balance ?? 0) ?? 0) / 100;
+  const events = (state.provisionEvents || []).concat((state.provisions || []).flatMap(item =>
+    (item.events || []).map(event => ({ ...event, provisionId: event.provisionId || item.id }))));
+  const releaseAmounts = events.filter(event => event.kind === 'release' && releaseOccursBy(event, date)).map(event => provisionAmountCents(event.amount));
+  const releasedCents = releaseAmounts.reduce((sum, value) => sum + (value ?? 0), 0);
+  const movementAmounts = (state.transactions || []).filter(tx => tx.date && tx.date <= date).map(tx => provisionAmountCents(tx.provisionDelta ?? 0, { signed: true }));
+  const movementCents = movementAmounts.reduce((sum, value) => sum + (value ?? 0), 0);
+  const reserve = Math.max(0, movementCents - releasedCents) / 100;
+  const assignedAmounts = (state.provisions || []).map(item => provisionAmountCents(item.balance ?? 0));
+  const assigned = assignedAmounts.reduce((sum, value) => sum + (value ?? 0), 0) / 100;
+  const invalidReserve = [...releaseAmounts, ...movementAmounts, ...assignedAmounts].some(value => value === null);
+  const unassigned = Math.max(0, Math.round((reserve - assigned) * 100)) / 100;
+  const shortfall = Math.max(0, Math.round((amount - unassigned) * 100)) / 100;
+  const alreadyApplied = events.some(event => event.kind === 'allocation' && event.provisionId === provisionId && event.month === month);
+  const reason = !provision ? 'La provisión no existe' : !date ? 'Fecha inválida' : amountCents === null ? 'El importe mensual requiere máximo dos decimales' : invalidReserve ? 'Revisa los importes de reserva y saldo: requieren máximo dos decimales' : amount <= 0 ? 'Configura un importe mensual positivo' : alreadyApplied ? 'La planeación de este mes ya fue aplicada' : shortfall > 0 ? 'La reserva sin asignar no alcanza' : '';
+  return { month, amount, balance, reserve, assigned, unassigned, alreadyApplied, canApply: !reason, shortfall, reason };
+}
+
+
+export function provisionAmountCents(value, { signed = false } = {}) {
+  const text = String(value ?? '').trim().replace(',', '.');
+  const pattern = signed ? /^-?\d+(?:\.\d{1,2})?$/ : /^\d+(?:\.\d{1,2})?$/;
+  if (!pattern.test(text)) return null;
+  const negative = text.startsWith('-');
+  const [whole, fraction = ''] = text.replace(/^-/, '').split('.');
+  const amount = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return Number.isSafeInteger(amount) ? negative ? -amount : amount : null;
 }

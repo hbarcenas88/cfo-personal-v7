@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { renderMonthlyBudget, renderMonthlyBudgetRowSheet } from '../src/screens/monthlyBudget.js';
+const draft = { month: '2026-10', previousMonth: '2026-09', previousRows: [], originalRows: [], rows: [], expandedCategories: [] };
+const state = { ui: { monthlyBudgetDraft: draft } };
+assert.match(renderMonthlyBudget(state), /data-monthly-budget-new-category/);
+assert.match(renderMonthlyBudget(state), /data-monthly-budget-copy-base/);
+state.ui.monthlyBudgetDraft = { ...draft, mode: 'base' };
+assert.match(renderMonthlyBudget(state), /Presupuesto base/);
+assert.doesNotMatch(renderMonthlyBudget(state), /data-monthly-budget-month-step|data-monthly-budget-copy=/);
+const row = { month: '2026-10', draftId: 'a', category: 'Hogar', amount: 20 };
+assert.match(renderMonthlyBudgetRowSheet(state, row), /data-monthly-budget-row-apply>Guardar<\/button>/);
+console.log('Planning refinements UI passed');

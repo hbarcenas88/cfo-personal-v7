@@ -1,16 +1,16 @@
 import { loadState, saveState, clearState, clearFinanceLocalStorage } from './services/storageService.js';
 import { applyTransactionEdit, canDuplicateTransaction, createTransfer, normalizeBudget, normalizeTransaction } from './services/financeService.js';
 import { migrateAuditPeriod } from './services/periodService.js';
-import { applyAuditCloseDecision, statementFingerprint } from './services/guidedAuditService.js';
-import { normalizeProvision } from './services/planningService.js';
-import { canon, currentMonth, parseAmount, parseDate, parseMonth, uid } from './utils/format.js';
+import { getProvisionPlanningStatus, normalizeProvision, normalizeReleaseDate, provisionAmountCents } from './services/planningService.js';
+import { canon, currentMonth, parseAmount, parseDate, parseMonth, todayISO, uid } from './utils/format.js';
 import { inferIcon } from './icons.js';
+import { buildMonthlyBudgetChanges, createMonthlyBudgetDraft, updateMonthlyBudgetRow } from './services/budgetPlanningService.js';
 
 const listeners = new Set();
 export const DEFAULT_ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'];
 
 export const initialState = {
-  version: '7.0.5',
+  version: '7.0.7',
   onboarded: false,
   activeView: 'balances',
   settingsPage: '',
@@ -23,6 +23,7 @@ export const initialState = {
   importBatches: [],
   auditClosures: [],
   budgets: [],
+  budgetTemplate: [],
   provisions: [],
   provisionEvents: [],
   capacityRules: { accountRoles: {}, provisionIds: null },
@@ -66,8 +67,6 @@ export const initialState = {
     selectedCategoryId: '',
     selectedSubcategory: '',
     selectedTransactionId: '',
-    auditCloseId: '',
-    auditCloseDraft: null,
     selectedHealthIssue: '',
     auditFilter: '',
     auditDropdown: '',
@@ -130,6 +129,12 @@ export function mergeState(saved) {
   merged.budgets = (Array.isArray(saved.budgets) ? saved.budgets : [])
     .filter(row => parseMonth(row.month || row.mes || row.date || row.fecha) || !(row.month || row.mes || row.date || row.fecha))
     .map(row => normalizeBudget(row, merged));
+  merged.budgetTemplate = (Array.isArray(saved.budgetTemplate) ? saved.budgetTemplate : [])
+    .map(row => {
+      const normalized = normalizeBudget(row, merged);
+      delete normalized.month;
+      return normalized;
+    });
   const normalizedProvisions = (Array.isArray(saved.provisions) ? saved.provisions : []).map(normalizeProvision);
   const legacyProvisionEvents = normalizedProvisions.flatMap(provision => provision.events
     .filter(event => event.kind === 'release')
@@ -534,39 +539,6 @@ export async function mutate(updater, options = {}) {
   notify();
 }
 
-export async function createAuditClose(close) {
-  const fingerprint = statementFingerprint(close.statementRows);
-  const duplicate = state.auditClosures.some(item =>
-    item.accountName === close.accountName &&
-    item.range?.from === close.range?.from &&
-    item.range?.to === close.range?.to &&
-    item.fingerprint === fingerprint
-  );
-  if (duplicate) {
-    showToast('Ese extracto ya está asociado a un cierre de esta cuenta.');
-    return false;
-  }
-  await mutate(s => {
-    s.auditClosures.push({ ...close, fingerprint });
-  }, { undo: 'Cierre de auditoría creado' });
-  return true;
-}
-
-export async function saveAuditCloseDecision(closeId, decision) {
-  await mutate(s => {
-    const close = s.auditClosures.find(item => item.id === closeId);
-    if (!close) return;
-    close.decisions = applyAuditCloseDecision(close, decision).decisions;
-    close.updatedAt = new Date().toISOString();
-  }, { undo: 'Revisión de cierre actualizada' });
-}
-
-export async function deleteAuditClose(closeId) {
-  await mutate(s => {
-    s.auditClosures = s.auditClosures.filter(close => close.id !== closeId);
-  }, { undo: 'Cierre de auditoría eliminado' });
-}
-
 function snapshot() {
   const copy = structuredClone(state);
   copy.ui = structuredClone(initialState.ui);
@@ -574,11 +546,10 @@ function snapshot() {
 }
 
 export async function undo() {
-  if (!state.ui.undo?.before) return;
-  state = mergeState(state.ui.undo.before);
-  await persist();
-  showToast('Cambio deshecho');
-  notify();
+  if (!state.ui.undo?.before) return false;
+  const result = await commitFinancialOperation(() => mergeState(state.ui.undo.before), '', { undo: false, preserveUi: false });
+  if (result) showToast('Cambio deshecho');
+  return result;
 }
 
 export async function resetAll() {
@@ -719,7 +690,7 @@ export async function updateAccount(id, payload) {
       if (canon(tx.account) === canon(oldName)) tx.account = name;
       if (canon(tx.accountTo) === canon(oldName)) tx.accountTo = name;
     });
-    s.budgets.forEach(row => {
+    [...s.budgets, ...(s.budgetTemplate || [])].forEach(row => {
       if (canon(row.account) === canon(oldName)) row.account = name;
     });
     s.recurring.forEach(row => {
@@ -732,7 +703,7 @@ export async function updateAccount(id, payload) {
 
 export function accountDeleteImpact(id) {
   const account = state.accounts.find(item => item.id === id);
-  if (!account) return { account: null, transactions: 0, transfers: 0, budgets: 0, recurring: 0 };
+  if (!account) return { account: null, transactions: 0, transfers: 0, budgets: 0, templateRows: 0, recurring: 0 };
   const key = canon(account.name);
   const direct = state.transactions.filter(tx => canon(tx.account) === key || canon(tx.accountTo) === key);
   const transferIds = new Set(direct.map(tx => tx.transferId).filter(Boolean));
@@ -746,6 +717,7 @@ export function accountDeleteImpact(id) {
     transactions: transactionIds.size,
     transfers: transferIds.size,
     budgets: state.budgets.filter(row => canon(row.account) === key).length,
+    templateRows: (state.budgetTemplate || []).filter(row => canon(row.account) === key).length,
     recurring: state.recurring.filter(row => canon(row.account) === key).length
   };
 }
@@ -766,6 +738,7 @@ export async function deleteAccount(id) {
       !(tx.transferId && transferIds.has(tx.transferId))
     );
     s.budgets = s.budgets.filter(row => canon(row.account) !== key);
+    s.budgetTemplate = (s.budgetTemplate || []).filter(row => canon(row.account) !== key);
     s.recurring.forEach(row => {
       if (canon(row.account) === key) row.account = '';
     });
@@ -862,26 +835,28 @@ export async function addCategory(payload) {
 
 export function categoryDeleteImpact(id) {
   const category = state.categories.find(item => item.id === id);
-  if (!category) return { category: null, transactions: 0, budgets: 0, recurring: 0 };
+  if (!category) return { category: null, transactions: 0, budgets: 0, templateRows: 0, recurring: 0 };
   const key = canon(category.name);
   return {
     category,
     transactions: state.transactions.filter(tx => canon(tx.category) === key).length,
     budgets: state.budgets.filter(row => canon(row.category) === key).length,
+    templateRows: (state.budgetTemplate || []).filter(row => canon(row.category) === key).length,
     recurring: state.recurring.filter(row => canon(row.category) === key).length
   };
 }
 
 export function subcategoryDeleteImpact(categoryId, subcategoryName) {
   const category = state.categories.find(item => item.id === categoryId);
-  if (!category) return { category: null, subcategory: '', transactions: 0, budgets: 0 };
+  if (!category) return { category: null, subcategory: '', transactions: 0, budgets: 0, templateRows: 0 };
   const catKey = canon(category.name);
   const subKey = canon(subcategoryName);
   return {
     category,
     subcategory: subcategoryName,
     transactions: state.transactions.filter(tx => canon(tx.category) === catKey && canon(tx.subcategory) === subKey).length,
-    budgets: state.budgets.filter(row => canon(row.category) === catKey && canon(row.subcategory) === subKey).length
+    budgets: state.budgets.filter(row => canon(row.category) === catKey && canon(row.subcategory) === subKey).length,
+    templateRows: (state.budgetTemplate || []).filter(row => canon(row.category) === catKey && canon(row.subcategory) === subKey).length
   };
 }
 
@@ -916,7 +891,7 @@ export async function updateCategory(id, payload) {
     s.transactions.forEach(tx => {
       if (canon(tx.category) === canon(oldName)) tx.category = name;
     });
-    s.budgets.forEach(row => {
+    [...s.budgets, ...(s.budgetTemplate || [])].forEach(row => {
       if (canon(row.category) === canon(oldName)) row.category = name;
     });
     s.recurring.forEach(row => {
@@ -943,7 +918,7 @@ export async function deleteSubcategory(categoryId, subcategoryName) {
     s.transactions.forEach(tx => {
       if (canon(tx.category) === catKey && canon(tx.subcategory) === subKey) tx.subcategory = '';
     });
-    s.budgets.forEach(row => {
+    [...s.budgets, ...(s.budgetTemplate || [])].forEach(row => {
       if (canon(row.category) === catKey && canon(row.subcategory) === subKey) row.subcategory = '';
     });
     s.filters.audit.subcategories = s.filters.audit.subcategories.filter(value => canon(value) !== subKey);
@@ -962,6 +937,7 @@ export async function deleteCategory(id) {
   await mutate(s => {
     s.transactions = s.transactions.filter(tx => canon(tx.category) !== key);
     s.budgets = s.budgets.filter(row => canon(row.category) !== key);
+    s.budgetTemplate = (s.budgetTemplate || []).filter(row => canon(row.category) !== key);
     s.recurring.forEach(row => {
       if (canon(row.category) === key) row.category = '';
     });
@@ -998,29 +974,77 @@ export async function addProvision(payload) {
   }, { undo: 'Provisión creada' });
 }
 
+let financialOperationPending = false;
+
+async function commitFinancialOperation(build, label, options = {}) {
+  if (financialOperationPending) {
+    showToast('Hay un cambio guardándose. Inténtalo al terminar.');
+    return false;
+  }
+  financialOperationPending = true;
+  try {
+    let candidate = structuredClone(state);
+    const before = snapshot();
+    const originalFingerprint = JSON.stringify(before);
+    const result = build(candidate);
+    if (!result) return false;
+    if (typeof result === 'object') candidate = result;
+    if (options.undo !== false) candidate.ui.undo = { label, before, createdAt: Date.now() };
+    await saveState(stateForPersistence(candidate));
+    if (JSON.stringify(snapshot()) !== originalFingerprint) {
+      // A legacy mutation may finish while storage is pending. Preserve its current state.
+      await saveState(stateForPersistence(state));
+      showToast('Los datos cambiaron mientras se guardaba. Revisa el plan e inténtalo de nuevo.');
+      return false;
+    }
+    if (options.preserveUi !== false) candidate.ui = { ...state.ui, undo: candidate.ui.undo };
+    state = candidate;
+    notify();
+    return true;
+  } catch (error) {
+    showToast('No se pudo guardar el cambio. Inténtalo de nuevo.');
+    return false;
+  } finally {
+    financialOperationPending = false;
+  }
+}
+
+export async function applyProvisionPlanning(provisionId) {
+  return commitFinancialOperation(candidate => {
+    const date = todayISO();
+    const status = getProvisionPlanningStatus(candidate, provisionId, date);
+    if (!status.canApply) {
+      showToast(status.reason);
+      return false;
+    }
+    const provision = candidate.provisions.find(item => item.id === provisionId);
+    provision.balance = (Math.round(status.balance * 100) + Math.round(status.amount * 100)) / 100;
+    provision.updatedAt = new Date().toISOString();
+    candidate.provisionEvents.push({ id: uid('provision-allocation'), provisionId, provisionName: provision.name, kind: 'allocation', month: status.month, amount: status.amount, date });
+    return true;
+  }, 'Planeación aplicada');
+}
+
 export async function releaseProvision(id, payload = {}) {
-  const provision = state.provisions.find(item => item.id === id);
-  if (!provision) {
-    showToast('La provisión no existe');
-    return false;
-  }
-  const amount = Math.max(0, Number(provision.balance) || 0);
-  if (amount === 0) {
-    showToast('La provisión no tiene saldo para liberar');
-    return false;
-  }
-  const date = payload.date || new Date().toISOString().slice(0, 10);
-  const updatedAt = new Date().toISOString();
-  await mutate(s => {
-    const current = s.provisions.find(item => item.id === id);
-    current.balance = 0;
-    s.provisionEvents = [
-      ...(Array.isArray(s.provisionEvents) ? s.provisionEvents : []),
-      { provisionId: id, kind: 'release', amount, date }
-    ];
-    current.updatedAt = updatedAt;
-  }, { undo: 'Provisión liberada' });
-  return true;
+  return commitFinancialOperation(candidate => {
+    const provision = candidate.provisions.find(item => item.id === id);
+    if (!provision) {
+      showToast('La provisión no existe');
+      return false;
+    }
+    const balanceCents = provisionAmountCents(provision.balance);
+    const amountCents = provisionAmountCents(payload.amount === undefined ? provision.balance : payload.amount);
+    const date = normalizeReleaseDate(payload.date || todayISO());
+    if (!date || balanceCents === null || amountCents === null || amountCents <= 0 || amountCents > balanceCents) {
+      showToast(!date ? 'Fecha inválida' : balanceCents === 0 ? 'La provisión no tiene saldo para liberar' : 'El importe debe ser positivo y no superar el saldo');
+      return false;
+    }
+    provision.balance = (balanceCents - amountCents) / 100;
+    provision.updatedAt = new Date().toISOString();
+    provision.lastReleasedAt = date;
+    candidate.provisionEvents = [...(candidate.provisionEvents || []), { id: uid('provision-release'), provisionId: id, provisionName: provision.name, kind: 'release', amount: amountCents / 100, date }];
+    return true;
+  }, 'Provisión liberada');
 }
 
 export async function updateProvision(id, payload = {}) {
@@ -1070,22 +1094,82 @@ export async function deleteProvision(id) {
   return true;
 }
 
+export async function saveMonthlyBudgetDraft(draft) {
+  if (draft?.mode === 'base') { showToast('Guarda este borrador como presupuesto base.'); return false; }
+  return commitFinancialOperation(candidate => {
+    let result;
+    try {
+      result = buildMonthlyBudgetChanges(draft, candidate);
+    } catch (error) {
+      showToast('El borrador no es válido. Revisa el plan antes de guardar.');
+      return false;
+    }
+    if (!result.ok) {
+      showToast(result.conflicts[0]?.message || result.errors[0]?.message || 'Revisa el plan antes de guardar.');
+      return false;
+    }
+    candidate.budgets = result.budgets;
+    candidate.categories = result.categories;
+    return true;
+  }, 'Plan mensual guardado');
+}
+
+export async function saveBaseBudgetDraft(draft) {
+  if (draft?.mode !== 'base') { showToast('Este borrador no corresponde al presupuesto base.'); return false; }
+  return commitFinancialOperation(candidate => {
+    let result;
+    try {
+      result = buildMonthlyBudgetChanges(draft, candidate);
+    } catch {
+      showToast('El borrador no es válido. Revisa el presupuesto base.');
+      return false;
+    }
+    if (!result.ok) {
+      showToast(result.conflicts[0]?.message || result.errors[0]?.message || 'Revisa el presupuesto base antes de guardar.');
+      return false;
+    }
+    candidate.budgetTemplate = result.budgets;
+    candidate.categories = result.categories;
+    return true;
+  }, 'Presupuesto base guardado');
+}
+
 export async function updateBudget(id, payload = {}) {
-  const budget = state.budgets.find(item => item.id === id);
-  if (!budget) {
-    showToast('El presupuesto no existe');
-    return false;
-  }
-  const amount = Math.abs(parseAmount(payload.amount));
-  if (!payload.month || !payload.category?.trim() || !amount) {
-    showToast('Período, categoría y monto requeridos');
-    return false;
-  }
-  await mutate(s => {
-    const index = s.budgets.findIndex(item => item.id === id);
-    s.budgets[index] = normalizeBudget({ ...s.budgets[index], ...payload, amount }, s);
-  }, { undo: 'Presupuesto actualizado' });
-  return true;
+  return commitFinancialOperation(candidate => {
+    const budget = candidate.budgets.find(item => item.id === id);
+    if (!budget) {
+      showToast('El presupuesto no existe');
+      return false;
+    }
+    if (payload.original && JSON.stringify(payload.original) !== JSON.stringify(budget)) {
+      showToast('La fila cambió fuera de esta edición. Revisa el plan antes de guardar.');
+      return false;
+    }
+    if (Object.hasOwn(payload, 'amount')) {
+      const text = String(payload.amount ?? '').trim().replace(',', '.');
+      const cents = Math.round(Number(text) * 100);
+      if (!/^\d+(?:\.\d{1,2})?$/.test(text) || !Number.isSafeInteger(cents) || cents <= 0) {
+        showToast('Ingresa un monto positivo con máximo dos decimales.');
+        return false;
+      }
+    }
+    const draft = createMonthlyBudgetDraft(candidate, budget.month);
+    const patch = Object.fromEntries(['category', 'subcategory', 'account', 'amount', 'description'].filter(field => Object.hasOwn(payload, field)).map(field => [field, payload[field]]));
+    const edited = updateMonthlyBudgetRow(draft, id, patch);
+    // A changed month is explicit and follows the existing punctual editor contract.
+    if (payload.month && !parseMonth(payload.month)) {
+      showToast('Mes inválido.');
+      return false;
+    }
+    const result = buildMonthlyBudgetChanges(edited, candidate);
+    if (!result.ok) {
+      showToast(result.conflicts[0]?.message || result.errors[0]?.message || 'Revisa la edición.');
+      return false;
+    }
+    candidate.budgets = result.budgets;
+    if (payload.month) candidate.budgets.find(row => row.id === id).month = parseMonth(payload.month);
+    return true;
+  }, 'Presupuesto actualizado');
 }
 
 export async function deleteBudget(id) {
@@ -1287,10 +1371,9 @@ export async function dismissHealthIssue(issueId) {
 }
 
 export async function restoreSnapshot(snapshotData) {
-  state = mergeState(snapshotData);
-  await persist();
-  notify();
-  showToast('Respaldo restaurado');
+  const result = await commitFinancialOperation(() => mergeState(snapshotData), '', { undo: false, preserveUi: false });
+  if (result) showToast('Respaldo restaurado');
+  return result;
 }
 
 export async function setDebugInfo(patch, options = {}) {

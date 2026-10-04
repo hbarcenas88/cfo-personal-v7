@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-49';
+const CACHE_NAME = 'cfo-personal-v7-cache-51';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -9,6 +9,8 @@ const APP_SHELL = [
   './styles/base.css',
   './styles/components.css',
   './styles/screens.css',
+  './styles/budgetPlanning.css',
+  './styles/planningRefinements.css',
   './src/main.js',
   './src/state.js',
   './src/icons.js',
@@ -17,13 +19,12 @@ const APP_SHELL = [
   './src/services/storageService.js',
   './src/services/financeService.js',
   './src/services/planningService.js',
+  './src/services/budgetPlanningService.js',
   './src/services/importExportService.js',
   './src/services/assistedImportService.js',
   './src/services/backupService.js',
   './src/services/healthService.js',
   './src/services/periodService.js',
-  './src/services/guidedAuditService.js',
-  './src/services/statementFileService.js',
   './src/components/ui.js',
   './src/components/keypad.js',
   './src/components/recordKeypad.js',
@@ -35,12 +36,12 @@ const APP_SHELL = [
   './src/screens/summary.js',
   './src/screens/categories.js',
   './src/screens/audit.js',
-  './src/screens/auditClose.js',
   './src/screens/settings.js',
+  './src/screens/monthlyBudget.js',
+  './src/screens/provisionDetails.js',
   './src/screens/recordFlow.js',
   './assets/icon-192.svg',
-  './assets/icon-512.svg',
-  './assets/vendor/xlsx.full.min.js'
+  './assets/icon-512.svg'
 ].map(appUrl);
 
 self.addEventListener('install', event => {

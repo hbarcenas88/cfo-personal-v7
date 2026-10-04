@@ -1,5 +1,5 @@
 import { icon } from '../icons.js';
-import { MONTHS, formatDate, todayISO } from '../utils/format.js';
+import { MONTHS, formatDate, localDateISO, todayISO } from '../utils/format.js';
 
 export function renderCalendarSheet({ selectedDate = todayISO(), visibleMonth = selectedDate.slice(0, 7), title = 'Selecciona fecha', context = 'period' } = {}) {
   const [year, month] = visibleMonth.split('-').map(Number);
@@ -88,7 +88,7 @@ function calendarDays(year, month) {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
     return {
-      iso: date.toISOString().slice(0, 10),
+      iso: localDateISO(date),
       day: date.getDate(),
       month: date.getMonth() + 1
     };

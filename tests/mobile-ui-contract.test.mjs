@@ -3,14 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import { bindShellEvents, ensureShell, updateShellState } from '../src/components/ui.js';
 import { renderPeriodSheet } from '../src/components/periodPicker.js';
-import { renderAuditCloseEntry, renderAuditCloseSheet } from '../src/screens/auditClose.js';
 import { renderTemplateSheet } from '../src/screens/settings.js';
 import { state } from '../src/state.js';
 import { html, safeColor } from '../src/utils/format.js';
 import { icon } from '../src/icons.js';
 
 const audit = await readFile(new URL('../src/screens/audit.js', import.meta.url), 'utf8');
-const auditClose = await readFile(new URL('../src/screens/auditClose.js', import.meta.url), 'utf8');
 const categories = await readFile(new URL('../src/screens/categories.js', import.meta.url), 'utf8');
 const summary = await readFile(new URL('../src/screens/summary.js', import.meta.url), 'utf8');
 const baseStyles = await readFile(new URL('../styles/base.css', import.meta.url), 'utf8');
@@ -20,7 +18,6 @@ const periodPicker = await readFile(new URL('../src/components/periodPicker.js',
 const keypad = await readFile(new URL('../src/components/keypad.js', import.meta.url), 'utf8');
 const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 const importExport = await readFile(new URL('../src/services/importExportService.js', import.meta.url), 'utf8');
-const xlsxBundle = await readFile(new URL('../assets/vendor/xlsx.full.min.js', import.meta.url), 'utf8');
 const progress = await readFile(new URL('../PROGRESS.md', import.meta.url), 'utf8');
 const verifier = await readFile(new URL('../VERIFIER.md', import.meta.url), 'utf8');
 const backlog = await readFile(new URL('../BACKLOG.md', import.meta.url), 'utf8');
@@ -89,7 +86,7 @@ const designSystem = await readFile(new URL('../DESIGN_SYSTEM.md', import.meta.u
 
   state.activeView = 'summary';
   updateShellState();
-  assert.equal(periodLabel.textContent, 'Jul 2026', 'dashboard views must return to the confirmed global period');
+  assert.equal(periodLabel.textContent, 'Julio 2026', 'dashboard views must return to the confirmed global period');
   assert.equal(periodPill.attributes['data-period-scope'], 'global');
   assert.equal(periodContext.hidden, true);
 
@@ -210,22 +207,6 @@ function fakeElement() {
   globalThis.window = previousWindow;
 }
 
-assert.match(auditClose, /data-open-audit-close/);
-assert.match(auditClose, /data-audit-close-file/);
-assert.match(auditClose, /data-audit-close-map/);
-assert.match(auditClose, /Solo en la app/);
-assert.match(auditClose, /Solo en el banco/);
-assert.match(auditClose, /Coincidencia exacta/);
-assert.match(auditClose, /Advertencia de fecha/);
-assert.doesNotMatch(auditClose, /<select\b/i);
-assert.match(styles, /\.guided-audit-summary\s*\{[\s\S]*?grid-template-columns/);
-assert.match(styles, /\.guided-audit-action\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
-assert.match(styles, /\.guided-audit-decisions\s*>\s*button\s*\{[\s\S]*?min-height:\s*var\(--control-md\)/);
-assert.match(styles, /\.guided-audit-delete-actions\s*\{[\s\S]*?gap:\s*var\(--space-sm\)/);
-assert.match(styles, /\.guided-audit-file:focus-within\s*\{[\s\S]*?(?:outline|box-shadow):/);
-assert.match(auditClose, /class="sheet-actions guided-audit-delete-actions"/);
-assert.doesNotMatch(auditClose, /Ã/, 'guided Audit copy must not expose mojibake');
-assert.match(auditClose, /Eliminarás la evidencia/);
 const categorySelectedSignal = extractCssRuleBody(componentStyles, '.category-view-segmented button[aria-pressed="true"]::before');
 assert.match(baseStyles, /--control-md:\s*44px;/, 'the medium control token must retain a 44px touch target');
 const auditClearTouchTarget = extractCssRuleBody(styles, '.text-button.audit-clear-filters');
@@ -240,110 +221,6 @@ assert.match(auditTransactionMenuIcon, /width:\s*var\(--icon-md\);/, 'Audit tran
 assert.match(auditTransactionMenuIcon, /height:\s*var\(--icon-md\);/, 'Audit transaction action SVGs must remain visually 20px tall');
 assert.match(baseStyles, /--icon-md:\s*20px;/, 'the medium icon token must remain 20px');
 assert.match(categorySelectedSignal, /content:\s*['"]✓['"]/, 'the selected category view must not rely on color alone');
-assertSavedAuditCloseStyles(styles);
-
-const savedAuditStyleMutations = [
-  ['row display', '.guided-audit-close-row', 'display: grid;'],
-  ['row columns', '.guided-audit-close-row', 'grid-template-columns: minmax(0, 1fr) auto;'],
-  ['row target height', '.guided-audit-close-row', 'min-height: var(--control-md);'],
-  ['content minimum width', '.guided-audit-close-content', 'min-width: 0;'],
-  ['content display', '.guided-audit-close-content', 'display: grid;'],
-  ['content columns', '.guided-audit-close-content', 'grid-template-columns: minmax(0, 1fr) auto;'],
-  ['long-text wrapping', ['.guided-audit-close-name', '.guided-audit-close-status'], 'overflow-wrap: anywhere;'],
-  ['metadata columns', '.guided-audit-close-meta', 'grid-template-columns: minmax(0, 1fr) auto;'],
-  ['chevron width', '.guided-audit-close-chevron', 'width: var(--control-md);'],
-  ['chevron height', '.guided-audit-close-chevron', 'height: var(--control-md);'],
-  ['chevron centering', '.guided-audit-close-chevron', 'place-items: center;'],
-  ['SVG width', '.guided-audit-close-chevron svg', 'width: var(--icon-sm);'],
-  ['SVG height', '.guided-audit-close-chevron svg', 'height: var(--icon-sm);'],
-  ['mobile content columns', '.guided-audit-close-content', 'grid-template-columns: minmax(0, 1fr);', '@media (max-width: 420px)']
-];
-
-savedAuditStyleMutations.forEach(([label, selectors, declaration, atRule]) => {
-  const mutatedStyles = moveCssDeclarationToDecoy(styles, selectors, declaration, atRule);
-  assert.throws(
-    () => assertSavedAuditCloseStyles(mutatedStyles),
-    { name: 'AssertionError' },
-    `saved-audit CSS contract must fail when ${label} moves to another selector`
-  );
-});
-
-const balancedAuditCloseEntry = renderAuditCloseEntry({
-  auditClosures: [{
-    id: 'balanced-close',
-    accountName: 'BAC',
-    cutoffDate: '2026-07-31',
-    realBalance: 0,
-    range: {},
-    statementRows: [],
-    decisions: []
-  }],
-  transactions: []
-});
-assert.doesNotMatch(balancedAuditCloseEntry, /1 cierres por revisar/);
-assert.match(balancedAuditCloseEntry, /Compara una cuenta con su estado de cuenta/);
-
-const reopenedAuditClose = renderAuditCloseSheet({
-  ui: { auditCloseId: 'close-canonical', auditCloseDraft: { step: 'result' } },
-  auditClosures: [{
-    id: 'close-canonical', accountName: 'Cuenta principal', cutoffDate: '2026-07-19', realBalance: 0,
-    range: { from: '2026-07-01', to: '2026-07-19' }, statementRows: [], decisions: []
-  }],
-  transactions: []
-});
-assert.match(reopenedAuditClose, /data-audit-close-delete="close-canonical"/);
-
-const exactCandidateAuditClose = renderAuditCloseSheet({
-  ui: { auditCloseId: 'close-exact', auditCloseDraft: { step: 'review' } },
-  auditClosures: [{
-    id: 'close-exact', accountName: 'Cuenta sintética', cutoffDate: '2026-07-19', realBalance: -12,
-    range: { from: '2026-07-01', to: '2026-07-19' },
-    statementRows: [{
-      id: 'statement-exact', sourceRow: 2, date: '2026-07-19',
-      signedAmount: -12, description: 'Compra sintética'
-    }],
-    decisions: []
-  }],
-  transactions: [{
-    id: 'transaction-exact', account: 'Cuenta sintética', date: '2026-07-19',
-    movement: 'Gasto', amount: 12, description: 'Compra sintética', affectsBalance: true
-  }]
-});
-assert.match(exactCandidateAuditClose, /Coincidencia exacta/);
-assert.match(exactCandidateAuditClose, /Cuenta sintética/);
-assert.match(exactCandidateAuditClose, /Fecha de corte/);
-assert.match(exactCandidateAuditClose, /Confirmar/);
-assert.match(exactCandidateAuditClose, /No corresponde/);
-assert.match(exactCandidateAuditClose, /Dejar pendiente/);
-
-const xlsxContext = {};
-runInNewContext(xlsxBundle, xlsxContext);
-assert.equal(xlsxContext.XLSX.version, '0.20.3');
-const syntheticWorkbook = xlsxContext.XLSX.utils.book_new();
-xlsxContext.XLSX.utils.book_append_sheet(
-  syntheticWorkbook,
-  xlsxContext.XLSX.utils.aoa_to_sheet([
-    ['Fecha', 'Monto', 'Descripción'],
-    ['2026-07-19', -12, 'Compra sintética']
-  ]),
-  'Extracto'
-);
-const syntheticXlsx = xlsxContext.XLSX.write(syntheticWorkbook, {
-  bookType: 'xlsx',
-  type: 'array'
-});
-const parsedSyntheticWorkbook = xlsxContext.XLSX.read(syntheticXlsx, { type: 'array' });
-assert.deepEqual(
-  Array.from(xlsxContext.XLSX.utils.sheet_to_json(
-    parsedSyntheticWorkbook.Sheets.Extracto,
-    { header: 1, defval: '' }
-  ), row => Array.from(row)),
-  [
-    ['Fecha', 'Monto', 'Descripción'],
-    ['2026-07-19', -12, 'Compra sintética']
-  ]
-);
-
 assert.match(periodPicker, /data-period-scope/);
 assert.match(periodPicker, /data-period-compare/);
 assert.match(periodPicker, /data-period-copy-dashboard/);
@@ -574,37 +451,6 @@ await persistPreferences();
 assert.equal(persistCalls, 1);
 assert.equal(mutationCalls, 0);
 
-function assertSavedAuditCloseStyles(source) {
-  const rowRule = extractCssRuleBody(source, '.guided-audit-close-row');
-  assert.match(rowRule, /(?:^|\s)display:\s*grid;/, 'saved audit rows must use grid');
-  assert.match(rowRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/, 'saved audit rows must reserve flexible content and a fixed chevron column');
-  assert.match(rowRule, /min-height:\s*var\(--control-md\);/, 'the full saved audit row must retain the 44px control target');
-
-  const contentRule = extractCssRuleBody(source, '.guided-audit-close-content');
-  assert.match(contentRule, /min-width:\s*0;/, 'saved audit content must be allowed to shrink');
-  assert.match(contentRule, /(?:^|\s)display:\s*grid;/, 'saved audit content must use grid');
-  assert.match(contentRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/, 'saved audit content must keep identity flexible and metadata readable');
-
-  const longTextRule = extractCssRuleBody(source, ['.guided-audit-close-name', '.guided-audit-close-status']);
-  assert.match(longTextRule, /overflow-wrap:\s*anywhere;/, 'long account names and statuses must wrap in their own rule');
-
-  const metaRule = extractCssRuleBody(source, '.guided-audit-close-meta');
-  assert.match(metaRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/, 'audit status and amount must have separate readable columns');
-
-  const chevronRule = extractCssRuleBody(source, '.guided-audit-close-chevron');
-  assert.match(chevronRule, /width:\s*var\(--control-md\);/, 'the chevron affordance must use the 44px control width');
-  assert.match(chevronRule, /height:\s*var\(--control-md\);/, 'the chevron affordance must use the 44px control height');
-  assert.match(chevronRule, /place-items:\s*center;/, 'the chevron SVG must stay centered inside its affordance');
-
-  const chevronSvgRule = extractCssRuleBody(source, '.guided-audit-close-chevron svg');
-  assert.match(chevronSvgRule, /width:\s*var\(--icon-sm\);/, 'the chevron SVG must not retain intrinsic width');
-  assert.match(chevronSvgRule, /height:\s*var\(--icon-sm\);/, 'the chevron SVG must not retain intrinsic height');
-
-  const mobileBlock = extractCssAtRuleBody(source, '@media (max-width: 420px)');
-  const mobileContentRule = extractCssRuleBody(mobileBlock, '.guided-audit-close-content');
-  assert.match(mobileContentRule, /grid-template-columns:\s*minmax\(0,\s*1fr\);/, 'saved audit metadata must stack into a non-zero-width mobile column');
-}
-
 function extractCssRuleBody(source, selectors) {
   const selectorList = Array.isArray(selectors) ? selectors : [selectors];
   const expectedHeader = normalizeCssHeader(selectorList.join(', '));
@@ -643,25 +489,6 @@ function findTopLevelCssBlocks(source) {
     cursor = closeBrace;
   }
   return blocks;
-}
-
-function moveCssDeclarationToDecoy(source, selectors, declaration, atRule = '') {
-  const atRuleBlock = atRule
-    ? findTopLevelCssBlocks(source).find(candidate => candidate.header === normalizeCssHeader(atRule))
-    : null;
-  if (atRule) assert.ok(atRuleBlock, `${atRule} must exist before mutation`);
-  const scopeBody = atRuleBlock?.body || source;
-  const selectorList = Array.isArray(selectors) ? selectors : [selectors];
-  const ruleBlock = findTopLevelCssBlocks(scopeBody)
-    .find(candidate => candidate.header === normalizeCssHeader(selectorList.join(', ')));
-  assert.ok(ruleBlock, `CSS rule ${selectorList.join(', ')} must exist before mutation`);
-  const declarationOffset = ruleBlock.body.indexOf(declaration);
-  assert.notEqual(declarationOffset, -1, `${declaration} must exist before mutation`);
-
-  const scopeOffset = atRuleBlock?.bodyStart || 0;
-  const absoluteOffset = scopeOffset + ruleBlock.bodyStart + declarationOffset;
-  const withoutDeclaration = `${source.slice(0, absoluteOffset)}${source.slice(absoluteOffset + declaration.length)}`;
-  return `${withoutDeclaration}\n.guided-audit-contract-decoy { ${declaration} }`;
 }
 
 function normalizeCssHeader(value) {
@@ -921,7 +748,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month
 assert.equal(appliedState.filters.categories.compare, true);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-49/, 'Audit provision reconciliation shell must activate cache-49');
+assert.match(worker, /cfo-personal-v7-cache-51/, 'Monthly planning shell must activate cache-51');
 assert.match(worker, /\.\/src\/components\/recordKeypad\.js/, 'Wave 1.1 must precache the record keypad binder');
 assert.equal(
   (worker.match(/\.\/src\/components\/recordKeypad\.js/g) || []).length,
@@ -1058,7 +885,7 @@ assert.deepEqual(
     planningServicePrecached: appShell.includes('https://app.test/src/services/planningService.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-49',
+    cacheName: 'cfo-personal-v7-cache-51',
     renderCoordinatorPrecached: true,
     recordKeypadPrecached: true,
     planningServicePrecached: true
@@ -1067,24 +894,15 @@ assert.deepEqual(
 );
 assert.match(worker, /'\.\/src\/components\/searchableOptions\.js'/);
 assert.match(worker, /'\.\/src\/services\/periodService\.js'/);
-assert.match(worker, /'\.\/src\/services\/guidedAuditService\.js'/);
-assert.match(worker, /'\.\/src\/services\/statementFileService\.js'/);
-assert.match(worker, /'\.\/src\/screens\/auditClose\.js'/);
-assert.match(worker, /'\.\/assets\/vendor\/xlsx\.full\.min\.js'/);
 assert.match(worker, /fetch\(event\.request,\s*\{\s*cache:\s*'no-store'\s*\}\)/);
 assert.match(worker, /!response\.ok\s*\|\|\s*response\.status\s*===\s*206/);
 assert.match(worker, /await cache\.put\(event\.request, copy\)/);
 const settings = renderTemplateSheet({ ui: { templateInfoKind: '' } });
-assert.match(settings, /data-template="audit_statement"/);
-assert.match(settings, /data-template-info="audit_statement"/);
-assert.doesNotMatch(auditClose, /data-template="audit_statement"/);
-assert.match(importExport, /\['Fecha', 'Descripción', 'Monto'\]/);
+assert.doesNotMatch(settings, /data-template="audit_statement"/);
+assert.doesNotMatch(settings, /data-template-info="audit_statement"/);
 
-assert.match(progress, /`main` y `origin\/main` apuntan a la Oleada 3 \(`3f56cce`\) con `cfo-personal-v7-cache-47`, publicada y verificada en GitHub Pages el 2026-08-24\./);
-assert.match(backlog, /plantilla `Auditoría — estado de cuenta` se descarga localmente desde Ajustes y no muta finanzas/);
-assert.match(verifier, /Auditoría — estado de cuenta/);
-assert.match(productSpec, /`Fecha,Descripción,Monto`/);
-assert.match(designSystem, /no anidada en la importación del cierre/);
+assert.match(progress, /La base actual es 79928f2.*a2c92ec.*cache-49/);
+assert.match(progress, /Publicación externa actual no verificada/);
 assert.match(designSystem, /target mínimo de 44 px/);
 assert.match(roadmap, /evidencia de dispositivo\/PWA y validación no destructiva con datos reales/);
 assert.doesNotMatch(verifier, /- \[x\] Sesi.n (controlada|sint.tica):/);

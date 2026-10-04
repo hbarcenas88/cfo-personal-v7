@@ -1,7 +1,7 @@
 import { icon } from '../icons.js';
 import { accountBalances, kpis, provisionAssigned, provisionReserve } from '../services/financeService.js';
 import { card, emptyState, iconBubble, metricCard } from '../components/ui.js';
-import { formatDate, formatMoney, formatSignedMoney, html, monthEnd, safeColor } from '../utils/format.js';
+import { formatDate, formatMoney, formatSignedMoney, html, periodBounds, todayISO, safeColor } from '../utils/format.js';
 
 export function renderBalances(state) {
   const data = kpis(state);
@@ -25,7 +25,7 @@ export function renderBalances(state) {
 }
 
 function balanceComboCard(data, state) {
-  const cutoff = formatDate(monthEnd(state.period.month || new Date().toISOString().slice(0, 7)));
+  const cutoff = formatDate(periodBounds(state.period).to || todayISO());
   return card(`
     ${balanceMetricItem({
       title: 'Balance total',
@@ -93,38 +93,19 @@ function renderAccountTotal(total) {
 }
 
 function renderProvisionCard(state) {
-  const reserve = provisionReserve(state);
+  const reserve = provisionReserve(state, { mode: 'range', from: '0001-01-01', to: todayISO() });
   const assigned = provisionAssigned(state);
-  const available = reserve - assigned;
-  const provisions = state.provisions;
-  const segments = provisions.length ? provisions : [{ name: 'Sin provisiones', balance: 0, color: '#BFD0DF' }];
-  const hasReserve = reserve > 0;
+  const available = (Math.round(reserve * 100) - Math.round(assigned * 100)) / 100;
+  const provisions = state.provisions || [];
   return card(`
-    <div class="provision-layout">
-      <div class="donut${hasReserve ? '' : ' empty'}" role="img" aria-label="${hasReserve ? `Provisiones: ${formatMoney(reserve)}` : `Sin provisiones: ${formatMoney(0)}`}" style="${donutStyle(segments)}"></div>
-      <div class="legend-list">
-        <div><strong>Reserva acumulada</strong><div class="row-amount success text-left">${formatMoney(reserve)}</div></div>
-        ${segments.slice(0, 4).map(p => `<div class="legend-item"><span class="legend-dot" style="background:${safeColor(p.color, '#0A8FE8')}"></span><span>${html(p.name)}</span><strong>${formatMoney(p.balance || 0)}</strong></div>`).join('')}
-      </div>
+    <p class="provision-summary-note">Saldos conceptuales vigentes</p>
+    <div class="provision-number-grid">
+      <div class="provision-number" data-provision-summary="reserve"><span>Reserva acumulada</span><strong>${formatMoney(reserve)}</strong></div>
+      <div class="provision-number" data-provision-summary="assigned"><span>Asignado</span><strong>${formatMoney(assigned)}</strong></div>
+      <div class="provision-number provision-number-highlight ${available < 0 ? 'danger' : ''}" data-provision-summary="unassigned"><span>Sin asignar</span><strong>${available < 0 ? '-' : ''}${formatMoney(available)}</strong></div>
     </div>
-    <div class="progress provision-progress"><span style="width:${reserve ? Math.min(100, assigned / reserve * 100) : 0}%;background:${available < 0 ? 'var(--red)' : 'var(--amber)'}"></span></div>
-    <div class="row-card row-card-summary account-total-row"><strong>Disponible sin asignar</strong><strong class="row-amount ${available < 0 ? 'danger' : 'blue'}">${formatMoney(available)}</strong></div>
-    <details class="hidden-details"><summary>Provisiones individuales (${provisions.length}) ${icon('chevronDown')}</summary>${provisions.length ? provisions.map(p => `<div class="row-card account-balance-row">${iconBubble(p.icon || 'shield', p.color || '#C68000', true, 'row-icon solid-icon')}<span class="row-main"><span class="row-title">${p.name}</span><span class="row-subtitle">Reserva conceptual</span></span><strong class="row-amount">${formatMoney(p.balance || 0)}</strong></div>`).join('') : emptyState('shield', 'Sin provisiones', 'Crea una provisión desde Planeación')}</details>
-  `);
-}
-
-function donutStyle(segments) {
-  const total = segments.reduce((sum, item) => sum + Number(item.balance || 0), 0);
-  if (!total) return '';
-  let start = 0;
-  const stops = segments.map(item => {
-    const degrees = (Number(item.balance || 0) / total) * 360;
-    const color = item.color || '#0A8FE8';
-    const part = `${color} ${start}deg ${start + degrees}deg`;
-    start += degrees;
-    return part;
-  });
-  return `background:conic-gradient(${stops.join(',')})`;
+    <div class="provision-summary-rows">${provisions.length ? provisions.map(p => `<button class="row-card account-balance-row provision-open" data-provision-details="${html(p.id)}">${iconBubble(p.icon || 'shield', p.color || '#C68000', true, 'row-icon solid-icon')}<span class="row-main"><span class="row-title">${html(p.name)}</span><span class="row-subtitle">Planeado ${formatMoney(p.monthlyAmount || 0)}/mes</span></span><strong class="row-amount">${formatMoney(p.balance || 0)}</strong></button>`).join('') : emptyState('shield', 'Sin provisiones', 'Crea una provisión desde Planeación')}</div>
+  `, 'provision-summary-card');
 }
 
 function renderUpcoming(state) {
@@ -140,7 +121,7 @@ function renderUpcoming(state) {
       return `
         <div class="row-card upcoming-row">
           ${iconBubble(item.icon || 'calendarClock', item.color || '#0A8FE8', false, 'row-icon')}
-          <span class="row-main"><span class="row-title">${item.name}</span><span class="row-subtitle">${item.account || 'Sin cuenta'} · ${item.day} de ${monthName(month)}</span></span>
+          <span class="row-main"><span class="row-title">${html(item.name)}</span><span class="row-subtitle">${html(item.account || 'Sin cuenta')} · ${formatDate(`${month}-${String(item.day).padStart(2, '0')}`)}</span></span>
           <span class="upcoming-state">${item.amount ? `<strong class="row-amount">${formatMoney(item.amount)}</strong>` : ''}<button class="check-pill${completed ? ' selected' : ''}" data-recurring-done="${html(item.id)}" aria-pressed="${completed}">${completed ? icon('check') : ''}${status}</button></span>
         </div>
       `;

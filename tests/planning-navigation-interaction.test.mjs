@@ -95,8 +95,8 @@ assert.deepEqual(
     type: state.ui.planningType,
     legacyFocus: state.ui.planningFocus
   },
-  { page: 'planning', view: 'provisions', type: 'provisions', legacyFocus: undefined },
-  'Balances must enter the Provisions decision view directly without a scroll target'
+  { page: 'planning', view: 'manager', type: 'provisions', legacyFocus: undefined },
+  'Balances must enter the Provisions manager directly without a scroll target'
 );
 assert.equal(settingsCalls, 1);
 assert.deepEqual(focusRequests, [
@@ -104,7 +104,7 @@ assert.deepEqual(focusRequests, [
   '[data-planning-back="manager"]',
   '[data-planning-manager="provisions"]',
   '[data-planning-type="provisions"]',
-  '[data-planning-manager="provisions"]'
+  '[data-planning-back="manager"]'
 ], 'Planning transitions must focus the intended destination or exact opener after each render');
 
 console.log('planning-navigation-interaction.test.mjs passed');

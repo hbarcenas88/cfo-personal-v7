@@ -99,7 +99,7 @@ import {
 }
 
 for (const [attribute, value] of [
-  ['data-audit-close-field', 'realBalance'],
+  ['data-record-field', 'realBalance'],
   ['data-category-draft-field', 'name'],
   ['data-account-draft-field', 'customType']
 ]) {

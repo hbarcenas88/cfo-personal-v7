@@ -161,7 +161,6 @@ function selectorFor(element, root) {
   const preferredAttributes = [
     'data-interaction-key',
     'data-record-field',
-    'data-audit-close-field',
     'data-category-draft-field',
     'data-account-draft-field'
   ];

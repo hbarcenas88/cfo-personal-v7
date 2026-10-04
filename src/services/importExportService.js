@@ -5,7 +5,6 @@ import { canon, formatDate, parseAmount, parseDate, parseMonth, todayISO } from 
 import { inferIcon } from '../icons.js';
 import { createImportReviewDraft } from './assistedImportService.js';
 
-export const AUDIT_STATEMENT_TEMPLATE_KIND = 'audit_statement';
 
 export const templateHeaders = {
   accounts: ['nombre', 'tipo', 'saldo_inicial'],
@@ -13,8 +12,7 @@ export const templateHeaders = {
   provisions: ['nombre', 'saldo_conceptual', 'planeacion_mensual', 'monto_objetivo', 'fecha_liberacion'],
   recurring: ['tipo', 'nombre', 'dia_mensual', 'monto_esperado', 'cuenta', 'categoria'],
   transactions: ['cuenta', 'movimiento', 'monto', 'categoria', 'subcategoria', 'descripcion', 'fecha'],
-  budgets: ['cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'mes'],
-  [AUDIT_STATEMENT_TEMPLATE_KIND]: ['Fecha', 'Descripción', 'Monto']
+  budgets: ['cuenta', 'monto', 'categoria', 'subcategoria', 'descripcion', 'mes']
 };
 
 export function parseCSV(text) {
@@ -394,14 +392,7 @@ export function explainTemplate(kind) {
 }
 
 export function templateMeta(kind) {
-  if (kind === AUDIT_STATEMENT_TEMPLATE_KIND) {
-    return {
-      title: 'Auditoría — estado de cuenta',
-      description: 'Formato para comparar un estado de cuenta con una cuenta elegida.',
-      fields: 'Fecha, Descripción, Monto',
-      help: 'Fecha AAAA-MM-DD. Monto negativo = débito/gasto; positivo = crédito/ingreso. Puedes cargar CSV o XLSX.'
-    };
-  }
+
   return {
     title: kind,
     description: explainTemplate(kind),

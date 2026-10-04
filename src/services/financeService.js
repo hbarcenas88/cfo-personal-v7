@@ -183,7 +183,7 @@ function periodProvisionReleaseRows(state, period) {
       const date = parseDate(event.date);
       const provision = provisionsById.get(event.provisionId);
       if (!date || (bounds && (date < bounds.from || date > bounds.to))) return null;
-      const provisionName = provision?.name || 'Provisión';
+      const provisionName = event.provisionName || provision?.name || 'Provisión';
       return {
         id: event.id || `provision-release-${event.provisionId || 'unknown'}-${event.date || index}`,
         kind: 'provision-release',

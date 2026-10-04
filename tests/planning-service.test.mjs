@@ -57,7 +57,7 @@ assert.equal(provisionStatus({ balance: 20, targetAmount: 100 }, '2026-08-16'), 
 assert.equal(provisionStatus({ balance: 100, targetAmount: 100 }, '2026-08-16'), 'Lista para liberar');
 assert.equal(provisionStatus({ balance: 20, releaseDate: '2026-08-16' }, '2026-08-16'), 'Lista para liberar');
 assert.equal(provisionStatus({ balance: 20, releaseDate: '2026-08-15' }, '2026-08-16'), 'Vencida');
-assert.equal(provisionStatus({ balance: 0, targetAmount: 100, releaseDate: '2026-08-15' }, '2026-08-16'), 'Liberada');
+assert.equal(provisionStatus({ balance: 0, targetAmount: 100, releaseDate: '2026-08-15' }, '2026-08-16'), 'Sin saldo');
 
 assert.equal(
   managedProvisionReserve({ provisions: [{ balance: 120 }, { balance: 80 }, { balance: -40 }, { balance: 'bad' }] }),

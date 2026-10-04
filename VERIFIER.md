@@ -1,6 +1,47 @@
 # CFO Personal V7 - Verificador de entrega
 
-## Oleada 4 — importación asistida — cierre local en progreso
+## Ampliación aprobada — presupuesto y retiro de Auditoría guiada (04/10/2026)
+
+Se retira el módulo de Auditoría guiada completo: entrada de Nuevo cierre, lista de cierres, importación CSV/XLSX de estados de cuenta, revisiones de coincidencias, pantallas, rutas y plantilla de estado de cuenta. Auditoría de registros, filtros, comparación por período, edición y acceso por cuenta desde Balances permanecen activos. Los auditClosures históricos se conservan compatibles con almacenamiento y respaldos; retirar la función no purga datos financieros.
+
+Presupuesto base es una plantilla independiente en state.budgetTemplate, sin mes; no es la fila mensual sin subcategoría. Cargar base o copiar anterior completa sólo grupos faltantes, sin sobrescribir ni duplicar. La fila sin subcategoría conserva identidad e importe propios. Crear categorías dentro del editor las mantiene en borrador hasta guardarlas atómicamente con el plan; no se ofrece creación de subcategorías nuevas en esta interfaz.
+
+Ampliación implementada localmente: versión 7.0.7/cache-51. Evidencia nueva del 04/10/2026: 46/46 archivos de pruebas pasan, sintaxis de 30 archivos JavaScript y diff limpios. Revisión GUI independiente a 390 × 844 y 999 × 914; informe en docs/verification/2026-10-04-planning-refinements.md. Offline independiente confirmado con servidor detenido y recarga. Veredicto final: entrega local aprobada sin hallazgos pendientes; últimos ajustes visuales revalidados. Teléfono, datos reales y publicación siguen separados.
+
+
+## Ampliación del 04/10/2026 — evidencia local
+
+- [x] Auditoría normal conserva registros/filtros/comparación/edición y acceso por cuenta; módulo, rutas, imports, plantilla, parser y estilos guiados retirados.
+- [x] auditClosures históricos se conservan en almacenamiento y respaldos; no se purgan datos financieros.
+- [x] Presupuesto base independiente sin mes en budgetTemplate; fila sin subcategoría preserva identidad propia. Cargar base/copia anterior sólo completa faltantes, idempotente.
+- [x] Categoría nueva sólo en borrador hasta guardar junto al plan; cancelar no crea catálogo. No hay creación de subcategorías nuevas en esta UI.
+- [x] Suite 46/46, sintaxis de 30 JS y diff limpios; versión 7.0.7/cache-51.
+- [x] GUI independiente 390 × 844/999 × 914: base $50 → $70; mensual Agua $210 + Luz $70 = $280; repetición sin duplicación; nueva categoría cancelar/guardar.
+- [x] GUI categorías desplegables, Guardar y volver y provisión Caja $150/$50/$100; retiro de superficies guiadas y conservación histórica compatibles.
+- [x] Informe docs/verification/2026-10-04-planning-refinements.md; capturas refinements-mobile-independent.png/refinements-desktop-independent.png fuera del repositorio.
+- [x] Offline independiente: servidor 8800 detenido y recarga; Balances $150/$50/$100 y Categorías→editor→cargar base $280 funcionan sin duplicar.
+- [x] Revalidación final: Sin cuenta muestra la etiqueta correcta conservando el valor almacenado; KPI de 19.5 px a 390 px sin overflow, gráfica de provisiones retirada y consola sin errores. Veredicto independiente aprobado sin hallazgos pendientes.
+- [ ] Teléfono físico/PWA instalada, datos reales y publicación externa: pendientes separados.
+
+## Planeación mensual y provisiones — evidencia histórica local 03/10/2026
+
+- [x] Oleadas 0–4: documentación, lógica, acceso desde Balances, borrador mensual, editor/edición puntual y fechas implementados.
+- [x] Suite fresca del coordinador: 44/44 archivos sin fallos. Sintaxis de 33 archivos JavaScript, incluido el service worker, aprobada.
+- [x] Pruebas automatizadas: insuficiencia/repetición mensual, restauración, fallo de almacenamiento, deshacer, eventos únicos y neutralidad bancaria.
+- [x] Pruebas automatizadas de copia idempotente, multiplicidad, identidad, origen, conflictos, guardado atómico y edición puntual.
+- [x] Verificador independiente GUI 390 × 844 y escritorio 1280 × 900 con datos sintéticos: aplicar reserva $150/saldo $50/planeación $50 → saldo $100; liberar $20 → saldo $80/reserva $130.
+- [x] GUI presupuesto: copiar anterior $250; Luz $70 → total $270; edición puntual $90 → total $290; protección de cambios pendientes y recarga con bloqueo mensual.
+- [x] GUI selectores/calendarios propios, fecha 03/10/2026, foco/Tab/Shift+Tab/Escape tras correcciones; sin overflow ni botones inferiores a 44 px en el editor.
+- [x] Offline real: servidor detenido, vistas nuevas cargadas sin errores finales; cache-50 incorpora módulos/estilos nuevos.
+- [x] Capturas sintéticas fuera del repositorio: verifier-monthly-mobile.png y verifier-monthly-desktop.png en visualizaciones de esta sesión.
+- [x] Comprobación sintáctica final: 33 archivos JavaScript, incluido el service worker, pasan; diff final sin errores.
+- [x] Informe incorporado en docs/verification/2026-10-03-planning-workspace.md; veredicto independiente aprobado para entrega local revisable sin hallazgos abiertos. Oleada 5 completada.
+- [ ] Teléfono/PWA instalada y aceptación con datos reales.
+- [ ] Publicación externa: no realizada ni verificada.
+
+Restauración/fallo de almacenamiento/deshacer se comprobaron mediante pruebas automatizadas; no se atribuyen a un recorrido GUI con inyección de fallos. Evidencia histórica no sustituye la evidencia del nuevo flujo.
+
+## Oleada 4 histórica — incorporada en a2c92ec (25/08/2026)
 
 - [x] Contrato puro de revisión, grupos equivalentes, decisiones, descarte, duplicados y preflight implementado y cubierto por `assisted-import-review.test.mjs`.
 - [x] Persistencia de `importMeta`/`importBatches`, aplicación atómica de lotes, deshacer único, backup/restore legacy y validación de catálogos cubiertos por `assisted-import-commit.test.mjs` y regresiones existentes.
@@ -8,7 +49,7 @@
 - [x] `service-worker.js` usa `cfo-personal-v7-cache-49` y precarga `src/services/assistedImportService.js`; `pwa-cache-parity.test.mjs` confirma inventario único y excluye tests, documentación, datos y capturas.
 - [x] Suite serial final: 31/31 archivos `tests/*.test.mjs`, cero fallos. Sintaxis de 8 archivos JavaScript cambiados, `git diff --check` y revisión de archivos candidatos terminaron con código 0; no se añadieron CSV/XLSX, respaldos, capturas, secretos ni datos financieros.
 - [ ] QA renderizado a 390 × 844 con CSV sintético: grupos, equivalentes, excepción, duplicado, descarte, confirmación, undo, recarga y backup/restore; separar esta evidencia de la validación en teléfono y con datos reales.
-- [ ] Revisión independiente final y único commit local de Oleada 4. Publicación externa requiere autorización fresca para el SHA exacto.
+- [x] Integración en a2c92ec y corrección de Auditoría 79928f2 confirmadas por historial. No demuestra revisión independiente adicional ni publicación externa actual.
 
 ## Oleada 3 — auditoría visual, interacción y Planeación compacta — publicada y aceptada
 
@@ -178,7 +219,7 @@
 - [ ] Revisar Registro de ingresos: una sola ruta visual para editar fecha, calculadora con monto prioritario y acción de guardado accesible.
 - [ ] Confirmar targets de al menos 44 px, ausencia de `<select>` nativos, overflow horizontal, contenido recortado y superposición con safe areas.
 
-## Auditoría guiada por cuenta y fecha — implementación local, evidencia operativa pendiente
+## Auditoría guiada — evidencia histórica; módulo retirado del alcance el 04/10/2026
 
 ### Integridad y persistencia
 

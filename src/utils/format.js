@@ -41,8 +41,12 @@ export function uid(prefix = 'id') {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+export function localDateISO(date = new Date()) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateISO();
 }
 
 export function parseDate(value) {
@@ -67,15 +71,14 @@ function validISODate(iso) {
   if (!match) return '';
   const date = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10) === iso ? iso : '';
+  return localDateISO(date) === iso ? iso : '';
 }
 
 export function formatDate(value, long = false) {
   const iso = parseDate(value);
   if (!iso) return 'Sin fecha';
   const [year, month, day] = iso.split('-').map(Number);
-  if (long) return `${day} ${MONTHS[month - 1]} ${year}`;
-  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${String(year).slice(-2)}`;
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${String(year).padStart(4, '0')}`;
 }
 
 export function currentMonth() {
@@ -97,7 +100,7 @@ export function parseMonth(value) {
 
 export function monthLabel(month) {
   const [year, m] = parseMonth(month || currentMonth()).split('-').map(Number);
-  return `${MONTHS_SHORT[m - 1]} ${year}`;
+  return `${MONTHS[m - 1]} ${year}`;
 }
 
 export function monthStart(month) {
@@ -106,7 +109,7 @@ export function monthStart(month) {
 
 export function monthEnd(month) {
   const [year, m] = (parseMonth(month) || currentMonth()).split('-').map(Number);
-  return new Date(year, m, 0).toISOString().slice(0, 10);
+  return localDateISO(new Date(year, m, 0));
 }
 
 export function formatMoney(value, currency = '$') {
@@ -172,7 +175,7 @@ export function previousEquivalentPeriod(period) {
   prevEnd.setDate(prevEnd.getDate() - 1);
   const prevStart = new Date(prevEnd);
   prevStart.setDate(prevStart.getDate() - days + 1);
-  return { from: prevStart.toISOString().slice(0, 10), to: prevEnd.toISOString().slice(0, 10) };
+  return { from: localDateISO(prevStart), to: localDateISO(prevEnd) };
 }
 
 export function clamp(value, min, max) {

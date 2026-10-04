@@ -3,13 +3,10 @@ import { buildAuditComparison } from '../services/financeService.js';
 import { card, emptyState, iconBubble } from '../components/ui.js';
 import { filterSearchableOptions, renderSearchActivator } from '../components/searchableOptions.js';
 import { canon, formatDate, formatMoney, html } from '../utils/format.js';
-import { renderAuditCloseEntry, renderAuditCloseList } from './auditClose.js';
 
 export function renderAudit(state) {
   const filters = state.filters.audit;
   return `
-    ${renderAuditCloseEntry(state)}
-    ${renderAuditCloseList(state)}
     ${renderFilters(state, filters)}
     <div data-audit-results>${renderAuditResults(state)}</div>
   `;

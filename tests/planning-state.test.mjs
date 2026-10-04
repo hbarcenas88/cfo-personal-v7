@@ -120,7 +120,7 @@ assert.equal(provisionReserve(stateModule.state), 200);
 assert.equal(await stateModule.releaseProvision('vacaciones', { date: '2026-08-16' }), true);
 assert.equal(stateModule.state.provisions[0].balance, 0, 'release must leave the provision balance at zero');
 assert.deepEqual(
-  stateModule.state.provisionEvents,
+  stateModule.state.provisionEvents.map(({ id, provisionName, ...event }) => event),
   [{ provisionId: 'vacaciones', kind: 'release', amount: 120, date: '2026-08-16' }],
   'release must append a traceable conceptual event outside the catalog'
 );
@@ -224,7 +224,7 @@ assert.match(stateModule.state.ui.toast.message, /no existe/i);
 assert.equal(await stateModule.deleteProvision('vacaciones'), true);
 assert.equal(stateModule.state.provisions.some(provision => provision.id === 'vacaciones'), false);
 assert.deepEqual(
-  stateModule.state.provisionEvents,
+  stateModule.state.provisionEvents.map(({ id, provisionName, ...event }) => event),
   [{ provisionId: 'vacaciones', kind: 'release', amount: 120, date: '2026-08-16' }],
   'deleting a released provision must preserve its conceptual release history'
 );

@@ -19,7 +19,7 @@ export function renderCategoriesResults(state) {
       <button class="${filters.view === 'budget' ? 'active' : ''}" data-cat-view="budget" aria-pressed="${filters.view === 'budget'}">Presupuesto</button>
       <button class="${filters.view === 'spend' ? 'active' : ''}" data-cat-view="spend" aria-pressed="${filters.view === 'spend'}">Gasto</button>
     </div>
-    <div class="section-title"><h2>Categorías</h2></div>
+    <div class="section-title"><h2>Categorías</h2><button class="chip dense" data-open-monthly-budget>Planear mes</button></div>
     <div data-category-card-results>${renderCategoryCards(state)}</div>
   `;
 }
@@ -111,7 +111,7 @@ function categoryCard(row, expanded, showComparison, index) {
     <div class="progress"><span style="width:${row.planned ? Math.min(100, pct) : 100}%;background:${over ? 'var(--red)' : color}"></span></div>
     ${showComparison ? renderComparisonNote(row) : ''}
     ${over ? `<div class="row-subtitle mt-sm">Exceso: <strong class="danger">${formatMoney(row.spent - row.planned)}</strong></div>` : ''}
-    <div class="subrows" id="${detailId}" data-category-details ${expanded ? '' : 'hidden'}>${row.subcategories.length ? row.subcategories.map(sub => `<div class="subrow"><span>${html(sub.name)}</span><strong>${formatMoney(sub.spent)} / ${formatMoney(sub.planned)}</strong></div>`).join('') : '<div class="row-subtitle">Sin subcategorías</div>'}</div>
+    <div class="subrows" id="${detailId}" data-category-details ${expanded ? '' : 'hidden'}>${row.subcategories.length ? row.subcategories.map(sub => `<div class="subrow"><span>${html(sub.name)}</span><strong>${formatMoney(sub.spent)} / ${formatMoney(sub.planned)}</strong></div>`).join('') : '<div class="row-subtitle">Sin subcategorías</div>'}<button class="chip dense" data-monthly-budget-category="${html(row.name)}">Planear categoría</button></div>
   `, 'category-card');
 }
 

@@ -1,7 +1,7 @@
 import { icon } from '../icons.js';
 import { iconBubble } from '../components/ui.js';
 import { renderKeypad } from '../components/keypad.js';
-import { formatMoney, todayISO } from '../utils/format.js';
+import { formatDate, formatMoney, todayISO } from '../utils/format.js';
 
 export function renderRecordRoot(state) {
   const flow = state.ui.recordFlow;
@@ -63,7 +63,7 @@ function renderForm(state, flow) {
       </header>
       <main class="record-body">
         <button class="flow-box flow-box-full" data-record-calendar data-record-focus="date">
-          <small>Fecha</small><strong>${flow.date || todayISO()}</strong>
+          <small>Fecha</small><strong>${formatDate(flow.date || todayISO())}</strong>
         </button>
         ${type === 'transfer' ? renderTransferFields(state, flow) : renderStandardFields(state, flow, type)}
         ${type === 'expense' ? renderExtraordinaryControl(flow) : ''}

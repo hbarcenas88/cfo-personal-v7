@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { renderBalances } from '../src/screens/balances.js';
+import { initialState } from '../src/state.js';
+const state = structuredClone(initialState);
+state.period = { mode: 'month', month: '2020-01' };
+state.transactions = [{ id: 'reserve', date: '2021-01-01', movement: 'Provisión', provisionDelta: 150, amount: 150, affectsBalance: false }];
+state.provisions = [{ id: 'active', name: 'Viaje', balance: 50, monthlyAmount: 20 }, { id: 'empty', name: 'Seguro', balance: 0, monthlyAmount: 10 }];
+const rendered = renderBalances(state);
+assert.doesNotMatch(rendered, /class="donut|provision-progress|conic-gradient/);
+assert.match(rendered, /data-provision-summary="reserve"[\s\S]*?\$150\.00/);
+assert.match(rendered, /data-provision-summary="assigned"[\s\S]*?\$50\.00/);
+assert.match(rendered, /data-provision-summary="unassigned"[\s\S]*?\$100\.00/);
+assert.match(rendered, /data-provision-details="empty"/);
+assert.match(rendered, /Saldos conceptuales vigentes/);
+assert.match(rendered, /data-planning-focus="provisions"/);
+console.log('Provision summary tests passed');

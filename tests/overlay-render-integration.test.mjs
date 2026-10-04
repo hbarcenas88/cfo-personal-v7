@@ -23,9 +23,9 @@ for (const scenario of [
     sheet: 'summary-analysis'
   },
   {
-    name: 'guided audit close',
-    triggers: [{ 'data-open-audit-close': '', 'data-interaction-key': 'guided-audit-new-close' }],
-    sheet: 'guided-audit-close'
+    name: 'monthly budget row',
+    triggers: [{ 'data-monthly-budget-edit': 'row-1', 'data-interaction-key': 'monthly-budget-row' }],
+    sheet: 'monthly-budget-row'
   },
   {
     name: 'transaction menu',
@@ -59,7 +59,7 @@ for (const scenario of [
 
 assert.deepEqual(realTriggerResults, {
   'summary analysis': { replacementCalls: 1, replacementActive: true },
-  'guided audit close': { replacementCalls: 1, replacementActive: true },
+  'monthly budget row': { replacementCalls: 1, replacementActive: true },
   'transaction menu': { replacementCalls: 1, replacementActive: true },
   'budget edit': { replacementCalls: 1, replacementActive: true }
 }, 'each real screen trigger must restore its exact connected replacement after render all');

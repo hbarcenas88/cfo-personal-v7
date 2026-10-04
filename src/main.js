@@ -1,5 +1,9 @@
 import { ensureShell, setScreenActive, toastRoot, updateShellState } from './components/ui.js';
-import { evaluateExpression } from './components/keypad.js';
+import { createKeypadController, evaluateExpression } from './components/keypad.js';
+import { renderProvisionDetails, renderProvisionAmountSheet } from './screens/provisionDetails.js';
+import { renderMonthlyBudget, renderMonthlyBudgetAmountSheet, renderMonthlyBudgetRowSheet } from './screens/monthlyBudget.js';
+import { addMonthlyBudgetCategory, createBaseBudgetDraft, copyBaseBudgetIntoDraft, createMonthlyBudgetDraft, updateMonthlyBudgetRow, removeMonthlyBudgetRow, hasMonthlyBudgetChanges, copyMissingPreviousMonth } from './services/budgetPlanningService.js';
+import { applyProvisionPlanning, saveBaseBudgetDraft, saveMonthlyBudgetDraft } from './state.js';
 import { bindRecordKeypad } from './components/recordKeypad.js';
 import { renderCalendarSheet, shiftMonth as shiftCalendarMonth } from './components/calendar.js';
 import { renderPeriodSheet } from './components/periodPicker.js';
@@ -8,19 +12,16 @@ import { renderBalances } from './screens/balances.js';
 import { renderCapacityCalculationSheet, renderSummary, renderSummaryAnalysisSheet } from './screens/summary.js';
 import { renderCategories, renderCategoriesResults, renderCategoryCards } from './screens/categories.js';
 import { auditActiveFilterCount, renderAudit, renderAuditFilterChips, renderAuditResults } from './screens/audit.js';
-import { renderAuditCloseDeleteSheet, renderAuditCloseSheet } from './screens/auditClose.js';
 import { renderBudgetSheet, renderProvisionSheet, renderSettings, renderIconColorPickerContent, renderIconPickerSheet, renderTemplateSheet, selectPlanningBudgetPeriod } from './screens/settings.js';
 import { clearRecordValidation, recordPayload, renderRecordRoot, validateRecordFlow } from './screens/recordFlow.js';
-import { accountDeleteImpact, addAccount, addCategory, addProvision, applyAssistedImportPlan, categoryDeleteImpact, closeSheet, convertToTransfer, createAuditClose, createBalanceAdjustment, deleteAccount, deleteAuditClose, deleteBudget, deleteCategory, deleteProvision, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, releaseProvision, resetAll, saveAuditCloseDecision, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, undoAssistedImportBatch, updateAccount, updateBudget, updateCategory, updateProvision, updateTransaction, setView } from './state.js';
+import { accountDeleteImpact, addAccount, addCategory, addProvision, applyAssistedImportPlan, categoryDeleteImpact, closeSheet, convertToTransfer, createBalanceAdjustment, deleteAccount, deleteBudget, deleteCategory, deleteProvision, deleteSubcategory, deleteTransaction, dismissHealthIssue, duplicateTransaction, initState, markRecurring, moveAccount, mutate, openSheet, persist, releaseProvision, resetAll, saveRecurring, saveTransaction, setSettingsPage, showToast, state, subcategoryDeleteImpact, subscribe, undoAssistedImportBatch, updateAccount, updateBudget, updateCategory, updateProvision, updateTransaction, setView } from './state.js';
 import { createBackup, restoreBackupFile } from './services/backupService.js';
 import { downloadTemplate, exportCSVs, importCatalog, importIssuesV702, importTransactions, parseCSV, rowsToObjects, templateHeaders } from './services/importExportService.js';
 import { approvePossibleDuplicate, buildAssistedImportPlan, createImportReviewDraft, discardImportRow, resolveImportGroup } from './services/assistedImportService.js';
-import { buildGuidedAuditReview, normalizeStatementRows, statementFingerprint, validateStatementRows, validateRowsAgainstRange } from './services/guidedAuditService.js';
 import { dataHealth } from './services/healthService.js';
-import { readStatementFile, suggestedStatementMapping, validateStatementMapping } from './services/statementFileService.js';
 import { applyDraftPreset, createPeriodDraft, hasVisibleDraftSelection, isComparisonAvailable, setDraftDate, shiftPeriod, validatePeriodDraft } from './services/periodService.js';
 import { APP_STORAGE_KEYS, APP_STORAGE_PREFIX, getFinanceLocalStorageKeys, getOtherLocalStorageKeys } from './services/storageService.js';
-import { canon, formatMoney, html, parseAmount, periodLabel, safeColor, todayISO, uid } from './utils/format.js';
+import { canon, formatMoney, html, localDateISO, parseAmount, periodLabel, safeColor, todayISO, uid } from './utils/format.js';
 import { bindOverlayDismissal, captureFocusReference, captureInteractionState, createRenderCoordinator, focusInitialOverlay, restoreFocus, restoreFocusReference, restoreInteractionState } from './utils/renderCoordinator.js';
 import { filterSearchableOptions, renderSearchActivator, renderSearchableOptionRows, setSearchableOptionSelected } from './components/searchableOptions.js';
 import { icon, inferIcon, renderIcons } from './icons.js';
@@ -31,7 +32,7 @@ let pointerDragAccount = null;
 let assistedImportReturnInteraction = null;
 let auditDropdownDismissBound = false;
 let filterPersistTimer = 0;
-const APP_VERSION = '7.0.5';
+const APP_VERSION = '7.0.7';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 const requestRender = createRenderCoordinator({
   schedule: callback => queueMicrotask(callback),
@@ -363,7 +364,7 @@ function renderActiveScreen() {
     } else if (state.activeView === 'audit') {
       screen.innerHTML = renderAudit(state);
     } else if (state.activeView === 'settings') {
-      screen.innerHTML = renderSettings(state);
+      screen.innerHTML = state.settingsPage === 'provision-details' ? renderProvisionDetails(state) : state.settingsPage === 'monthly-budget' ? renderMonthlyBudget(state) : renderSettings(state);
     }
   });
 }
@@ -432,6 +433,11 @@ function renderActiveSheet() {
   if (sheet === 'import-catalogs') return importSheetV702('accounts');
   if (sheet === 'new-account') return accountSheetV704();
   if (sheet === 'new-category') return categorySheet();
+  if (sheet === 'monthly-budget-amount') return renderMonthlyBudgetAmountSheet(state);
+  if (sheet === 'monthly-budget-category') return `<div class="monthly-budget-modal-backdrop"><section class="monthly-budget-modal" role="dialog" aria-modal="true" aria-label="Añadir categoría"><h2>Añadir categoría</h2><label class="monthly-budget-description">Nombre<input maxlength="120" data-monthly-budget-category-name value="${html(state.ui.monthlyBudgetCategoryName || '')}"></label><p class="danger" role="alert">${html(state.ui.monthlyBudgetCategoryError || '')}</p><p>Se creará al guardar el plan completo.</p><footer><button class="secondary-button" data-monthly-budget-row-cancel>Cancelar</button><button class="primary-button" data-monthly-budget-category-add>Guardar</button></footer></section></div>`;
+  if (sheet === 'monthly-budget-leave') return `<div class="sheet-backdrop open"><section class="sheet wide"><h2 class="sheet-title">Cambios pendientes</h2><p>Tu plan todavía no está guardado.</p><button class="primary-button" data-monthly-budget-stay>Conservar edición</button><button class="secondary-button mt-sm" data-monthly-budget-discard>Descartar cambios y continuar</button></section></div>`;
+  if (sheet === 'monthly-budget-row') return renderMonthlyBudgetRowSheet(state);
+  if (sheet === 'confirm-release-provision') return renderProvisionAmountSheet(state);
   if (sheet === 'planning-budget' || sheet === 'confirm-delete-budget') return renderBudgetSheet(state);
   if (sheet === 'planning-provision' || sheet === 'confirm-release-provision' || sheet === 'confirm-delete-provision') return renderProvisionSheet(state);
   if (sheet === 'recurring') return recurringSheet();
@@ -443,8 +449,6 @@ function renderActiveSheet() {
   if (sheet === 'confirm-reset') return confirmResetSheet();
   if (sheet === 'summary-analysis') return renderSummaryAnalysisSheet(state);
   if (sheet === 'capacity-calculation') return renderCapacityCalculationSheet(state);
-  if (sheet === 'guided-audit-close') return renderAuditCloseSheet(state);
-  if (sheet === 'confirm-delete-audit-close') return renderAuditCloseDeleteSheet(state);
   return '';
 }
 
@@ -589,10 +593,11 @@ function bindDynamicEvents(root) {
   root.querySelectorAll('[data-planning-focus]').forEach(button => button.addEventListener('click', () => {
     const type = button.dataset.planningFocus;
     if (!['budgets', 'provisions', 'recurring'].includes(type)) return;
-    state.ui.planningType = type;
-    state.ui.planningView = type;
     setSettingsPage('planning');
-    focusAfterNextRender(`[data-planning-manager="${type}"]`);
+    state.ui.planningType = type;
+    state.ui.planningView = 'manager';
+    render();
+    focusAfterNextRender('[data-planning-back="manager"]');
   }));
   root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
@@ -609,6 +614,21 @@ function bindDynamicEvents(root) {
 }
 
 function dismissActiveSheet() {
+  if (state.ui.activeSheet === 'monthly-budget-leave') {
+    pendingPlanningNavigation = null;
+    closeSheet();
+    return;
+  }
+  if (state.ui.activeSheet === 'monthly-budget-amount' && state.ui.monthlyBudgetAmountReturnRow) {
+    openSheet('monthly-budget-row');
+    return;
+  }
+
+  if (state.ui.activeSheet === 'calendar' && state.ui.calendarTarget === 'planning.releaseDate') {
+    state.ui.calendarTarget = null;
+    openSheet('planning-provision');
+    return;
+  }
   if (state.ui.activeSheet === 'calendar' && String(state.ui.calendarTarget || '').startsWith('period:')) {
     returnToPeriodSheet();
     return;
@@ -829,7 +849,7 @@ function bindCalendarEvents(root) {
     if (key === 'today') calendarDraft.selectedDate = todayISO();
     if (key === 'yesterday') {
       now.setDate(now.getDate() - 1);
-      calendarDraft.selectedDate = now.toISOString().slice(0, 10);
+      calendarDraft.selectedDate = localDateISO(now);
     }
     if (key === 'monthStart') calendarDraft.selectedDate = `${calendarDraft.visibleMonth}-01`;
     calendarDraft.visibleMonth = calendarDraft.selectedDate.slice(0, 7);
@@ -837,6 +857,14 @@ function bindCalendarEvents(root) {
   }));
   document.querySelector('[data-cal-confirm]')?.addEventListener('click', async () => {
     const target = state.ui.calendarTarget;
+
+    if (target === 'planning.releaseDate') {
+      state.ui.planningDraft.releaseDate = calendarDraft.selectedDate;
+      state.ui.activeSheet = 'planning-provision';
+      state.ui.calendarTarget = null;
+      render();
+      return;
+    }
     if (String(target || '').startsWith('period:')) {
       const [, , field] = target.split(':');
       state.ui.periodDraft = setDraftDate(state.ui.periodDraft, field, calendarDraft.selectedDate);
@@ -1075,14 +1103,264 @@ function handleGlobalEscape(event) {
   else render();
 }
 
+let pendingPlanningNavigation = null;
+
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Tab') return;
+  const planningSheet = ['confirm-release-provision', 'planning-provision', 'monthly-budget-leave'].includes(state.ui.activeSheet)
+    || (state.ui.activeSheet === 'option-picker' && state.ui.optionPicker?.target?.startsWith('monthlyBudget.'))
+    || (state.ui.activeSheet === 'calendar' && state.ui.calendarTarget === 'planning.releaseDate');
+  const overlay = document.querySelector('#sheet-root .monthly-budget-modal[role="dialog"]') || (planningSheet ? document.querySelector('#sheet-root .sheet') : null);
+  const container = overlay || (!state.ui.activeSheet && state.settingsPage === 'monthly-budget' ? document.querySelector('[data-monthly-budget-screen]') : null);
+  if (!container) return;
+  const targets = [...container.querySelectorAll('button:not([disabled]), input:not([type="hidden"]):not([disabled]), [tabindex="0"]')].filter(element => element.getClientRects().length > 0);
+  if (!targets.length) return;
+  const first = targets[0];
+  const last = targets.at(-1);
+  const active = document.activeElement;
+  if (!container.contains(active) || (event.shiftKey ? active === first : active === last)) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  }
+}, true);
+
+window.addEventListener('beforeunload', event => {
+  if (state.ui.monthlyBudgetDraft && hasMonthlyBudgetChanges(state.ui.monthlyBudgetDraft)) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
+document.addEventListener('click', event => {
+  if (state.settingsPage !== 'monthly-budget' || !state.ui.monthlyBudgetDraft || !hasMonthlyBudgetChanges(state.ui.monthlyBudgetDraft)) return;
+  const button = event.target.closest('[data-view], [data-settings], [data-settings-back]');
+  if (!button) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  pendingPlanningNavigation = () => button.dataset.view ? setView(button.dataset.view) : setSettingsPage(button.dataset.settings || '');
+  openSheet('monthly-budget-leave');
+}, true);
+
+function openMonthlyBudget(category = '', month = todayISO().slice(0, 7), base = false) {
+  const existing = state.ui.monthlyBudgetDraft;
+  if (existing && hasMonthlyBudgetChanges(existing) && (existing.month !== month || (existing.mode === 'base') !== base)) {
+    pendingPlanningNavigation = () => openMonthlyBudget(category, month, base);
+    return openSheet('monthly-budget-leave');
+  }
+  if (state.settingsPage !== 'monthly-budget') state.ui.monthlyBudgetReturn = { activeView: state.activeView, settingsPage: state.settingsPage, planningView: state.ui.planningView, planningType: state.ui.planningType, planningBudgetPeriod: state.ui.planningBudgetPeriod };
+  setSettingsPage('monthly-budget');
+  state.ui.monthlyBudgetDraft = existing?.month === month && (existing.mode === 'base') === base ? existing : base ? createBaseBudgetDraft(state, { category }) : createMonthlyBudgetDraft(state, month, { category });
+  if (category) state.ui.monthlyBudgetDraft.expandedCategories = [category];
+  state.ui.monthlyBudgetErrors = [];
+  render();
+  focusAfterNextRender('[data-monthly-budget-close]');
+}
+
+function returnFromBudgetEditor() {
+  const origin = state.ui.monthlyBudgetReturn;
+  state.ui.monthlyBudgetDraft = null;
+  state.ui.monthlyBudgetMonthPicker = false;
+  if (origin?.activeView && origin.activeView !== 'settings') setView(origin.activeView);
+  else {
+    setSettingsPage(origin?.settingsPage || 'planning');
+    if (origin) Object.assign(state.ui, { planningView: origin.planningView, planningType: origin.planningType, planningBudgetPeriod: origin.planningBudgetPeriod });
+  }
+  render();
+}
+
+function bindPlanningWorkspace(root) {
+  root.querySelectorAll('[data-planning-field]').forEach(input => input.addEventListener('input', () => {
+    state.ui.planningDraft = { ...(state.ui.planningDraft || {}), [input.dataset.planningField]: input.value };
+  }));
+  const on = (selector, handler) => root.querySelectorAll(selector).forEach(button => button.addEventListener('click', () => handler(button)));
+  on('[data-planning-date-clear]', () => { state.ui.planningDraft.releaseDate = ''; render(); });
+  on('[data-provision-details]', button => {
+    setSettingsPage('provision-details');
+    state.ui.provisionDetailsId = button.dataset.provisionDetails;
+    render();
+  });
+  on('[data-provision-details-back]', () => {
+    setSettingsPage('planning');
+    state.ui.planningType = 'provisions';
+    state.ui.planningView = 'manager';
+    render();
+  });
+  on('[data-provision-apply]', async button => {
+    button.disabled = true;
+    await applyProvisionPlanning(button.dataset.provisionApply);
+    render();
+  });
+  on('[data-provision-create-reserve]', () => {
+    state.ui.recordFlow = { step: 'form', type: 'provision', date: todayISO(), amount: 0, amountExpression: '', displayAmount: '0.00' };
+    render();
+  });
+  on('[data-provision-release-all]', () => {
+    const provision = state.provisions.find(item => item.id === state.ui.planningDraft.provisionId);
+    state.ui.planningDraft.releaseAmount = provision.balance;
+    state.ui.planningDraft.amountExpression = String(provision.balance);
+    render();
+  });
+  on('[data-open-monthly-budget]', () => openMonthlyBudget());
+  on('[data-open-base-budget]', () => openMonthlyBudget('', '', true));
+  on('[data-budget-group-toggle]', button => {
+    const name = button.dataset.budgetGroupToggle;
+    const expanded = state.ui.planningBudgetExpanded || [];
+    state.ui.planningBudgetExpanded = expanded.includes(name) ? expanded.filter(value => value !== name) : [...expanded, name];
+    render();
+  });
+  on('[data-monthly-budget-new-category]', () => { state.ui.monthlyBudgetCategoryName = ''; state.ui.monthlyBudgetCategoryError = ''; openSheet('monthly-budget-category'); });
+  root.querySelector('[data-monthly-budget-category-name]')?.addEventListener('input', event => { state.ui.monthlyBudgetCategoryName = event.target.value; });
+  on('[data-monthly-budget-category-add]', () => {
+    const result = addMonthlyBudgetCategory(state.ui.monthlyBudgetDraft, state.ui.monthlyBudgetCategoryName);
+    if (!result.ok) { state.ui.monthlyBudgetCategoryError = result.error; return render(); }
+    state.ui.monthlyBudgetDraft = result.draft;
+    closeSheet();
+    render();
+  });
+  on('[data-monthly-budget-copy-base]', () => { state.ui.monthlyBudgetDraft = copyBaseBudgetIntoDraft(state.ui.monthlyBudgetDraft, state); render(); });
+  on('[data-monthly-budget-category]', button => openMonthlyBudget(button.dataset.monthlyBudgetCategory));
+  on('[data-monthly-budget-close]', () => {
+    const leave = returnFromBudgetEditor;
+    if (hasMonthlyBudgetChanges(state.ui.monthlyBudgetDraft)) { pendingPlanningNavigation = leave; openSheet('monthly-budget-leave'); }
+    else leave();
+  });
+  on('[data-monthly-budget-stay]', () => { pendingPlanningNavigation = null; closeSheet(); });
+  on('[data-monthly-budget-discard]', () => {
+    state.ui.monthlyBudgetDraft = null;
+    closeSheet();
+    const next = pendingPlanningNavigation;
+    pendingPlanningNavigation = null;
+    next?.();
+  });
+  on('[data-monthly-budget-month-toggle]', () => { state.ui.monthlyBudgetMonthPicker = !state.ui.monthlyBudgetMonthPicker; render(); });
+  on('[data-monthly-budget-year-step]', button => {
+    state.ui.monthlyBudgetPickerYear = (state.ui.monthlyBudgetPickerYear || Number(state.ui.monthlyBudgetDraft.month.slice(0, 4))) + Number(button.dataset.monthlyBudgetYearStep);
+    render();
+  });
+  on('[data-monthly-budget-month]', button => {
+    const month = button.dataset.monthlyBudgetMonth;
+    state.ui.monthlyBudgetMonthPicker = false;
+    openMonthlyBudget('', month);
+  });
+  on('[data-monthly-budget-month-step]', button => {
+    const date = new Date(`${state.ui.monthlyBudgetDraft.month}-01T12:00:00`);
+    date.setMonth(date.getMonth() + Number(button.dataset.monthlyBudgetMonthStep));
+    openMonthlyBudget('', localDateISO(date).slice(0, 7));
+  });
+  on('[data-monthly-budget-toggle]', button => {
+    const draft = state.ui.monthlyBudgetDraft;
+    const name = button.dataset.monthlyBudgetToggle;
+    draft.expandedCategories = draft.expandedCategories.includes(name) ? draft.expandedCategories.filter(value => value !== name) : [...draft.expandedCategories, name];
+    render();
+  });
+  on('[data-monthly-budget-copy]', () => { state.ui.monthlyBudgetDraft = copyMissingPreviousMonth(state.ui.monthlyBudgetDraft, state); render(); });
+  on('[data-monthly-budget-delete]', button => { state.ui.monthlyBudgetDraft = removeMonthlyBudgetRow(state.ui.monthlyBudgetDraft, button.dataset.monthlyBudgetDelete); render(); });
+  on('[data-monthly-budget-add]', button => {
+    const id = uid('budget');
+    state.ui.monthlyBudgetDraft.rows.push({ id, draftId: id, month: state.ui.monthlyBudgetDraft.month, category: button.dataset.monthlyBudgetAdd, subcategory: '', account: 'Budget', amount: '', source: 'Manual' });
+    state.ui.monthlyBudgetEditRow = { ...state.ui.monthlyBudgetDraft.rows.at(-1) };
+    state.ui.monthlyBudgetQuickEdit = false;
+    openSheet('monthly-budget-row');
+  });
+  on('[data-monthly-budget-edit]', button => {
+    state.ui.monthlyBudgetEditRow = { ...state.ui.monthlyBudgetDraft.rows.find(row => row.draftId === button.dataset.monthlyBudgetEdit) };
+    state.ui.monthlyBudgetQuickEdit = false;
+    openSheet('monthly-budget-row');
+  });
+  on('[data-monthly-budget-amount]', button => {
+    state.ui.monthlyBudgetAmountReturnRow = false;
+    state.ui.monthlyBudgetAmountRow = state.ui.monthlyBudgetDraft.rows.find(row => row.draftId === button.dataset.monthlyBudgetAmount);
+    state.ui.monthlyBudgetAmountDisplay = String(state.ui.monthlyBudgetAmountRow.amount || '');
+    openSheet('monthly-budget-amount');
+  });
+  on('[data-monthly-budget-row-amount-open]', () => {
+    state.ui.monthlyBudgetAmountReturnRow = true;
+    state.ui.monthlyBudgetAmountRow = state.ui.monthlyBudgetEditRow;
+    state.ui.monthlyBudgetAmountDisplay = String(state.ui.monthlyBudgetEditRow.amount || '');
+    openSheet('monthly-budget-amount');
+  });
+  on('[data-monthly-budget-pick]', button => {
+    const field = button.dataset.monthlyBudgetPick;
+    const row = state.ui.monthlyBudgetEditRow;
+    const categories = [...state.categories, ...(state.ui.monthlyBudgetQuickEdit ? [] : state.ui.monthlyBudgetDraft?.newCategories || [])];
+    const values = field === 'category' ? categories.map(item => item.name) : field === 'account' ? state.accounts.map(item => item.name) : (categories.find(item => item.name === row.category)?.subcategories || []).map(item => item.name || item);
+    openOptionPicker({ title: { category: 'Categoría', subcategory: 'Subcategoría', account: 'Cuenta de referencia' }[field], value: row[field], options: optionObjects(values, field === 'account' ? 'Sin cuenta' : field === 'subcategory' ? 'Sin subcategoría' : ''), target: `monthlyBudget.${field}`, returnSheet: 'monthly-budget-row' });
+  });
+  root.querySelector('[data-monthly-budget-description]')?.addEventListener('input', event => { state.ui.monthlyBudgetEditRow.description = event.target.value; });
+  root.querySelector('[data-monthly-budget-row-amount]')?.addEventListener('input', event => { state.ui.monthlyBudgetEditRow.amount = event.target.value; });
+  on('[data-monthly-budget-row-apply]', async () => {
+    const row = state.ui.monthlyBudgetEditRow;
+    const draftKey = state.ui.monthlyBudgetQuickEdit ? 'monthlyBudgetQuickDraft' : 'monthlyBudgetDraft';
+    const draft = updateMonthlyBudgetRow(state.ui[draftKey], row.draftId, row);
+    if (state.ui.monthlyBudgetQuickEdit) {
+      if (!await saveMonthlyBudgetDraft(draft)) return render();
+    } else state.ui.monthlyBudgetDraft = draft;
+    closeSheet();
+    render();
+  });
+  on('[data-monthly-budget-row-cancel]', () => closeSheet());
+  on('[data-monthly-budget-amount-cancel]', () => { if (state.ui.monthlyBudgetAmountReturnRow) openSheet('monthly-budget-row'); else closeSheet(); });
+  on('[data-monthly-budget-amount-apply]', () => {
+    if (state.ui.monthlyBudgetAmountError) return;
+    if (state.ui.monthlyBudgetAmountReturnRow) {
+      state.ui.monthlyBudgetEditRow.amount = state.ui.monthlyBudgetAmountValue;
+      return openSheet('monthly-budget-row');
+    }
+    state.ui.monthlyBudgetDraft = updateMonthlyBudgetRow(state.ui.monthlyBudgetDraft, state.ui.monthlyBudgetAmountRow.draftId, { amount: state.ui.monthlyBudgetAmountValue });
+    closeSheet();
+    render();
+  });
+  on('[data-planning-date]', () => {
+    const value = state.ui.planningDraft?.releaseDate;
+    calendarDraft = { selectedDate: value || todayISO(), visibleMonth: (value || todayISO()).slice(0, 7) };
+    state.ui.calendarTarget = 'planning.releaseDate';
+    openSheet('calendar');
+  });
+  on('[data-monthly-budget-save]', async button => {
+    button.disabled = true;
+    const save = state.ui.monthlyBudgetDraft.mode === 'base' ? saveBaseBudgetDraft : saveMonthlyBudgetDraft;
+    if (await save(state.ui.monthlyBudgetDraft)) returnFromBudgetEditor();
+    render();
+  });
+  const release = state.ui.activeSheet === 'confirm-release-provision';
+  const amount = state.ui.activeSheet === 'monthly-budget-amount';
+  if (release || amount) {
+    const controller = createKeypadController({ initial: release ? state.ui.planningDraft.amountExpression : state.ui.monthlyBudgetAmountDisplay, onChange: result => {
+      if (release) {
+        state.ui.planningDraft.amountExpression = result.expression;
+        state.ui.planningDraft.releaseAmount = result.value;
+      } else {
+        state.ui.monthlyBudgetAmountDisplay = result.expression;
+        state.ui.monthlyBudgetAmountValue = result.value;
+        state.ui.monthlyBudgetAmountError = result.error;
+      }
+      const display = root.querySelector(release ? '[data-planning-amount]' : '[data-monthly-budget-amount-display]');
+      if (display) display.textContent = result.display || '0';
+      const error = root.querySelector(release ? '[data-planning-amount-error]' : '[data-monthly-budget-amount-error]');
+      if (error) { error.textContent = result.error; error.hidden = !result.error; }
+      if (release) {
+        const provision = state.provisions.find(item => item.id === state.ui.planningDraft.provisionId);
+        const remaining = root.querySelector('[data-release-remaining]');
+        if (remaining) remaining.textContent = formatMoney(Math.max(0, provision.balance - (result.value || 0)));
+      }
+    } });
+    controller.set(release ? state.ui.planningDraft.amountExpression : state.ui.monthlyBudgetAmountDisplay);
+    on('[data-key]', button => controller.press(button.dataset.key));
+  }
+}
+
 function bindTools(root) {
+  bindPlanningWorkspace(root);
   const document = bindingContext(root);
   document.querySelectorAll('[data-budget-period]').forEach(button => button.addEventListener('click', () => {
     if (selectPlanningBudgetPeriod(state, button.dataset.budgetPeriod)) render();
   }));
   document.querySelectorAll('[data-budget-edit]').forEach(button => button.addEventListener('click', () => {
-    state.ui.planningDraft = { budgetId: button.dataset.budgetEdit };
-    openSheet('planning-budget');
+    const row = state.budgets.find(item => item.id === button.dataset.budgetEdit);
+    if (!row) return;
+    state.ui.monthlyBudgetQuickEdit = true;
+    state.ui.monthlyBudgetQuickDraft = createMonthlyBudgetDraft(state, row.month);
+    state.ui.monthlyBudgetEditRow = { ...row, draftId: row.id };
+    openSheet('monthly-budget-row');
   }));
   document.querySelectorAll('[data-budget-delete]').forEach(button => button.addEventListener('click', () => {
     state.ui.planningDraft = { budgetId: button.dataset.budgetDelete };
@@ -1093,7 +1371,8 @@ function bindTools(root) {
     openSheet('planning-provision');
   }));
   document.querySelectorAll('[data-provision-release]').forEach(button => button.addEventListener('click', () => {
-    state.ui.planningDraft = { provisionId: button.dataset.provisionRelease };
+    const provision = state.provisions.find(item => item.id === button.dataset.provisionRelease);
+    state.ui.planningDraft = { provisionId: provision.id, releaseAmount: provision.balance, amountExpression: String(provision.balance) };
     openSheet('confirm-release-provision');
   }));
   document.querySelectorAll('[data-provision-delete]').forEach(button => button.addEventListener('click', () => {
@@ -1127,7 +1406,8 @@ function bindTools(root) {
     render();
   });
   document.querySelector('[data-confirm-release-provision]')?.addEventListener('click', async button => {
-    if (await releaseProvision(button.currentTarget.dataset.confirmReleaseProvision)) {
+    button.currentTarget.disabled = true;
+    if (await releaseProvision(button.currentTarget.dataset.confirmReleaseProvision, { amount: state.ui.planningDraft?.releaseAmount })) {
       state.ui.planningDraft = null;
       closeSheet();
     }
@@ -1262,77 +1542,6 @@ function bindTools(root) {
 
 function bindSheetActions(root) {
   const document = bindingContext(root);
-  document.querySelectorAll('[data-open-audit-close]').forEach(button => button.addEventListener('click', () => {
-    state.ui.auditCloseId = '';
-    state.ui.auditCloseDraft = newAuditCloseDraft();
-    openSheet('guided-audit-close');
-  }));
-  document.querySelectorAll('[data-open-audit-close-id]').forEach(button => button.addEventListener('click', () => {
-    state.ui.auditCloseId = button.dataset.openAuditCloseId;
-    state.ui.auditCloseDraft = { step: 'review' };
-    openSheet('guided-audit-close');
-  }));
-  document.querySelectorAll('[data-audit-close-field]').forEach(input => {
-    const update = () => setAuditCloseDraftField(input.dataset.auditCloseField, input.value);
-    input.addEventListener('input', update);
-    input.addEventListener('change', update);
-  });
-  document.querySelector('[data-audit-close-file]')?.addEventListener('change', event => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    importAuditCloseStatement(file).catch(error => captureError('guided audit statement', error));
-  });
-  document.querySelectorAll('[data-audit-close-map]').forEach(button => button.addEventListener('click', event => {
-    event.preventDefault();
-    const target = button.dataset.auditCloseMap || '';
-    if (target.startsWith('amountSchema:')) {
-      const amountSchema = target.slice('amountSchema:'.length);
-      const draft = ensureAuditCloseDraft();
-      draft.amountSchema = amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
-      draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
-      render();
-      return;
-    }
-    if (target === 'accountName') {
-      const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
-      openOptionPicker({
-        title: 'Cuenta',
-        target: 'auditClose.accountName',
-        options,
-        value: ensureAuditCloseDraft().accountName || '',
-        returnSheet: 'guided-audit-close'
-      });
-      return;
-    }
-    if (!target.startsWith('mapping.')) return;
-    const options = JSON.parse(button.dataset.auditCloseOptions || '[]');
-    const field = target.slice('mapping.'.length);
-    openOptionPicker({
-      title: `Columna: ${field === 'date' ? 'fecha' : field === 'description' ? 'descripción' : field === 'amount' ? 'importe' : field === 'debit' ? 'débito' : 'crédito'}`,
-      target: `auditClose.mapping.${field}`,
-      options,
-      value: ensureAuditCloseDraft().mapping?.[field] || '',
-      returnSheet: 'guided-audit-close'
-    });
-  }));
-  document.querySelectorAll('[data-audit-close-create]').forEach(button => button.addEventListener('click', () => {
-    advanceAuditClose().catch(error => captureError('guided audit close', error));
-  }));
-  document.querySelectorAll('[data-audit-close-decision]').forEach(button => button.addEventListener('click', () => {
-    saveAuditCloseReviewDecision(button.dataset.auditCloseDecision).catch(error => captureError('guided audit decision', error));
-  }));
-  document.querySelectorAll('[data-audit-close-delete]').forEach(button => button.addEventListener('click', () => {
-    state.ui.auditCloseId = button.dataset.auditCloseDelete;
-    state.ui.activeSheet = 'confirm-delete-audit-close';
-    render();
-  }));
-  document.querySelectorAll('[data-confirm-delete-audit-close]').forEach(button => button.addEventListener('click', async () => {
-    await deleteAuditClose(button.dataset.confirmDeleteAuditClose);
-    state.ui.auditCloseId = '';
-    state.ui.auditCloseDraft = null;
-    closeSheet();
-    render();
-  }));
   document.querySelectorAll('[data-open-option]').forEach(button => button.addEventListener('click', event => {
     event.preventDefault();
     const target = button.dataset.openOption;
@@ -1788,8 +1997,7 @@ async function handleTool(action) {
     return openSheet(action);
   }
   if (action === 'planning-budgets') {
-    state.ui.planningDraft = null;
-    return openSheet('planning-budget');
+    return openMonthlyBudget();
   }
   if (action === 'planning-provisions') {
     state.ui.planningDraft = null;
@@ -1800,146 +2008,6 @@ async function handleTool(action) {
   if (action === 'rules') return setSettingsPage('rules');
   if (action === 'appearance' || action === 'security' || action === 'cloud') return showToast('Próximamente');
   showToast('Función en preparación');
-}
-
-function newAuditCloseDraft() {
-  return {
-    step: 'data',
-    accountName: '',
-    cutoffDate: '',
-    realBalance: '',
-    range: { from: '', to: '' },
-    headers: [],
-    objects: [],
-    mapping: {},
-    statementRows: [],
-    amountSchema: 'amount',
-    fileReady: false
-  };
-}
-
-function ensureAuditCloseDraft() {
-  if (!state.ui.auditCloseDraft) state.ui.auditCloseDraft = newAuditCloseDraft();
-  return state.ui.auditCloseDraft;
-}
-
-function setAuditCloseDraftField(path, value) {
-  const draft = ensureAuditCloseDraft();
-  if (path.startsWith('range.')) {
-    const key = path.slice('range.'.length);
-    draft.range = { ...(draft.range || {}), [key]: value };
-    return;
-  }
-  draft[path] = value;
-}
-
-function activeAuditCloseMapping(mapping = {}, amountSchema = 'amount', headers = []) {
-  const suggested = suggestedStatementMapping(headers);
-  const shared = {
-    date: mapping.date || suggested.date,
-    description: mapping.description || suggested.description
-  };
-  return amountSchema === 'debitCredit'
-    ? { ...shared, debit: mapping.debit || suggested.debit, credit: mapping.credit || suggested.credit }
-    : { ...shared, amount: mapping.amount || suggested.amount };
-}
-
-async function importAuditCloseStatement(file) {
-  const fileData = await readStatementFile(file);
-  const draft = ensureAuditCloseDraft();
-  const amountSchema = draft.amountSchema === 'debitCredit' ? 'debitCredit' : 'amount';
-  state.ui.auditCloseDraft = {
-    ...draft,
-    step: 'mapping',
-    headers: fileData.headers,
-    objects: fileData.objects,
-    mapping: activeAuditCloseMapping(suggestedStatementMapping(fileData.headers), amountSchema, fileData.headers),
-    statementRows: [],
-    amountSchema,
-    fileReady: true
-  };
-  render();
-}
-
-function auditCloseDetailsAreValid(draft) {
-  const range = draft.range || {};
-  return Boolean(
-    draft.accountName
-    && Number.isFinite(parseAmount(draft.realBalance))
-    && range.from
-    && range.to
-    && range.from <= range.to
-    && draft.cutoffDate >= range.to
-  );
-}
-
-async function advanceAuditClose() {
-  const draft = ensureAuditCloseDraft();
-  if (draft.step === 'data') {
-    if (!auditCloseDetailsAreValid(draft)) {
-      showToast('Completa cuenta, corte, saldo y rango antes de continuar.');
-      return;
-    }
-    draft.step = 'import';
-    render();
-    return;
-  }
-  if (draft.step === 'import') {
-    if (!draft.fileReady || !draft.headers?.length) {
-      showToast('Selecciona un archivo CSV o XLSX antes de continuar.');
-      return;
-    }
-    draft.step = 'mapping';
-    render();
-    return;
-  }
-  if (draft.step === 'mapping') {
-    draft.mapping = activeAuditCloseMapping(draft.mapping, draft.amountSchema, draft.headers);
-    const mapping = validateStatementMapping(draft.headers, draft.mapping);
-    const statement = validateStatementRows(draft.objects, draft.mapping);
-    const rows = normalizeStatementRows(draft.objects, draft.mapping);
-    const range = validateRowsAgainstRange(rows, draft.range);
-    if (!auditCloseDetailsAreValid(draft) || !mapping.ok || !statement.ok || !range.ok) {
-      showToast(!mapping.ok ? mapping.message : !statement.ok ? statement.message : !range.ok ? range.message : 'Completa cuenta, corte, saldo y rango antes de continuar.');
-      return;
-    }
-    const timestamp = new Date().toISOString();
-    const close = {
-      id: uid('audit-close'),
-      accountName: draft.accountName,
-      cutoffDate: draft.cutoffDate,
-      realBalance: parseAmount(draft.realBalance),
-      range: { from: draft.range.from, to: draft.range.to },
-      statementRows: rows,
-      fingerprint: statementFingerprint(rows),
-      decisions: [],
-      createdAt: timestamp,
-      updatedAt: timestamp
-    };
-    close.status = buildGuidedAuditReview(close, state).status;
-    const created = await createAuditClose(close);
-    if (!created) return;
-    state.ui.auditCloseId = close.id;
-    state.ui.auditCloseDraft = { step: 'review' };
-    openSheet('guided-audit-close');
-    return;
-  }
-  if (draft.step === 'review') {
-    draft.step = 'result';
-    render();
-  }
-}
-
-async function saveAuditCloseReviewDecision(value = '') {
-  const [statementRowId, transactionId, action] = value.split(':');
-  if (!['confirm', 'dismiss', 'pending'].includes(action) || !state.ui.auditCloseId) return;
-  await saveAuditCloseDecision(state.ui.auditCloseId, {
-    id: uid('audit-decision'),
-    statementRowId,
-    transactionId,
-    status: action === 'confirm' ? 'confirmed' : action === 'dismiss' ? 'dismissed' : 'pending',
-    createdAt: new Date().toISOString()
-  });
 }
 
 function openOptionPicker(config) {
@@ -1984,6 +2052,10 @@ function applyOptionSelection(value) {
     const pending = state.ui.importPendingResolution;
     if (pending) applyAssistedImportResolution({ ...pending, action: 'create', typeName: value });
     return;
+  } else if (picker.target.startsWith('monthlyBudget.')) {
+    const key = picker.target.split('.')[1];
+    state.ui.monthlyBudgetEditRow[key] = value;
+    if (key === 'category') state.ui.monthlyBudgetEditRow.subcategory = '';
   } else if (picker.target === 'import.kind') {
     state.ui.importDraft = { kind: value, objects: [], issues: [], discardedRows: [] };
   } else if (picker.target === 'account.type') {
@@ -2004,12 +2076,7 @@ function applyOptionSelection(value) {
       }
       clearRecordValidation(state.ui.recordFlow, key);
     }
-  } else if (picker.target.startsWith('auditClose.mapping.')) {
-    const draft = ensureAuditCloseDraft();
-    const key = picker.target.slice('auditClose.mapping.'.length);
-    draft.mapping = activeAuditCloseMapping({ ...(draft.mapping || {}), [key]: value }, draft.amountSchema, draft.headers);
-  } else if (picker.target === 'auditClose.accountName') {
-    ensureAuditCloseDraft().accountName = value;
+
   }
   state.ui.activeSheet = picker.returnSheet || '';
   state.ui.optionPicker = null;
@@ -2490,7 +2557,7 @@ function confirmDeleteSubcategorySheet() {
       <div class="sheet-handle"></div>
       <h2 class="sheet-title">Eliminar subcategoria</h2>
       <p class="muted">Los registros asociados seguiran vivos dentro de "${html(category.name)}", pero quedaran sin subcategoria.</p>
-      <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos</small></div>
+      <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos · ${impact.templateRows || 0} filas de presupuesto base</small></div>
       <button class="danger-button" data-confirm-delete-subcategory>Eliminar subcategoria</button>
       <button class="secondary-button mt-sm" data-category-action="category-subcategories">Cancelar</button>
     </section></div>
@@ -2507,7 +2574,7 @@ function confirmDeleteCategorySheet() {
       <h2 class="sheet-title">Borrar categoria</h2>
       <p class="muted">Borrar esta categoria eliminara sus movimientos y presupuestos asociados. Esto puede cambiar balances, ingresos, gastos y presupuesto historico.</p>
       <p class="muted">Si quieres conservar historial, cambia el nombre de la categoria o corrige registros desde Auditoria.</p>
-      <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos · ${impact.recurring} recurrencias quedaran sin categoria</small></div>
+      <div class="import-summary card"><strong>Impacto estimado</strong><small>${impact.transactions} movimientos · ${impact.budgets} presupuestos · ${impact.templateRows || 0} filas de presupuesto base · ${impact.recurring} recurrencias quedaran sin categoria</small></div>
       <button class="danger-button" data-confirm-delete-category>Eliminar categoria definitivamente</button>
       <button class="secondary-button mt-sm" data-category-action="category-actions">Cancelar</button>
     </section></div>
@@ -2637,7 +2704,7 @@ function confirmDeleteAccountSheet() {
       <p class="muted">Si solo quieres que no aparezca en Balances, apaga "Visible en Balances" en KPIs.</p>
       <div class="import-summary card">
         <strong>Impacto estimado</strong>
-        <small>${impact.transactions} movimientos · ${impact.transfers} transferencias · ${impact.budgets} presupuestos · ${impact.recurring} recurrencias</small>
+        <small>${impact.transactions} movimientos · ${impact.transfers} transferencias · ${impact.budgets} presupuestos · ${impact.templateRows || 0} filas de presupuesto base · ${impact.recurring} recurrencias</small>
       </div>
       <button class="danger-button" data-confirm-delete-account="${account.id}">Eliminar cuenta definitivamente</button>
       <button class="secondary-button mt-sm" data-sheet-close>Cancelar</button>
@@ -3068,6 +3135,10 @@ async function registerServiceWorker() {
       await registration.update();
       debugLog('service worker registered', { scope: registration.scope, script: swUrl.href });
     } catch (error) {
+      if (navigator.serviceWorker.controller) {
+        debugLog('service worker update deferred', { message: error.message });
+        return;
+      }
       captureError('service worker register', error);
       console.warn('Service worker no registrado', error);
     }

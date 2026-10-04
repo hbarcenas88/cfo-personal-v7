@@ -70,23 +70,17 @@ El selector global de Balances, Resumen y Categorías usa una superficie compact
 
 Auditoría y Categorías pueden comparar un período acotado con el período anterior equivalente. Auditoría aplica simétricamente los filtros de texto, cuenta, tipo, categoría y subcategoría. Categorías respeta la selección de categorías y compara gasto ejecutado en las vistas Combinado y Solo gasto. La comparación sólo cambia lecturas analíticas; no modifica movimientos, presupuestos, balances, ingresos, gastos, transferencias ni trazabilidad. Si no existe base de comparación, la app indica `Sin base anterior` en lugar de presentar un porcentaje engañoso.
 
-### Auditoría guiada por cuenta y fecha
+### Auditoría de registros y datos históricos de cierres
 
-La auditoría guiada permite abrir un cierre flexible para una cuenta y una fecha de corte, no sólo para un mes. La persona indica el saldo real y el rango que cubre su estado de cuenta, importa un CSV/XLSX previamente preparado y confirma fecha, descripción y una de dos formas de importe: una columna firmada o columnas separadas de débito y crédito. La app normaliza débito como negativo y crédito como positivo, y conserva localmente filas normalizadas asociadas al cierre, no el archivo original.
-
-En Ajustes → Descargar templates, `Auditoría — estado de cuenta` descarga localmente el CSV canónico con las tres columnas exactas `Fecha,Descripción,Monto`: fecha en `AAAA-MM-DD`, descripción útil del banco y monto numérico firmado (negativo para débito/gasto y positivo para crédito/ingreso). La descarga y su ayuda no importan archivos ni mutan movimientos, saldos, presupuesto o transferencias.
-
-El análisis compara filas bancarias con movimientos de la cuenta. Una coincidencia sugerida combina importe, fecha y descripción parecida; el mismo importe con una diferencia de hasta ±2 días se muestra como advertencia. Si el importe coincide pero la fecha es más lejana o hay más de un candidato, se conserva como revisión humana, sin emparejamiento automático. La persona puede confirmar, descartar o dejar pendiente una pareja. Las validaciones pertenecen al cierre y pueden reabrirse; no alteran movimientos, balances, presupuesto, transferencias ni trazabilidad financiera. Un cierre termina como `Cuadrado` o `Delta detectado: revisar`.
-
-La primera versión no lee PDF ni imágenes, no conserva archivos bancarios originales, no crea ajustes para cuadrar y no se conecta a bancos. Las importaciones inválidas, fuera del rango declarado o repetidas se explican antes de crear o duplicar evidencia.
+Auditoría guiada se retira del alcance operativo el 04/10/2026: no se crean/revisan/importan cierres ni se ofrece plantilla de estado de cuenta. Auditoría de registros conserva sus filtros por cuenta/tipo/categoría/subcategoría, edición, comparación y acceso por cuenta desde Balances. Los cierres auditClosures históricos siguen siendo datos compatibles en respaldo/restauración; no se borran por retirar interfaces.
 
 ### Planeación y provisiones administrables
 
-Planeación es el único lugar para administrar presupuestos, provisiones conceptuales y recurrentes. Los presupuestos se consultan con un filtro propio por mes: la lista sólo muestra el período elegido y no usa `<select>` nativo. Una provisión puede guardar planeación mensual y, de forma opcional, monto objetivo y fecha de liberación. Esa fecha acepta únicamente `AAAA-MM-DD`; una fecha importada inválida se señala y se normaliza como vacía. Los CSV históricos que no contienen objetivo o fecha siguen siendo válidos. Las exportaciones de provisiones incluyen `monto_objetivo` y `fecha_liberacion`; el respaldo JSON conserva el catálogo y sus `provisionEvents` conceptuales.
+Planeación concentra presupuestos, provisiones y recurrentes; Balances ofrece accesos directos al mismo gestor y detalle. Los presupuestos se consultan con un filtro propio por mes: la lista sólo muestra el período elegido y no usa `<select>` nativo. Una provisión puede guardar planeación mensual y, de forma opcional, monto objetivo y fecha de liberación. Esa fecha acepta únicamente `AAAA-MM-DD`; una fecha importada inválida se señala y se normaliza como vacía. Los CSV históricos que no contienen objetivo o fecha siguen siendo válidos. Las exportaciones de provisiones incluyen `monto_objetivo` y `fecha_liberacion`; el respaldo JSON conserva el catálogo y sus `provisionEvents` conceptuales.
 
 La entrada de Planeación es un hub compacto con Presupuestos, Provisiones y Recurrentes; no apila los tres gestores. Cada tipo abre una subvista con una decisión para consultar lo planeado y otra para crear. El gestor conserva siempre una acción de creación visible. Presupuestos mantiene el filtro mensual; Provisiones separa `Activas`, `Liberadas` y `Todas`; Recurrentes separa `Vigentes` y `Completos` cuando existe ese estado. Esta navegación vive en estado de sesión y no modifica la persistencia ni las reglas financieras de los registros.
 
-Liberar una provisión lleva su saldo conceptual a cero y registra un evento conceptual con importe y fecha. La reserva acumulada de un período sólo descuenta liberaciones ocurridas en o antes de su fecha de corte; los eventos históricos sin fecha reconocible continúan descontándose para no reactivar reservas legacy. Borrar el catálogo después de liberar conserva el evento y tampoco reactiva la reserva. La liberación reduce la liquidez utilizable y la capacidad que se reservaba para esa provisión, pero no toca cuentas, movimientos, ingresos, gastos, presupuestos, transferencias ni auditoría bancaria. Una futura provisión real continúa fuera de alcance y requiere una decisión de producto separada.
+Liberar una provisión acepta importe parcial positivo hasta el saldo vigente; Liberar todo usa ese saldo. Reduce saldo y reserva acumulada por el importe, con evento de ID único, importe y fecha. La reserva acumulada de un período sólo descuenta liberaciones ocurridas en o antes de su fecha de corte; los eventos históricos sin fecha reconocible continúan descontándose para no reactivar reservas legacy. Borrar el catálogo después de liberar conserva el evento y tampoco reactiva la reserva. La liberación reduce el importe reservado y libera capacidad utilizable según la configuración vigente, pero no toca cuentas, movimientos, ingresos, gastos, presupuestos, transferencias ni auditoría bancaria. Una futura provisión real continúa fuera de alcance y requiere una decisión de producto separada.
 
 ### Jerarquía de Ajustes
 
@@ -131,3 +125,23 @@ Un movimiento de gasto puede marcarse manualmente como **extraordinario** durant
 - `DESIGN_SYSTEM.md` define cómo se presenta la experiencia.
 - `V7_ROADMAP.md` y `BACKLOG.md` priorizan el trabajo futuro; no cambian por sí solos el alcance aprobado aquí.
 - `AGENTS.md` define cómo trabajar técnicamente en el repositorio.
+
+## Planeación mensual y provisiones — contrato aprobado 03/10/2026
+
+- Aplicar planeación asigna reserva existente una vez por ID de provisión y mes calendario actual, visible e independiente del período histórico del dashboard. Requiere importe positivo y reserva sin asignar suficiente. Reserva $150/asignado $50 + planeación $50 resulta reserva $150/asignado $100/sin asignar $50. No aumenta reserva total ni crea movimientos.
+- El evento conserva ID único, provisión, nombre, mes, importe y fecha. Respaldo/restauración conserva el bloqueo mensual; cambiar planeación no lo reabre. Deshacer revierte evento y saldo conjuntamente.
+- Liberación parcial: importe positivo hasta saldo vigente, validado en centavos. Reduce saldo y reserva acumulada exactamente por ese importe; varias liberaciones del mismo día tienen IDs diferentes. Auditoría bancaria permanece neutral; asignaciones sólo aparecen en historial de provisión.
+- Persistir estado candidato antes de sustituir estado activo. Un fallo de escritura conserva datos previos. Revalidar al guardar y bloquear dobles pulsaciones.
+- Borrador presupuestario de un único mes: filas separadas mantienen ID, origen y trazabilidad aunque compartan nombres. Cabeceras suman filas; Sin subcategoría es una fila propia. Cuenta es referencia y no cambia comparación vigente de gastos.
+- Copiar mes anterior completa grupos faltantes por categoría/subcategoría/cuenta, preserva multiplicidad y existentes. Nuevas copias reciben IDs nuevos, origen manual y ningún importMeta heredado. Repetir copia no duplica.
+- Guardar plan hace una escritura atómica y una acción de deshacer. Conflictos con filas afectadas conservan borrador y exigen revisión. Edición puntual guarda sólo la fila elegida. Cero no elimina existentes: eliminación explícita; nuevos campos vacíos no crean filas.
+- Navegar/copiar/editar no guarda hasta confirmación. Salir o cambiar de mes con cambios pendientes ofrece seguir editando o descartar.
+- Fechas visibles DD/MM/AAAA, año de cuatro dígitos; períodos mensuales como Octubre 2026. Almacenamiento y formatos de intercambio conservan compatibilidad. Mostrar corte real del rango.
+
+## Presupuesto — ampliación implementada 04/10/2026
+
+Presupuesto base es una plantilla independiente persistida en state.budgetTemplate, sin mes. Guardar la plantilla no asigna presupuesto a un período ni altera movimientos; cargarla en un mes completa grupos faltantes y requiere guardar ese plan mensual. Copiar anterior conserva la misma regla de faltantes, multiplicidad e idempotencia.
+
+La fila sin subcategoría de un presupuesto mensual conserva identidad e importe propios y no representa la plantilla base. El total de categoría suma filas y nunca se guarda como otra asignación.
+
+Crear una categoría durante planeación la mantiene en draft.newCategories hasta guardar. Guardar valida y persiste plan y nuevas categorías conjuntamente antes de sustituir el estado activo. Cancelar, conflicto o fallo de almacenamiento no deja categorías huérfanas ni presupuestos parciales. No existe creación de subcategorías nuevas en esta interfaz. Cuentas siguen siendo referencia; identidad y trazabilidad de filas existentes se preservan.

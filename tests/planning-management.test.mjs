@@ -40,7 +40,7 @@ const state = {
     releaseDate: '2026-12-15'
   }],
   recurring: [],
-  ui: { activeSheet: '', drawerOpen: false, planningDraft: null, planningBudgetPeriod: '2026-07' }
+  ui: { activeSheet: '', drawerOpen: false, planningDraft: null, planningBudgetPeriod: '2026-07', planningBudgetExpanded: ['Comida', 'Vivienda'] }
 };
 
 const planning = renderSettings(state);
@@ -81,6 +81,8 @@ assert.match(budgetManager, /data-tool="planning-budgets"[^>]*>[\s\S]*?Crear/,
 assert.match(budgetManager, /data-budget-period="2026-07"/);
 assert.match(budgetManager, /data-budget-period="2026-08"/);
 assert.match(budgetManager, /data-budget-edit="budget-food"/);
+assert.match(budgetManager, /Julio 2026/);
+assert.doesNotMatch(budgetManager, />2026-07</);
 assert.doesNotMatch(budgetManager, /data-budget-edit="budget-rent"/,
   'the July budget list must not render August entries');
 
@@ -114,9 +116,11 @@ assert.match(activeProvisions, /data-planning-provision-filter="released"/);
 assert.match(activeProvisions, /data-planning-provision-filter="all"/);
 assert.match(activeProvisions, /data-tool="planning-provisions"[^>]*>[\s\S]*?Crear/);
 assert.match(activeProvisions, /data-provision-edit="provision-vacation"/);
-assert.doesNotMatch(activeProvisions, /data-provision-edit="released"/);
+assert.match(activeProvisions, /data-provision-details="provision-vacation"/);
+assert.match(activeProvisions, /15\/12\/2026/);
+assert.match(activeProvisions, /data-provision-details="released"/, 'Zero balance provisions with a monthly plan remain accessible');
 assert.match(activeProvisions, /Meta \$600\.00/);
-assert.match(activeProvisions, /15 Diciembre 2026/,
+assert.match(activeProvisions, /15\/12\/2026/,
   'a saved release date must be rendered for people, not as an ISO storage value');
 assert.doesNotMatch(activeProvisions, /2026-12-15/);
 assert.doesNotMatch(activeProvisions, /Meta opcional sin definir|Fecha opcional sin definir/);
@@ -204,6 +208,7 @@ const budgetSheet = renderBudgetSheet({
 });
 assert.match(budgetSheet, /Eliminar presupuesto/);
 assert.match(budgetSheet, /data-confirm-delete-budget/);
+assert.match(budgetSheet, /Agosto 2026/);
 
 const [balancesSource, mainSource, settingsSource, screenStyles] = await Promise.all([
   readFile(new URL('../src/screens/balances.js', import.meta.url), 'utf8'),
@@ -224,3 +229,15 @@ assert.doesNotMatch(mainSource, /new-provision|provisionSheet\(/,
   'the legacy provision sheet route must be removed');
 
 console.log('planning-management.test.mjs passed');
+
+assert.match(budgetManager, /data-budget-group-toggle="Comida"/);
+assert.match(budgetManager, /data-open-base-budget/);
+assert.match(budgetType, /data-open-base-budget/);
+const grouped = renderSettings({ ...state, budgets: [{ id: 'one', month: '2026-08', category: 'Hogar', subcategory: 'Agua', amount: 50.10 }, { id: 'two', month: '2026-08', category: 'Hogar', subcategory: 'Luz', amount: 200.20 }], ui: { ...state.ui, planningView: 'manager', planningType: 'budgets', planningBudgetExpanded: ['Hogar'] } });
+assert.match(grouped, /data-budget-group-toggle="Hogar"/);
+assert.match(grouped, /\$250\.30/);
+assert.match(grouped, /data-budget-edit="one"/);
+assert.match(grouped, /data-budget-edit="two"/);
+const collapsed = renderSettings({ ...state, ui: { ...state.ui, planningView: 'manager', planningType: 'budgets', planningBudgetExpanded: [] } });
+assert.match(collapsed, /aria-expanded="false"/);
+assert.doesNotMatch(collapsed, /data-budget-edit=/);

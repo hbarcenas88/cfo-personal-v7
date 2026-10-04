@@ -29,7 +29,7 @@ Los tokens definidos en `styles/base.css` son la fuente de verdad. No introducir
 
 - La app mantiene topbar, contenido desplazable y navegación inferior persistente.
 - La acción principal de registro se expresa con el botón central destacado; no competir con múltiples llamadas principales.
-- Las acciones secundarias y formularios complejos se abren en sheets inferiores. Deben incluir título, cierre claro y zona de desplazamiento suficiente.
+- Las acciones breves usan sheets con título y cierre claro. Planeación mensual y consulta detallada de provisión usan pantalla completa con navegación de regreso, scroll y pie de acción accesible.
 - Respetar safe areas, el alto de navegación y evitar overflow horizontal.
 
 ## Componentes y patrones
@@ -70,17 +70,13 @@ En móvil, los ocho años se distribuyen en una cuadrícula simétrica de 2 × 4
 
 La comparación es una lectura analítica, nunca una mutación financiera. Sólo aparece dentro del selector mientras la pantalla activa es Auditoría o Categorías y compara automáticamente con el período anterior equivalente. `Usar período del dashboard` hace una copia puntual en el borrador de Auditoría, no una sincronización viva; Categorías conserva el período global y no expone la comparación desde Balances ni Resumen.
 
-### Auditoría guiada de cierre
+### Auditoría de registros
 
-El cierre guiado vive dentro de Auditoría y se expresa como un recorrido móvil: cuenta y rango, saldo real, importación, revisión y resultado. La cabecera de revisión mantiene visibles cuenta, fecha de corte, saldo registrado, saldo real y delta. La prioridad visual es la bandeja de diferencias: `Solo en la app`, `Solo en el banco` y `Advertencia de fecha`; las coincidencias confirmadas no compiten con esos pendientes.
-
-Cada diferencia usa texto, icono y color semántico; rojo para solo en la app, azul para solo en el banco y ámbar para advertencias. Confirmar, descartar o dejar pendiente son acciones explícitas y accesibles. La importación, asignación de columnas y eliminación de un cierre usan sheets y controles propios, con resumen de datos antes de confirmar; nunca `<select>` nativos. El estado `Delta detectado: revisar` comunica una tarea pendiente, no un error financiero ni una invitación a crear ajustes.
-
-En Ajustes → Descargar templates, `Auditoría — estado de cuenta` es una fila propia, no anidada en la importación del cierre. La descarga y el botón `?` de ayuda son hermanos; el botón de ayuda conserva un target mínimo de 44 px y expande una nota asociada sin solapar la fila ni desplazar los controles fuera del viewport.
+La pantalla de Auditoría inicia directamente con búsqueda/filtros y resultados. No mostrar entrada de cierre guiado, cierres guardados, importación de extractos ni plantilla de estado de cuenta. Mantener edición, comparación y acceso por cuenta del flujo existente. La eliminación de las superficies guiadas no significa borrar los cierres históricos de los respaldos.
 
 ### Planeación administrable
 
-Planeación reúne Presupuestos, Provisiones y Recurrentes; no debe conservar una ruta paralela de Provisiones. Presupuestos usa un filtro propio de períodos en píldoras desplazables, con target mínimo de 44 px, `aria-pressed` y sin `<select>` nativo; sólo las filas del período activo permanecen en la lista. Las filas de provisión priorizan saldo conceptual, planeación y estado compacto; objetivo y fecha sólo aparecen cuando existen, y cualquier texto persistido se escapa al renderizar. Editar, liberar y eliminar se expresan como acciones distinguibles y alcanzables. La confirmación de liberación nombra el importe y el saldo resultante en cero, e incluye siempre `No modifica ninguna cuenta`; al ser una decisión que altera datos conceptuales se resuelve en un sheet explícito, no con un toast.
+Planeación reúne Presupuestos, Provisiones y Recurrentes; no debe conservar una ruta paralela de Provisiones. Presupuestos usa un filtro propio de períodos en píldoras desplazables, con target mínimo de 44 px, `aria-pressed` y sin `<select>` nativo; sólo las filas del período activo permanecen en la lista. Las filas de provisión priorizan saldo conceptual, planeación y estado compacto; objetivo y fecha sólo aparecen cuando existen, y cualquier texto persistido se escapa al renderizar. Editar, liberar y eliminar se expresan como acciones distinguibles y alcanzables. La confirmación de liberación nombra importe parcial o total y saldo restante previsto, e incluye siempre `No modifica ninguna cuenta`; al ser una decisión que altera datos conceptuales se resuelve en un sheet explícito, no con un toast.
 
 La pantalla inicial muestra sólo un hub compacto de tres destinos. Cada destino abre una subvista con `Ver lo planeado` y una acción de creación; el gestor correspondiente aparece únicamente después de elegir consultar. Volver retrocede un nivel, mantiene targets de 44 px y devuelve el foco al control exacto sin desplazar la página. Presupuestos, Provisiones y Recurrentes conservan sus filtros semánticos propios; no se inventa un filtro mensual común.
 
@@ -156,3 +152,19 @@ La armonización se hace por flujos, no por pantallas aisladas. Resumen y Catego
 | Auditoría | Búsqueda y cuatro filtros localizados; tarjetas con acciones táctiles de 44 px | Marcas masivas de extraordinarios en etapa posterior |
 | Balances | Jerarquía V7, provisión vacía neutral, importes extremos contenidos y `Auditar saldo` visible | Validar densidad con datos reales respaldados |
 | Registro y ajustes | Keypad estable, sheets compartidos y Ajustes agrupados por normal/avanzado/peligro | Validar en dispositivo/PWA instalado |
+
+## Planeación inmersiva — patrón aprobado 03/10/2026
+
+- Editor mensual completo: selector táctil propio mes/año, categorías desplegables, subcategorías, cuenta de referencia e importe anterior. Total mensual y Guardar plan en pie fijo. Tocar importe abre keypad compartido; acumulados se actualizan conservando foco/scroll.
+- Planeación y Categorías abren el mismo editor, enfocado en categoría si corresponde. Edición puntual desde gestor elige una fila, muestra contexto y guarda aisladamente.
+- Balances → Administrar abre gestor de provisiones; cada provisión abre detalle con saldo vigente, planeación, meta e historial. Aplicar planeación muestra mes, importe y resultado previsto; insuficiencia muestra faltante y Registrar reserva.
+- Liberación parcial usa sheet breve, importe editable con keypad, Liberar todo y saldo restante. Sin saldo y Liberada son estados diferentes. Saldo cero con planeación sigue accesible.
+- Targets ≥44 px, ningún select nativo, búsqueda por intención, texto escapado, estados con semántica además del color y ningún overflow horizontal.
+- Calendarios propios muestran DD/MM/AAAA y eliminan controles de fecha con formato dependiente del navegador.
+## Presupuesto base y categorías en borrador (04/10/2026)
+
+Presupuesto base tiene modo propio como plantilla sin mes. El modo mensual permite cargar faltantes desde base o desde el mes anterior sin sobrescribir ni duplicar. La fila sin subcategoría es una asignación distinta; el acumulado de categoría es informativo.
+
+Crear categoría vive dentro del editor y sólo modifica su borrador hasta guardar conjuntamente. No presentar creación de subcategorías nuevas. Categorías desplegables reducen el recorrido; Guardar y volver regresa a Planeación con lo confirmado. Mantener selectores propios, keypad, targets de 44 px, cambios pendientes y foco/scroll.
+
+La tarjeta de provisiones resume Caja/reserva $150, sin asignar $50 y asignado $100 en el caso sintético observado. Auditoría inicia directamente con búsqueda/filtros y registros; no contiene superficies guiadas.

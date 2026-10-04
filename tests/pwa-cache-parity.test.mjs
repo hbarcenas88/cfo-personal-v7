@@ -41,8 +41,8 @@ const workerContract = runInNewContext(`${workerSource}\n({ cacheName: CACHE_NAM
 
 assert.equal(
   workerContract.cacheName,
-  'cfo-personal-v7-cache-49',
-  'Audit provision reconciliation must activate cache-49 before its PWA shell can be released'
+  'cfo-personal-v7-cache-51',
+  'Monthly planning must activate cache-51 before its PWA shell can be released'
 );
 
 const actualShell = workerContract.appShell.map(asset => {
@@ -57,8 +57,7 @@ const expectedShell = [
   ...await applicationFiles('styles', '.css'),
   ...await applicationFiles('src', '.js'),
   './assets/icon-192.svg',
-  './assets/icon-512.svg',
-  './assets/vendor/xlsx.full.min.js'
+  './assets/icon-512.svg'
 ];
 
 const counts = new Map();
