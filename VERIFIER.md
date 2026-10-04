@@ -21,7 +21,9 @@ Ampliación implementada localmente: versión 7.0.7/cache-51. Evidencia nueva de
 - [x] Informe docs/verification/2026-10-04-planning-refinements.md; capturas refinements-mobile-independent.png/refinements-desktop-independent.png fuera del repositorio.
 - [x] Offline independiente: servidor 8800 detenido y recarga; Balances $150/$50/$100 y Categorías→editor→cargar base $280 funcionan sin duplicar.
 - [x] Revalidación final: Sin cuenta muestra la etiqueta correcta conservando el valor almacenado; KPI de 19.5 px a 390 px sin overflow, gráfica de provisiones retirada y consola sin errores. Veredicto independiente aprobado sin hallazgos pendientes.
-- [ ] Teléfono físico/PWA instalada, datos reales y publicación externa: pendientes separados.
+- [x] Pasada de compatibilidad del respaldo reciente sobre copia local aislada: restauración, recarga, ajuste y liberación parcial con deshacer; campos financieros y totales comparados preservados. El original permanece intacto y fuera del repositorio. No acredita auditoría exhaustiva de cada movimiento.
+- [x] Publicación autorizada de 2e081c9 en main y Pages construido; workflow 37230763472 success. Los 40 archivos públicos coinciden con el commit y las pantallas nuevas funcionan en Browser móvil. Evidencia: docs/verification/2026-10-04-publication.md.
+- [ ] Teléfono físico/PWA instalada: actualización y aceptación en el dispositivo pendientes.
 
 ## Planeación mensual y provisiones — evidencia histórica local 03/10/2026
 

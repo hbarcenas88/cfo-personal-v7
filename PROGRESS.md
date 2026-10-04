@@ -1,8 +1,10 @@
 # CFO Personal V7 - Progreso
 
-## Publicación autorizada — 04/10/2026
+## Publicación confirmada — 04/10/2026
 
-La persona usuaria autorizó publicar V7.0.7/cache-51 en GitHub y GitHub Pages después de la pasada de compatibilidad con su respaldo reciente. Restauración, recarga y operaciones representativas sobre copia aislada conservan los campos financieros y totales comparados. Esa prueba no incorpora datos privados al repositorio ni acredita aceptación física del teléfono. Suite previa a publicación: 46/46 y sintaxis de 30 JavaScript aprobadas. La publicación se confirmará mediante el commit remoto y los archivos servidos por Pages.
+V7.0.7/cache-51 publicada en main mediante 2e081c9 y GitHub Pages confirmado construido para ese commit. Workflow 37230763472 terminó success. Se verificaron 40 archivos públicos con HTTP 200 e igualdad exacta con el commit, incluido service-worker.js. Browser público a 390 × 844: editor mensual, presupuesto base y Auditoría normal accesibles, sin errores de consola ni overflow horizontal. Evidencia: docs/verification/2026-10-04-publication.md.
+
+La publicación fue autorizada después de la pasada de compatibilidad del respaldo reciente. Restauración, recarga y operaciones representativas sobre copia aislada conservan los campos financieros y totales comparados; no se incorporan datos privados al repositorio. Suite previa a publicación: 46/46 y sintaxis de 30 JavaScript aprobadas. La aceptación de actualización instalada en el teléfono permanece pendiente.
 
 ## Ampliación aprobada — presupuesto y retiro de Auditoría guiada (04/10/2026)
 
