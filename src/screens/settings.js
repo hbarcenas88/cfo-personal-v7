@@ -569,9 +569,9 @@ export function renderIconColorPickerContent({
   const picker = { icon: iconName, color };
   return `
     ${showPreview ? `<div class="icon-preview-large" data-form-icon-preview style="background:${color};color:#fff;">${icon(iconName)}</div>` : ''}
-    <div class="picker-tabs compact-tabs">
-      <button class="${tab === 'icon' ? 'active' : ''}" ${tabDataset}="icon">${icon('sparkles')} Icono</button>
-      <button class="${tab === 'color' ? 'active' : ''}" ${tabDataset}="color">${icon('pie')} Color</button>
+    <div class="picker-tabs compact-tabs" role="group" aria-label="Apariencia">
+      <button type="button" class="${tab === 'icon' ? 'active' : ''}" ${tabDataset}="icon" aria-pressed="${tab === 'icon'}">${icon('sparkles')} Icono</button>
+      <button type="button" class="${tab === 'color' ? 'active' : ''}" ${tabDataset}="color" aria-pressed="${tab === 'color'}">${icon('pie')} Color</button>
     </div>
     ${tab === 'icon' ? groupedIcons(picker, iconDataset) : colorGrid(picker, colorDataset)}
   `;
@@ -592,13 +592,14 @@ function groupedIcons(picker, iconDataset = 'data-pick-icon') {
 
 function iconChoice(name, picker, iconDataset = 'data-pick-icon') {
   const active = picker.icon === name;
-  return `<button class="icon-circle-choice ${active ? 'active' : ''}" ${iconDataset}="${name}" style="${active ? `background:${picker.color || '#0A8FE8'};color:#fff;` : ''}">${icon(name)}</button>`;
+  const label = name.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return `<button type="button" class="icon-circle-choice ${active ? 'active' : ''}" ${iconDataset}="${name}" aria-label="${html(label)}" aria-pressed="${active}" style="${active ? `background:${picker.color || '#0A8FE8'};color:#fff;` : ''}">${icon(name)}</button>`;
 }
 
 function colorGrid(picker, colorDataset = 'data-pick-color') {
   return `
     <div class="color-circle-grid picker-scroll-area">
-      ${COLOR_CATALOG.map(color => `<button class="color-circle-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" ${colorDataset}="${color}" aria-label="${color}"></button>`).join('')}
+      ${COLOR_CATALOG.map(color => `<button type="button" class="color-circle-choice ${picker.color === color ? 'active' : ''}" style="background:${color}" ${colorDataset}="${color}" aria-label="${color}" aria-pressed="${picker.color === color}"></button>`).join('')}
     </div>
   `;
 }

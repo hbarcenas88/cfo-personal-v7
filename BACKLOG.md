@@ -1,5 +1,13 @@
 # CFO Personal V7 - Backlog priorizado
 
+## Orden vigente — 22/11/2026
+
+CFO Style aprobado e implementado en 7.0.8. Tras verificar el despliegue, queda la aceptación en teléfono. Los cambios de funcionamiento se definirán por separado. Respaldo automático en nube sigue pendiente.
+
+## Orden vigente — 08/11/2026
+
+Primero experimento visual Lithic, aprobación del mockup, implementación estética, publicación y aceptación en la aplicación. Después respaldo automático en nube, evaluando Supabase y una estrategia de recuperación versionada. El resto de esta lista permanece diferido. La persona usuaria confirmó el funcionamiento satisfactorio de la entrega anterior en su teléfono. La importación asistida ya está implementada; el punto histórico 8 no es desarrollo pendiente salvo defectos nuevos confirmados.
+
 ## Ampliación aprobada — presupuesto y retiro de Auditoría guiada (04/10/2026)
 
 Se retira el módulo de Auditoría guiada completo: entrada de Nuevo cierre, lista de cierres, importación CSV/XLSX de estados de cuenta, revisiones de coincidencias, pantallas, rutas y plantilla de estado de cuenta. Auditoría de registros, filtros, comparación por período, edición y acceso por cuenta desde Balances permanecen activos. Los auditClosures históricos se conservan compatibles con almacenamiento y respaldos; retirar la función no purga datos financieros.

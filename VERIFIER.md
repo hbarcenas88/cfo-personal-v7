@@ -1,5 +1,13 @@
 # CFO Personal V7 - Verificador de entrega
 
+## CFO Style — 22/11/2026
+
+- [x] Revisión independiente final con Astra 6.2 dentro del límite de 10 minutos. Correcciones del selector Icono/Color y foco visible en acciones de creación revisadas. Aprobado para publicar.
+- [x] Suite completa: 46 archivos y 53 casos, más sintaxis de 30 JavaScript. Inter local y ambas hojas CFO Style incorporadas a cache-52.
+- [x] PWA local a 390 × 844: barra gris perla de 64 px, Balances, Resumen, Categorías y Auditoría sin desbordamiento horizontal. Se recorrieron Registro, editor mensual, detalle de provisión y selector Icono/Color.
+- [x] Importación asistida real con CSV ficticio: confirmación bloqueada ante fila pendiente, descarte explícito, confirmación y persistencia de la fila válida. La aplicación y el movimiento cargaron sin servidor. Resumen a 1280 × 900 sin desbordamiento.
+- [ ] Aceptación en teléfono físico con la versión publicada.
+
 ## Ampliación aprobada — presupuesto y retiro de Auditoría guiada (04/10/2026)
 
 Se retira el módulo de Auditoría guiada completo: entrada de Nuevo cierre, lista de cierres, importación CSV/XLSX de estados de cuenta, revisiones de coincidencias, pantallas, rutas y plantilla de estado de cuenta. Auditoría de registros, filtros, comparación por período, edición y acceso por cuenta desde Balances permanecen activos. Los auditClosures históricos se conservan compatibles con almacenamiento y respaldos; retirar la función no purga datos financieros.

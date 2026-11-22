@@ -1,5 +1,22 @@
 # CFO Personal V7 Roadmap
 
+## CFO Style — 22/11/2026
+
+El rediseño aprobado se implementa en V7.0.8. Consultar el [acuerdo CFO Style](docs/2026-11-22-cfo-style-design.md) y el [plan de implementación](docs/superpowers/plans/2026-11-22-cfo-style.md). Tras la verificación de GitHub Pages queda la aceptación en teléfono. Las mejoras funcionales que indique la persona usuaria podrán revisarse en una vista previa interactiva antes del despliegue. El respaldo automático en nube permanece como bloque separado.
+
+## Prioridades vigentes — 08/11/2026
+
+La persona usuaria confirmó que la versión publicada anterior funciona bien en su aplicación. Se cierra la aceptación pendiente en teléfono de esa entrega según su confirmación; no implica una nueva auditoría de cada movimiento.
+
+1. **Experimento visual Lithic.** Estudiar la referencia suministrada y producir un mockup independiente con datos ficticios, móvil y escritorio. Impeccable orienta jerarquía y crítica, UI/UX Pro Max accesibilidad e interacción, Better Icons obtiene SVG de Iconify. No cambia funciones, cálculos ni datos de la aplicación publicada.
+2. **Decisión visual.** La persona usuaria evalúa el mockup; puede ajustar o cambiar de referencia. Sólo tras su aprobación se redactará el plan de implementación sobre todas las pantallas, componentes y estados.
+3. **Implementación visual por oleadas.** Tokens y tipografía; navegación y pantallas principales; Registro, formularios, selectores y estados. Mantener reglas financieras, fechas DD/MM/AAAA, edición puntual, provisiones y flujo offline. Verificar móvil, escritorio y regresiones; publicar y obtener aceptación en la aplicación.
+4. **Respaldo automático en nube.** Siguiente gran bloque, después del cierre del rediseño. Evaluar Supabase como primera opción, con autenticación privada, aislamiento por usuario, guardado automático, historial recuperable, restauración y cola offline. Distinguir respaldo de sincronización entre dispositivos; no adoptar sobrescritura automática silenciosa.
+
+Supabase es una candidata por su PostgreSQL relacional; no se afirma superioridad universal sobre Firebase. Al 08/11/2026 el Free ofrece 500 MB de base de datos y pausa por inactividad de una semana, sin respaldos automáticos diarios del proveedor. La protección requerirá un mecanismo de versiones y copias independiente, con recuperación probada. Fuentes: https://supabase.com/pricing y https://supabase.com/kb/faqs/platform/free-plan-backups. Costes y límites se revalidarán antes de implementar.
+
+Los apartados inferiores conservan el historial; no representan la prioridad actual. Los hallazgos generales anteriores continúan diferidos en BACKLOG.md.
+
 ## Ampliación aprobada — presupuesto y retiro de Auditoría guiada (04/10/2026)
 
 Se retira el módulo de Auditoría guiada completo: entrada de Nuevo cierre, lista de cierres, importación CSV/XLSX de estados de cuenta, revisiones de coincidencias, pantallas, rutas y plantilla de estado de cuenta. Auditoría de registros, filtros, comparación por período, edición y acceso por cuenta desde Balances permanecen activos. Los auditClosures históricos se conservan compatibles con almacenamiento y respaldos; retirar la función no purga datos financieros.

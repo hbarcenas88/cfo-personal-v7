@@ -1,5 +1,7 @@
 # CFO Personal V7 - Sistema de diseño
 
+Desde el acuerdo del 22/11/2026, [CFO Style](docs/2026-11-22-cfo-style-design.md) define los colores, la tipografía, la iconografía y los tratamientos de la interfaz. Si hay diferencias con los patrones históricos de este documento, prevalece el acuerdo visual. Las reglas de interacción y accesibilidad siguen vigentes.
+
 ## Importación asistida (Oleada 4)
 
 La revisión de importación asistida se presenta como un flujo de borrador, decisiones y confirmación. Las tarjetas de grupos muestran el valor original, el número de equivalentes y una acción masiva deseleccionada hasta confirmarla; las excepciones tienen controles propios para corregir, aprobar duplicados o descartar. El resumen final separa filas a importar, catálogos a crear y filas descartadas. Las acciones usan controles propios, targets mínimos de 44 px, texto escapado y actualizaciones localizadas que conservan foco y scroll; no se usan `<select>` nativos.

@@ -748,7 +748,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(appliedState.period)), { mode: 'month
 assert.equal(appliedState.filters.categories.compare, true);
 
 const worker = await readFile(new URL('../service-worker.js', import.meta.url), 'utf8');
-assert.match(worker, /cfo-personal-v7-cache-51/, 'Monthly planning shell must activate cache-51');
+assert.match(worker, /cfo-personal-v7-cache-52/, 'CFO Style shell must activate cache-52');
 assert.match(worker, /\.\/src\/components\/recordKeypad\.js/, 'Wave 1.1 must precache the record keypad binder');
 assert.equal(
   (worker.match(/\.\/src\/components\/recordKeypad\.js/g) || []).length,
@@ -885,7 +885,7 @@ assert.deepEqual(
     planningServicePrecached: appShell.includes('https://app.test/src/services/planningService.js')
   },
   {
-    cacheName: 'cfo-personal-v7-cache-51',
+    cacheName: 'cfo-personal-v7-cache-52',
     renderCoordinatorPrecached: true,
     recordKeypadPrecached: true,
     planningServicePrecached: true

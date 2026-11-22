@@ -1,0 +1,340 @@
+:root {
+  --bg: #f7f8fa;
+  --bg-deep: var(--bg);
+  --surface: #fff;
+  --surface-soft: var(--bg);
+  --surface-blue: #ebf3ff;
+  --line: #e0e4ea;
+  --line-strong: #8993a1;
+  --text: #171717;
+  --text-muted: #5c6068;
+  --text-soft: var(--text-muted);
+  --blue: #2254a3;
+  --blue-dark: #194380;
+  --blue-soft: var(--surface-blue);
+  --primary: var(--text);
+  --primary-strong: #303238;
+  --primary-soft: var(--blue-soft);
+  --green: #17654a;
+  --red: #a33737;
+  --amber: #805519;
+  --shadow: none;
+  --shadow-soft: none;
+  --shadow-control: none;
+  --shadow-primary: none;
+  --radius-xl: 16px;
+  --radius-lg: 16px;
+  --radius-card: 16px;
+  --radius: 12px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --text-base: 16px;
+  --font-strong: 600;
+  --font-bold: 600;
+  --font-black: 700;
+  --font: Inter, system-ui, sans-serif;
+}
+
+body {
+  font-size: var(--text-base);
+}
+
+::selection {
+  background: var(--blue-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.app {
+  background: var(--bg);
+}
+
+.topbar {
+  background: var(--bg);
+  border-bottom-color: var(--line);
+  backdrop-filter: none;
+}
+
+.topbar-main {
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+}
+
+.brand-title {
+  font-weight: 500;
+  letter-spacing: -.035em;
+}
+
+.brand-title span,
+.boot-logo span {
+  color: var(--text-muted);
+}
+
+.boot-logo {
+  font-weight: var(--font-black);
+}
+
+.period-pill {
+  border-radius: var(--radius-md);
+}
+
+.period-pill > button:not(.period-value) {
+  display: grid;
+  place-items: center;
+}
+
+.period-pill .period-value {
+  color: var(--text);
+}
+
+.period-value,
+.period-value-copy small {
+  font-weight: var(--font-strong);
+}
+
+.bottom-nav {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 56px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+  padding-inline: clamp(8px, 3vw, 16px);
+  border-top-color: var(--line);
+  border-radius: 0;
+  background: var(--surface);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.nav-item {
+  height: 64px;
+  min-width: 0;
+  padding: 0;
+  place-content: center;
+  gap: 4px;
+  border-radius: var(--radius-sm);
+  font-size: clamp(10px, 3vw, 12px);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.nav-item.active {
+  background: #edeef0;
+  color: var(--text);
+  font-weight: var(--font-strong);
+}
+
+.fab-center {
+  width: var(--control-lg);
+  min-width: var(--control-lg);
+  height: var(--control-lg);
+  margin: 0 auto;
+  padding: 0;
+  border-radius: var(--radius-card);
+}
+
+.fab-center svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 3;
+}
+
+.card:where(:not(.danger-settings-card)) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+.section-title h2,
+.sheet-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-strong);
+  letter-spacing: -.025em;
+}
+
+.section-title h2::before {
+  content: none;
+}
+
+.metric-title,
+.metric-value,
+.row-title,
+.row-amount,
+.row-amount-note,
+.settings-row strong,
+.drawer-row strong,
+.drawer-section {
+  font-weight: var(--font-strong);
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.035em;
+}
+
+.progress {
+  background: var(--line);
+}
+
+.icon-button,
+.nav-arrow,
+.ghost-icon,
+.chip,
+.period-pill,
+.secondary-button,
+.btn-secondary {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.chip:is(.active, [aria-pressed='true']) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: var(--font-strong);
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.btn {
+  font-weight: var(--font-strong);
+}
+
+.primary-button,
+.btn-primary,
+.icon-button.primary,
+.fab-center,
+.create-action-button:not(.create-action-button-muted) {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+.danger-button,
+.btn-danger,
+.primary-button.danger-action {
+  border-color: #e8bfc1;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+:is(.primary-button, .btn-primary, .icon-button.primary):disabled {
+  border-color: transparent;
+  background: var(--line);
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.create-action-button .create-icon {
+  border-radius: var(--radius-sm);
+}
+
+.create-action-card .create-action-button:focus-visible {
+  outline-color: var(--blue);
+  outline-offset: -4px;
+}
+
+.create-action-card .create-action-button:not(.create-action-button-muted):focus-visible {
+  outline-color: var(--surface);
+}
+
+:is(.segmented, .role-segmented, .picker-tabs) {
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+:is(.segmented, .role-segmented, .picker-tabs) > button {
+  min-height: 48px;
+  min-width: 0;
+  padding-inline: 6px;
+  border-radius: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-strong);
+  line-height: 1.25;
+  white-space: normal;
+}
+
+:is(.segmented, .role-segmented, .picker-tabs) > button + button {
+  border-inline-start: 1px solid var(--line);
+}
+
+:is(.segmented, .role-segmented, .picker-tabs) > button:first-child {
+  border-start-start-radius: 11px;
+  border-end-start-radius: 11px;
+}
+
+:is(.segmented, .role-segmented, .picker-tabs) > button:last-child {
+  border-start-end-radius: 11px;
+  border-end-end-radius: 11px;
+}
+
+:is(.segmented, .role-segmented, .picker-tabs) > button:is(.active, [aria-pressed='true'], [aria-checked='true']) {
+  background: var(--blue);
+  color: var(--surface);
+  box-shadow: none;
+}
+
+.category-view-segmented button[aria-pressed='true']::before {
+  font-weight: var(--font-black);
+}
+
+:is(.input, .select-like, select, textarea):focus {
+  box-shadow: none;
+}
+
+:is(.input, .select-like, select, textarea):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+:is(.input, .select-like, textarea)[aria-invalid='true']:focus-visible {
+  outline-color: var(--red);
+}
+
+.sheet,
+.drawer {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+:is(.sheet-backdrop, .drawer-backdrop) {
+  background: rgb(23 23 23 / 36%);
+  backdrop-filter: none;
+}
+
+:is(.settings-row, .sheet .settings-row, .import-dropzone) .row-icon,
+.drawer-row .icon-bubble {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+}
+
+:is(.settings-row, .sheet .settings-row, .import-dropzone) .row-icon svg,
+.drawer-row .icon-bubble svg {
+  width: 25px;
+  height: 25px;
+}
+
+/* Account lists share an icon treatment while the editor displays each saved swatch. */
+.account-total-card .account-balance-row > .row-icon,
+.account-admin-card .account-admin-head > .row-icon {
+  background: var(--blue-soft) !important;
+  color: var(--blue) !important;
+}
+
+.toast {
+  background: var(--primary);
+  box-shadow: none;
+}
+
+.toast button {
+  color: #c6dbff;
+  font-weight: var(--font-strong);
+}

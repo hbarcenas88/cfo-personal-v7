@@ -85,7 +85,7 @@ export function renderHeader() {
 
 export function renderBottomNav() {
   const items = [
-    ['balances', 'walletCards', 'Balances'],
+    ['balances', 'wallet', 'Balances'],
     ['summary', 'chart', 'Resumen'],
     ['categories', 'grid', 'Categorías'],
     ['audit', 'listChecks', 'Auditoría']
@@ -94,7 +94,7 @@ export function renderBottomNav() {
     <nav class="bottom-nav">
       ${navItem(items[0])}
       ${navItem(items[1])}
-      <button class="fab-center" data-action="new-record" aria-label="Nuevo registro">${icon('plus')}</button>
+      <button class="fab-center" data-action="new-record" aria-label="Nuevo registro">${icon('recordPlus')}</button>
       ${navItem(items[2])}
       ${navItem(items[3])}
     </nav>

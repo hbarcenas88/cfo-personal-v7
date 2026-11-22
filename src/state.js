@@ -10,7 +10,7 @@ const listeners = new Set();
 export const DEFAULT_ACCOUNT_TYPES = ['Cuenta Corriente', 'Cuenta de Ahorros', 'Tarjeta de Crédito', 'Cuenta de Inversiones', 'Otro'];
 
 export const initialState = {
-  version: '7.0.7',
+  version: '7.0.8',
   onboarded: false,
   activeView: 'balances',
   settingsPage: '',

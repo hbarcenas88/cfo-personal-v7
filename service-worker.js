@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cfo-personal-v7-cache-51';
+const CACHE_NAME = 'cfo-personal-v7-cache-52';
 const APP_BASE = new URL('./', self.location.href);
 const appUrl = path => new URL(path, APP_BASE).href;
 const APP_SHELL = [
@@ -11,6 +11,8 @@ const APP_SHELL = [
   './styles/screens.css',
   './styles/budgetPlanning.css',
   './styles/planningRefinements.css',
+  './styles/cfoStyle.css',
+  './styles/cfoSurfaces.css',
   './src/main.js',
   './src/state.js',
   './src/icons.js',
@@ -41,7 +43,8 @@ const APP_SHELL = [
   './src/screens/provisionDetails.js',
   './src/screens/recordFlow.js',
   './assets/icon-192.svg',
-  './assets/icon-512.svg'
+  './assets/icon-512.svg',
+  './assets/fonts/inter-latin.woff2'
 ].map(appUrl);
 
 self.addEventListener('install', event => {

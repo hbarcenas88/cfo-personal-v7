@@ -1,3 +1,11 @@
+@font-face {
+  font-family: Inter;
+  src: url('../assets/fonts/inter-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --bg: #f4f7fb;

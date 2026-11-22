@@ -1,5 +1,17 @@
 # CFO Personal V7 - Progreso
 
+## CFO Style — 22/11/2026
+
+CFO Style aprobado e implementado para la versión 7.0.8/cache-52. [Acuerdo visual](docs/2026-11-22-cfo-style-design.md) y [plan por oleadas](docs/superpowers/plans/2026-11-22-cfo-style.md). Incluye navegación gris perla, Inter y Phosphor locales, componentes compartidos y flujos secundarios con las reglas financieras existentes.
+
+Verificación local antes del envío: 46 pruebas y 30 comprobaciones de sintaxis. Aplicación real a 390 × 844 con datos ficticios: navegación, editor mensual, Registro, detalle de provisión e importación asistida, incluido descarte, confirmación y persistencia del movimiento válido. Resumen a 1280 × 900 sin desbordamiento horizontal. Tras detener el servidor se reabrió la aplicación y se comprobó que la navegación y el movimiento seguían disponibles. La aceptación en teléfono se hará con la versión publicada.
+
+## Prioridad actual — 08/11/2026
+
+La persona usuaria confirma que la versión publicada anterior funciona bien en el celular. La prioridad cambia a experimentar con un rediseño visual completo basado en la referencia Lithic, primero mediante mockup independiente y aprobación, después implementación, publicación y aceptación. Las reglas y funcionalidades financieras se conservan. El mockup utiliza datos ficticios fuera del código de producto; no está aprobado para producción.
+
+Después se abordará respaldo automático de datos en nube, con Supabase como candidata inicial. El alcance debe incluir versiones recuperables y restauración, no sólo almacenamiento remoto. Roadmap vigente: sección Prioridades vigentes del 08/11/2026 en V7_ROADMAP.md. La mención histórica de teléfono pendiente de la entrega de octubre queda superada por la confirmación de hoy.
+
 ## Publicación confirmada — 04/10/2026
 
 V7.0.7/cache-51 publicada en main mediante 2e081c9 y GitHub Pages confirmado construido para ese commit. Workflow 37230763472 terminó success. Se verificaron 40 archivos públicos con HTTP 200 e igualdad exacta con el commit, incluido service-worker.js. Browser público a 390 × 844: editor mensual, presupuesto base y Auditoría normal accesibles, sin errores de consola ni overflow horizontal. Evidencia: docs/verification/2026-10-04-publication.md.

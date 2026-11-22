@@ -41,8 +41,8 @@ const workerContract = runInNewContext(`${workerSource}\n({ cacheName: CACHE_NAM
 
 assert.equal(
   workerContract.cacheName,
-  'cfo-personal-v7-cache-51',
-  'Monthly planning must activate cache-51 before its PWA shell can be released'
+  'cfo-personal-v7-cache-52',
+  'CFO Style must activate a fresh PWA shell cache'
 );
 
 const actualShell = workerContract.appShell.map(asset => {
@@ -56,6 +56,7 @@ const expectedShell = [
   './manifest.webmanifest',
   ...await applicationFiles('styles', '.css'),
   ...await applicationFiles('src', '.js'),
+  ...await applicationFiles('assets/fonts', '.woff2'),
   './assets/icon-192.svg',
   './assets/icon-512.svg'
 ];

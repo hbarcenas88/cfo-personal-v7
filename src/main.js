@@ -32,7 +32,7 @@ let pointerDragAccount = null;
 let assistedImportReturnInteraction = null;
 let auditDropdownDismissBound = false;
 let filterPersistTimer = 0;
-const APP_VERSION = '7.0.7';
+const APP_VERSION = '7.0.8';
 window.CFO_DEBUG = window.CFO_DEBUG || { logs: [] };
 const requestRender = createRenderCoordinator({
   schedule: callback => queueMicrotask(callback),
@@ -2246,7 +2246,7 @@ function renderAssistedImportReview(draft) {
         ${duplicateRows.length ? `<div class="assisted-import-group-list"><h3>Posibles duplicados</h3>${duplicateRows.map(row => assistedImportDuplicateCard(row)).join('')}</div>` : ''}
         ${(draft.rows || []).filter(row => row.status !== 'ready' && !row.possibleDuplicate).length ? `<div class="assisted-import-group-list"><h3>Excepciones por fila</h3>${(draft.rows || []).filter(row => row.status !== 'ready' && !row.possibleDuplicate).slice(0, 40).map(row => assistedImportRowCard(row)).join('')}</div>` : ''}
         <div class="card assisted-import-confirmation">
-          ${confirmationMatches ? `<label class="field compact-field"><span>ConfirmaciÃ³n explÃ­cita</span><input type="checkbox" data-import-final-ack ${confirmation.acknowledged ? 'checked' : ''}> Confirmo que deseo guardar estas filas.</label><button class="primary-button" data-import-final-confirm ${confirmation.acknowledged ? '' : 'disabled'}>Guardar importaciÃ³n (${retainedRows.length})</button>` : ''}
+          ${confirmationMatches ? `<label class="field compact-field"><span>Confirmación explícita</span><input type="checkbox" data-import-final-ack ${confirmation.acknowledged ? 'checked' : ''}> Confirmo que deseo guardar estas filas.</label><button class="primary-button" data-import-final-confirm ${confirmation.acknowledged ? '' : 'disabled'}>Guardar importación (${retainedRows.length})</button>` : ''}
           <strong>Resumen antes de guardar</strong>
           <small>${canConfirm ? `${retainedRows.length} ${label} se agregarán.` : 'Resuelve o descarta las filas pendientes para continuar.'}</small>
           ${!canConfirm && planResult.errors?.length ? `<small class="assisted-import-error">${html(importPlanError(planResult.errors[0]))}</small>` : ''}
